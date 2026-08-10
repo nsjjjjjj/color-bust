@@ -17,7 +17,7 @@ const SAMPLE_RANKS: LeaderboardEntry[] = [
 
 const SAMPLE_GUESTBOOK: GuestbookEntry[] = [
   { id: "sample-g1", authorUserId: "sample", authorName: "정글러 3기", message: "0 두 장을 모아서 널 포인터를 터뜨리는 순간이 제일 재밌었어요.", rating: 5, createdAt: new Date().toISOString() },
-  { id: "sample-g2", authorUserId: "sample", authorName: "BUG_HUNTER", message: "친구가 만든 UNO가 보스 마지막 손에 나와서 살았습니다. 카드 설명이 더 크게 보이면 좋겠어요!", rating: 4, createdAt: new Date().toISOString() },
+  { id: "sample-g2", authorUserId: "sample", authorName: "BUG_HUNTER", message: "친구가 만든 메이헴 카드가 보스 마지막 손에 나와서 살았습니다. 카드 설명이 더 크게 보이면 좋겠어요!", rating: 4, createdAt: new Date().toISOString() },
 ];
 
 export function LeaderboardView() {
@@ -131,4 +131,3 @@ export function GuestbookView({ signedIn }: { signedIn: boolean }) {
     </section>
   );
 }
-

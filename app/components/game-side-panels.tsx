@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import { ROUND_ORDER } from "../../lib/game/constants";
+import type { ScoreEvent } from "../../lib/game/score-events";
 import type { RunState, ScoreBreakdown } from "../../lib/game/types";
 
 const ROUND_LABELS: Readonly<Record<RunState["round"], string>> = {
@@ -20,6 +21,9 @@ const ROUND_NAMES: Readonly<Record<RunState["round"], string>> = {
 export interface GameLeftRailProps {
   run: RunState;
   breakdown?: ScoreBreakdown | null;
+  scoreEvent?: ScoreEvent | null;
+  displayRoundScore?: number;
+  isResolving?: boolean;
   onOpenHandGuide: () => void;
   onOpenDeckInspector: () => void;
   onOpenShortcutGuide: () => void;
@@ -32,6 +36,9 @@ export interface GameLeftRailProps {
 export function GameLeftRail({
   run,
   breakdown,
+  scoreEvent,
+  displayRoundScore,
+  isResolving = false,
   onOpenHandGuide,
   onOpenDeckInspector,
   onOpenShortcutGuide,
@@ -39,15 +46,16 @@ export function GameLeftRail({
   onOpenSettings,
   children,
 }: GameLeftRailProps) {
-  const progress = run.target > 0 ? Math.min(100, (run.score / run.target) * 100) : 0;
+  const visibleRoundScore = displayRoundScore ?? run.score;
+  const progress = run.target > 0 ? Math.min(100, (visibleRoundScore / run.target) * 100) : 0;
   const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
   const chips = breakdown?.chipsBeforeUno ?? 0;
   const multiplier = breakdown?.multiplierBeforeUno ?? 0;
-  const previewScore = breakdown?.total ?? 0;
+  const previewScore = isResolving ? scoreEvent?.currentTotal ?? 0 : breakdown?.total ?? 0;
 
   return (
     <aside
-      className={`mobile-run-rail game-left-rail pixel-panel${run.round === "boss" ? " is-boss" : ""}`}
+      className={`mobile-run-rail game-left-rail pixel-panel${run.round === "boss" ? " is-boss" : ""}${isResolving ? " is-resolving" : ""}`}
       aria-label="현재 라운드 정보와 게임 도구"
     >
       <header className="mobile-run-rail-blind" aria-labelledby="mobile-run-rail-title">
@@ -68,7 +76,7 @@ export function GameLeftRail({
         </div>
         <div className="mobile-run-rail-current">
           <span>라운드 점수</span>
-          <strong>{run.score.toLocaleString()}</strong>
+          <strong>{visibleRoundScore.toLocaleString()}</strong>
         </div>
         <progress
           className="mobile-run-rail-progress"
@@ -83,14 +91,14 @@ export function GameLeftRail({
       {run.round === "boss" && (
         <p className="mobile-run-rail-boss-note" role="note">
           <strong>BOSS</strong>
-          <span>이번 앤티의 마지막 관문</span>
+          <span>목표 점수가 높아지는 앤티의 마지막 관문</span>
         </p>
       )}
 
       <section className="mobile-run-rail-preview" aria-label="핸드 점수 미리보기" aria-live="polite">
-        <span className="mobile-run-rail-hand-name">
+        <strong className="mobile-run-rail-hand-name">
           {breakdown ? `${breakdown.handName} · Lv.${breakdown.handLevel}` : "NO HAND"}
-        </span>
+        </strong>
         <div className="mobile-run-rail-equation">
           <div className="mobile-run-rail-chips">
             <span>CHIPS</span>
@@ -103,9 +111,15 @@ export function GameLeftRail({
           </div>
         </div>
         <output className="mobile-run-rail-preview-total">
-          <span>{breakdown ? "예상 점수" : "미리보기"}</span>
+          <span>{isResolving ? "계산 중" : breakdown ? "예상 점수" : "미리보기"}</span>
           <strong>{previewScore.toLocaleString()}</strong>
         </output>
+        {scoreEvent && (
+          <div className={`mobile-run-rail-score-event event-${scoreEvent.emphasis}`} key={scoreEvent.id} aria-live="assertive">
+            <span>{scoreEvent.label}</span>
+            <b>{scoreEvent.description}</b>
+          </div>
+        )}
       </section>
 
       <dl className="mobile-run-rail-resources" aria-label="남은 게임 자원">

@@ -19,10 +19,10 @@ const FALLBACK_MODULES: UnoModuleDefinition[] = [
   { id: "steady-mult", kind: "benefit", points: 1, label: "스테디 멀트", description: "+1 Mult" },
   { id: "double-call", kind: "benefit", points: 2, label: "더블 콜", description: "Color Call 추가 발동" },
   { id: "precision-boost", kind: "benefit", points: 2, label: "프리시전 부스트", description: "5장 모두 득점하면 ×1.25" },
-  { id: "signal-loss", kind: "drawback", points: -1, label: "신호 손실", description: "UNO Chips -6" },
+  { id: "signal-loss", kind: "drawback", points: -1, label: "신호 손실", description: "메이헴 Chips -6" },
   { id: "off-color-tax", kind: "drawback", points: -1, label: "오프 컬러 세금", description: "호출하지 않은 색마다 -2 Chips" },
-  { id: "glass-output", kind: "drawback", points: -2, label: "글래스 출력", description: "UNO 적용 결과 ×0.75" },
-  { id: "hard-cap", kind: "drawback", points: -2, label: "하드 캡", description: "UNO 상승 상한 ×1.30" },
+  { id: "glass-output", kind: "drawback", points: -2, label: "글래스 출력", description: "메이헴 적용 결과 ×0.75" },
+  { id: "hard-cap", kind: "drawback", points: -2, label: "하드 캡", description: "메이헴 상승 상한 ×1.30" },
 ];
 
 const FALLBACK_CARDS: CommunityUnoCard[] = [
@@ -61,8 +61,8 @@ const FALLBACK_CARDS: CommunityUnoCard[] = [
 function moduleSummary(card: CommunityUnoCard, modules: UnoModuleDefinition[]) {
   const definitions = card.moduleIds.map((id) => modules.find((module) => module.id === id)).filter(Boolean);
   return {
-    positiveLabel: definitions.find((module) => module?.kind === "benefit")?.description,
-    negativeLabel: definitions.find((module) => module?.kind === "drawback")?.description,
+    positiveLabel: definitions.find((module) => module?.kind === "benefit")?.description.replace(/UNO/g, "메이헴"),
+    negativeLabel: definitions.find((module) => module?.kind === "drawback")?.description.replace(/UNO/g, "메이헴"),
   };
 }
 
@@ -110,10 +110,10 @@ export function CommunityHub({
         <div>
           <span className="kicker">COMMUNITY DECK</span>
           <h1>다른 정글러의 한 수</h1>
-          <p>효과와 비용의 합이 0인 UNO를 만들고, 누군가의 다음 앤티에 등장시키세요.</p>
+          <p>효과와 비용의 합이 0인 메이헴 카드를 만들고, 누군가의 다음 앤티에 등장시키세요.</p>
         </div>
         <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
-          + UNO 제작
+          + 메이헴 카드 제작
         </button>
       </div>
       <div className="status-strip"><span className="live-dot" />{notice}</div>
@@ -222,7 +222,7 @@ function UnoCreator({
   }
 
   return (
-    <Modal title="커뮤니티 UNO 제작기" onClose={onClose} wide>
+    <Modal title="커뮤니티 메이헴 카드 제작기" onClose={onClose} wide>
       <div className="creator-layout">
         <div className="creator-form">
           <label>카드 이름<input value={name} maxLength={30} onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
@@ -243,7 +243,7 @@ function UnoCreator({
                       )}
                     >
                       <b>{module.points > 0 ? `+${module.points}` : module.points}</b>
-                      <span><strong>{module.label}</strong><small>{module.description}</small></span>
+                      <span><strong>{module.label}</strong><small>{module.description.replace(/UNO/g, "메이헴")}</small></span>
                     </button>
                   );
                 })}
@@ -252,12 +252,12 @@ function UnoCreator({
           </div>
         </div>
         <aside className="creator-preview">
-          <div className="mini-uno"><span>UNO</span><strong>{name || "UNTITLED"}</strong></div>
+          <div className="mini-uno"><span>M</span><strong>{name || "UNTITLED"}</strong></div>
           <div className={`budget-meter${total === 0 ? " balanced" : ""}`}>
             <span>밸런스 합계</span><b>{total > 0 ? `+${total}` : total}</b>
           </div>
           <p>기본 효과: 색 하나를 호출하고, 그 색의 득점 카드마다 +2 Chips (최대 +10)</p>
-          <ul>{chosen.map((module) => <li key={module.id}><b>{module.points > 0 ? `+${module.points}` : module.points}</b>{module.description}</li>)}</ul>
+          <ul>{chosen.map((module) => <li key={module.id}><b>{module.points > 0 ? `+${module.points}` : module.points}</b>{module.description.replace(/UNO/g, "메이헴")}</li>)}</ul>
           {error && <p className="form-error">{error}</p>}
           {!signedIn && <p className="form-note">로그인 전에는 기기에 보관하고 로그인 후 자동 업로드합니다.</p>}
           <button type="button" className="primary-button full" disabled={!valid || submitting} onClick={submit}>

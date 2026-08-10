@@ -23,7 +23,7 @@ test("server-renders the DECK MAYHEM application shell", async () => {
   assert.match(html, /DECK MAYHEM/);
   assert.match(html, /커뮤니티 카드 로그라이크/);
   assert.match(html, /새 런 시작/);
-  assert.match(html, /UNO 연구소/);
+  assert.match(html, /메이헴 연구소/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
 });
 

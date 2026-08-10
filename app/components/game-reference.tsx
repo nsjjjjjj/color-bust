@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 
-import { CARD_COLORS, HAND_RULES } from "../../lib/game/constants";
+import { HAND_RULES } from "../../lib/game/constants";
 import {
   HAND_TYPES,
   type CardColor,
@@ -10,6 +10,7 @@ import {
   type RunState,
 } from "../../lib/game/types";
 import { Modal } from "./modal";
+import { PILE_COLOR_ACCESSIBILITY, summarizePile } from "./pile-inspector";
 
 const bodyStyle: CSSProperties = {
   display: "grid",
@@ -123,61 +124,77 @@ const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
   yellow: "노랑",
 };
 
-function countColors(cards: readonly GameCard[]): Readonly<Record<CardColor, number>> {
-  const counts: Record<CardColor, number> = { red: 0, blue: 0, green: 0, yellow: 0 };
-  for (const card of cards) counts[card.color] += 1;
-  return counts;
-}
-
 export function DeckInspector({ drawPile, discardPile, hand, onClose }: DeckInspectorProps) {
   const piles = [
     { id: "draw", label: "드로우 더미", cards: drawPile },
     { id: "discard", label: "버린 더미", cards: discardPile },
     { id: "hand", label: "현재 손패", cards: hand },
   ] as const;
-  const deckSize = drawPile.length + discardPile.length + hand.length;
+  const allCards = [...drawPile, ...discardPile, ...hand];
+  const deckSize = allCards.length;
+  const totalSummary = summarizePile(allCards);
+  const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+  const colorOrder: readonly CardColor[] = ["red", "yellow", "green", "blue"];
+  const sortedPiles = piles.map((pile) => ({
+    ...pile,
+    summary: summarizePile(pile.cards),
+    sortedCards: [...pile.cards].sort((left, right) => left.rank - right.rank || colorOrder.indexOf(left.color) - colorOrder.indexOf(right.color)),
+  }));
 
   return (
-    <Modal title="덱 인스펙터" onClose={onClose}>
-      <div style={bodyStyle}>
-        <p style={{ margin: 0, color: "var(--muted)", fontSize: 11, lineHeight: 1.6 }}>
-          현재 런의 카드 <strong style={{ color: "var(--ink)" }}>{deckSize}장</strong>이 어디에 있는지 색상별로 보여줍니다.
+    <Modal title="덱 인스펙터" onClose={onClose} wide>
+      <div className="deck-inspector-layout">
+        <p className="deck-inspector-summary">
+          현재 숫자 덱 <strong>{deckSize}장</strong>의 위치와 구성을 보여줍니다. 커뮤니티 효과 카드는 숫자 덱과 분리되어 오른쪽 효과 슬롯에 보관됩니다.
         </p>
-        <div style={tableWrapStyle}>
-          <table style={{ ...tableStyle, minWidth: 460 }}>
-            <caption style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
-              드로우 더미, 버린 더미와 현재 손패의 총 장수 및 색상별 분포
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col" style={headerCellStyle}>위치</th>
-                <th scope="col" style={headerCellStyle}>전체</th>
-                {CARD_COLORS.map((color) => (
-                  <th scope="col" style={headerCellStyle} key={color}>
-                    <span aria-hidden="true" style={{ color: `var(--${color})` }}>● </span>
-                    {COLOR_LABELS[color]}
-                  </th>
+
+        <section className="deck-inspector-piles" aria-label="위치별 카드 분포">
+          {sortedPiles.map((pile) => (
+            <article className="deck-inspector-pile" key={pile.id}>
+              <header><span>{pile.label}</span><strong>{pile.cards.length}장</strong></header>
+              <div className="deck-inspector-color-row">
+                {colorOrder.map((color) => (
+                  <span
+                    key={color}
+                    title={`${PILE_COLOR_ACCESSIBILITY[color].koreanLabel} ${COLOR_LABELS[color]} ${pile.summary.byColor[color]}장`}
+                    aria-label={`${PILE_COLOR_ACCESSIBILITY[color].koreanLabel} ${COLOR_LABELS[color]} ${pile.summary.byColor[color]}장`}
+                  >
+                    <b aria-hidden="true">{PILE_COLOR_ACCESSIBILITY[color].symbol}</b>
+                    {pile.summary.byColor[color]}
+                  </span>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {piles.map((pile) => {
-                const distribution = countColors(pile.cards);
-                return (
-                  <tr key={pile.id}>
-                    <th scope="row" style={{ ...cellStyle, fontWeight: 800 }}>{pile.label}</th>
-                    <td style={{ ...cellStyle, ...numberStyle }}>{pile.cards.length}장</td>
-                    {CARD_COLORS.map((color) => (
-                      <td key={color} style={{ ...cellStyle, ...numberStyle, color: `var(--${color})` }}>
-                        {distribution[color]}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <section className="deck-inspector-ranks" aria-labelledby="deck-inspector-ranks-title">
+          <header><span id="deck-inspector-ranks-title">숫자별 전체 구성</span><small>0은 10 Chips</small></header>
+          <div className="deck-inspector-rank-grid">
+            {ranks.map((rank) => <span key={rank}><b>{rank}</b><small>×{totalSummary.byRank[rank]}</small></span>)}
+          </div>
+        </section>
+
+        <section className="deck-inspector-card-groups" aria-label="위치별 카드 목록">
+          {sortedPiles.map((pile) => (
+            <article className="deck-inspector-card-group" key={pile.id}>
+              <h3>{pile.label} · {pile.cards.length}</h3>
+              <div className="deck-inspector-card-list">
+                {pile.sortedCards.map((card) => (
+                  <span
+                    className={`deck-inspector-card card-${card.color}`}
+                    key={card.id}
+                    title={`${PILE_COLOR_ACCESSIBILITY[card.color].koreanLabel} ${COLOR_LABELS[card.color]} ${card.rank}`}
+                    aria-label={`${PILE_COLOR_ACCESSIBILITY[card.color].koreanLabel} ${COLOR_LABELS[card.color]} ${card.rank} 카드`}
+                  >
+                    <b>{card.rank}</b>
+                  </span>
+                ))}
+                {pile.cards.length === 0 && <small>비어 있음</small>}
+              </div>
+            </article>
+          ))}
+        </section>
       </div>
     </Modal>
   );
@@ -194,7 +211,7 @@ export const DEFAULT_SHORTCUTS: readonly ShortcutDefinition[] = [
   { keys: ["D"], description: "선택한 카드 버리기" },
   { keys: ["A"], description: "현재 효과를 반영한 최고 점수 패 자동 선택" },
   { keys: ["S"], description: "받은 순서, 숫자순, 색상순 정렬 전환" },
-  { keys: ["U"], description: "커뮤니티 UNO 선택 또는 해제" },
+  { keys: ["U"], description: "커뮤니티 메이헴 카드 선택 또는 해제" },
   { keys: ["H"], description: "족보 가이드 열기" },
   { keys: ["K"], description: "덱 인스펙터 열기" },
   { keys: ["?"], description: "단축키 도움말 열기" },

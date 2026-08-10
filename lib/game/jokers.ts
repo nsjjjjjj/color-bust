@@ -73,7 +73,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
     scoringRankCounts.set(card.rank, (scoringRankCounts.get(card.rank) ?? 0) + 1);
   }
 
-  const previousHand = input.handHistory.at(-1);
+  const previousHand = input.handHistory[input.handHistory.length - 1];
   let jokerChipBonus = 0;
   let multiplierBonus = 0;
   let xMultiplier = 1;

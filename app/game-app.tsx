@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   buyShopOffer,
   createRun,
@@ -24,6 +24,7 @@ import {
 } from "../lib/game/constants";
 import { recommendBestHand } from "../lib/game/advisor";
 import { calculateHandScore } from "../lib/game/scoring";
+import { buildScoreEvents, type ScoreEvent } from "../lib/game/score-events";
 import { validateCommunityUnoCard } from "../lib/game/uno";
 import type {
   CardColor,
@@ -56,6 +57,8 @@ import { DeckInspector, HandGuide, ShortcutGuide } from "./components/game-refer
 import { GameLeftRail } from "./components/game-side-panels";
 import { Lobby, type RunSummary } from "./components/lobby";
 import { Modal } from "./components/modal";
+import { ModifierRail } from "./components/modifier-rail";
+import { PileInspector } from "./components/pile-inspector";
 import { GuestbookView, LeaderboardView } from "./components/social-views";
 import { useGameAudio } from "./use-game-audio";
 
@@ -68,6 +71,15 @@ type SyncConflict = {
   remote: RunState;
   remoteRevision: number;
   remoteUpdatedAt: string;
+};
+type ScorePlayback = {
+  readonly key: number;
+  readonly breakdown: ScoreBreakdown;
+  readonly cards: readonly GameCard[];
+  readonly events: readonly ScoreEvent[];
+  readonly roundScoreBefore: number;
+  readonly eventIndex: number;
+  readonly phase: "scoring" | "discarding";
 };
 
 const COLOR_ORDER: Record<CardColor, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
@@ -136,6 +148,29 @@ function isTypingTarget(target: EventTarget | null): boolean {
     || (target instanceof HTMLElement && target.isContentEditable);
 }
 
+function formatScoreEventValue(event: ScoreEvent | null): string {
+  if (!event) return "";
+  if (event.type === "final-score") return event.currentTotal.toLocaleString();
+  if (event.multiplierMode === "base") {
+    return `${event.value?.toLocaleString() ?? 0} CHIPS × ${event.multiplier ?? 0} MULT`;
+  }
+
+  const parts: string[] = [];
+  if (event.value !== undefined) {
+    const unit = event.operation === "set-score" ? "SCORE" : "CHIPS";
+    parts.push(`${event.value >= 0 ? "+" : ""}${event.value.toLocaleString()} ${unit}`);
+  }
+  if (event.multiplierMode === "additive" && event.multiplier !== undefined) {
+    parts.push(`${event.multiplier >= 0 ? "+" : ""}${event.multiplier} MULT`);
+  } else if (event.multiplierMode === "multiplicative" && event.multiplier !== undefined) {
+    parts.push(`×${event.multiplier.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`);
+  }
+  if (event.reward !== undefined) {
+    parts.push(`${event.reward >= 0 ? "+" : ""}${event.reward}¢`);
+  }
+  return parts.join(" · ") || "CHECK";
+}
+
 export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [view, setView] = useState<View>("lobby");
   const [run, setRun] = useState<RunState | null>(null);
@@ -153,7 +188,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [pendingSellId, setPendingSellId] = useState<string | null>(null);
   const [pendingStartMode, setPendingStartMode] = useState<"standard" | "endless" | null>(null);
   const [syncConflict, setSyncConflict] = useState<SyncConflict | null>(null);
-  const [scoreBurst, setScoreBurst] = useState<{ key: number; breakdown: ScoreBreakdown } | null>(null);
+  const [scorePlayback, setScorePlayback] = useState<ScorePlayback | null>(null);
   const [notice, setNotice] = useState("");
   const [loadingSave, setLoadingSave] = useState(true);
   const cloudRevision = useRef<Record<"standard" | "endless", number>>({ standard: 0, endless: 0 });
@@ -267,10 +302,36 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   }), [signedIn, syncCloudRun]);
 
   useEffect(() => {
-    if (!scoreBurst) return;
-    const timer = window.setTimeout(() => setScoreBurst(null), reducedMotion ? 450 : 1400);
+    if (!scorePlayback) return;
+    if (scorePlayback.phase === "discarding") {
+      const discardTimer = window.setTimeout(
+        () => setScorePlayback(null),
+        reducedMotion ? 80 : 430,
+      );
+      return () => window.clearTimeout(discardTimer);
+    }
+
+    const event = scorePlayback.events[scorePlayback.eventIndex];
+    const delay = reducedMotion
+      ? 70
+      : event?.emphasis === "final"
+        ? 520
+        : event?.emphasis === "strong"
+          ? 390
+          : event?.emphasis === "subtle"
+            ? 150
+            : 240;
+    const timer = window.setTimeout(() => {
+      setScorePlayback((current) => {
+        if (!current || current.key !== scorePlayback.key) return current;
+        if (current.eventIndex < current.events.length - 1) {
+          return { ...current, eventIndex: current.eventIndex + 1 };
+        }
+        return { ...current, phase: "discarding" };
+      });
+    }, delay);
     return () => window.clearTimeout(timer);
-  }, [scoreBurst, reducedMotion]);
+  }, [reducedMotion, scorePlayback]);
 
   const preview = useMemo(() => {
     if (!run || run.phase !== "playing" || selectedIds.length === 0) return null;
@@ -348,6 +409,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setRun(created);
     setSelectedIds([]);
     setLastBreakdown(null);
+    setScorePlayback(null);
     setSelectedUnoId(null);
     setView("game");
     setNotice(mode === "standard" ? "5 앤티 런을 시작합니다." : "끝없는 신호에 접속했습니다.");
@@ -362,12 +424,24 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   }
 
   function handlePlay() {
-    if (!run || selectedIds.length === 0) return;
+    if (!run || selectedIds.length === 0 || scorePlayback) return;
     try {
+      const playedCards = selectedIds
+        .map((id) => run.hand.find((card) => card.id === id))
+        .filter((card): card is GameCard => Boolean(card));
       const result = playHand(run, selectedIds, selectedUnoId ? { unoCardId: selectedUnoId, calledColor } : {});
+      const scoreEvents = buildScoreEvents(result.breakdown, playedCards);
       setRun(result.state);
       setLastBreakdown(result.breakdown);
-      setScoreBurst({ key: Date.now(), breakdown: result.breakdown });
+      setScorePlayback({
+        key: Date.now(),
+        breakdown: result.breakdown,
+        cards: playedCards,
+        events: scoreEvents,
+        roundScoreBefore: run.score,
+        eventIndex: 0,
+        phase: "scoring",
+      });
       setSelectedIds([]);
       if (selectedUnoId) audio.playEffect("uno");
       audio.playEffect(result.state.phase === "lost" ? "lose" : result.roundCleared ? "win" : "score");
@@ -379,7 +453,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   }
 
   function handleDiscard() {
-    if (!run || selectedIds.length === 0) return;
+    if (!run || selectedIds.length === 0 || scorePlayback) return;
     const discardedCount = selectedIds.length;
     try {
       setRun(discardCards(run, selectedIds));
@@ -400,7 +474,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         setUtilityModal("shortcuts");
         return;
       }
-      if (view !== "game" || !run || run.phase !== "playing") return;
+      if (view !== "game" || !run || run.phase !== "playing" || scorePlayback) return;
       const displayHand = sortHand(run.hand, cardSort);
       if (/^[1-8]$/.test(event.key)) {
         const card = displayHand[Number(event.key) - 1];
@@ -440,7 +514,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [cardSort, pendingSellId, pendingStartMode, run, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
+  }, [cardSort, pendingSellId, pendingStartMode, run, scorePlayback, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
 
   async function submitRank() {
     if (!run || !signedIn || !navigator.onLine) {
@@ -474,13 +548,15 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const navItems: Array<{ id: View; label: string; icon: string }> = [
     { id: "lobby", label: "홈", icon: "⌂" },
     { id: "game", label: "플레이", icon: "◇" },
-    { id: "community", label: "UNO 연구소", icon: "U" },
+    { id: "community", label: "메이헴 연구소", icon: "M" },
     { id: "leaderboard", label: "랭킹", icon: "#" },
     { id: "guestbook", label: "평가", icon: "★" },
   ];
+  const immersiveView = view === "lobby"
+    || (view === "game" && (!run || run.phase === "playing" || run.phase === "shop" || Boolean(scorePlayback)));
 
   return (
-    <div className={`app-shell${highContrast ? " high-contrast" : ""}${reducedMotion ? " reduced-motion" : ""}`}>
+    <div className={`app-shell${immersiveView ? " is-immersive" : ""}${highContrast ? " high-contrast" : ""}${reducedMotion ? " reduced-motion" : ""}`}>
       <header className="topbar">
         <button type="button" className="brand" onClick={() => setView("lobby")} aria-label="DECK MAYHEM 홈">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span><b>DECK <span>MAYHEM</span></b>
@@ -501,7 +577,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       {view === "leaderboard" && <LeaderboardView />}
       {view === "guestbook" && <GuestbookView signedIn={signedIn} />}
       {view === "game" && !run && <Lobby savedRun={null} equippedUno={equippedUno} signedIn={signedIn} onContinue={() => requestStartRun("standard")} onStart={requestStartRun} onOpenCommunity={() => setView("community")} onOpenGuide={() => setUtilityModal("hands")} onOpenSettings={() => setSettingsOpen(true)} onOpenLeaderboard={() => setView("leaderboard")} onOpenGuestbook={() => setView("guestbook")} />}
-      {view === "game" && run?.phase === "playing" && (
+      {view === "game" && run && (run.phase === "playing" || scorePlayback) && (
         <GameTable
           run={run}
           selectedIds={selectedIds}
@@ -509,7 +585,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           calledColor={calledColor}
           preview={preview}
           lastBreakdown={lastBreakdown}
-          scoreBurst={scoreBurst}
+          scorePlayback={scorePlayback}
           notice={notice}
           cardSort={cardSort}
           onToggleCard={handleToggleCard}
@@ -528,8 +604,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onHotSwap={(color) => updateRun(() => setHotSwapColor(run, color))}
         />
       )}
-      {view === "game" && run?.phase === "shop" && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { updateRun(() => nextRound(run)); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
-      {view === "game" && run && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onLobby={() => setView("lobby")} />}
+      {view === "game" && run?.phase === "shop" && !scorePlayback && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { updateRun(() => nextRound(run)); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
+      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onLobby={() => setView("lobby")} />}
 
       <nav className="mobile-nav" aria-label="모바일 메뉴">{navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => item.id !== "game" || run ? setView(item.id) : requestStartRun("standard")}><b>{item.icon}</b>{item.label}</button>)}</nav>
       {notice && view !== "game" && <div className="global-notice" role="status">{notice}</div>}
@@ -546,7 +622,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         return <Modal title="조커 판매" onClose={() => setPendingSellId(null)}><div className="confirm-body"><div className="confirm-joker"><span>{definition.name.slice(0, 1)}</span><div><b>{definition.name}</b><small>{definition.description}</small></div></div><p>이 조커를 판매하고 <strong>{refund}¢</strong>를 받을까요?</p><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingSellId(null)}>취소</button><button type="button" className="primary-button" onClick={() => { if (updateRun(() => sellJoker(run, pendingSellId))) audio.playEffect("buy"); setPendingSellId(null); }}>판매 +{refund}¢</button></div></div></Modal>;
       })()}
       {pendingStartMode && run && <Modal title="새 런 시작" onClose={() => setPendingStartMode(null)}><div className="confirm-body"><p>진행 중인 <strong>{run.mode === "standard" ? "5 앤티" : "무한"} 런</strong> 대신 새 {pendingStartMode === "standard" ? "5 앤티" : "무한"} 런을 시작할까요?</p><div className="conflict-card"><span>현재 진행</span><b>ANTE {run.ante} · {ROUND_LABEL[run.round]}</b><small>{run.score.toLocaleString()} / {run.target.toLocaleString()}점</small></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingStartMode(null)}>현재 런 계속</button><button type="button" className="primary-button" onClick={() => { const mode = pendingStartMode; setPendingStartMode(null); startRun(mode); }}>새 런 시작</button></div></div></Modal>}
-      {syncConflict && <Modal title="진행 상황 충돌" onClose={() => setSyncConflict(null)} wide><div className="confirm-body"><p>다른 기기에서 같은 모드의 런이 업데이트되었습니다. 자동으로 덮어쓰지 않고 선택을 기다립니다.</p><div className="conflict-grid"><div className="conflict-card"><span>이 기기</span><b>ANTE {syncConflict.local.ante} · {ROUND_LABEL[syncConflict.local.round]}</b><small>{syncConflict.local.stats.totalScore.toLocaleString()} 누적점</small></div><div className="conflict-card remote"><span>클라우드 · {new Date(syncConflict.remoteUpdatedAt).toLocaleString("ko-KR")}</span><b>ANTE {syncConflict.remote.ante} · {ROUND_LABEL[syncConflict.remote.round]}</b><small>{syncConflict.remote.stats.totalScore.toLocaleString()} 누적점</small></div></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.remote.mode] = conflict.remoteRevision; setRun(conflict.remote); setSelectedIds([]); setLastBreakdown(null); setSyncConflict(null); setNotice("클라우드 진행을 불러왔습니다."); }}>클라우드 불러오기</button><button type="button" className="primary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.local.mode] = conflict.remoteRevision; setSyncConflict(null); syncCloudRun(conflict.local).then(() => setNotice("이 기기의 진행으로 클라우드를 갱신했습니다.")).catch((cause) => setNotice(cause instanceof Error ? cause.message : "동기화에 실패했습니다.")); }}>이 기기 진행 유지</button></div></div></Modal>}
+      {syncConflict && <Modal title="진행 상황 충돌" onClose={() => setSyncConflict(null)} wide><div className="confirm-body"><p>다른 기기에서 같은 모드의 런이 업데이트되었습니다. 자동으로 덮어쓰지 않고 선택을 기다립니다.</p><div className="conflict-grid"><div className="conflict-card"><span>이 기기</span><b>ANTE {syncConflict.local.ante} · {ROUND_LABEL[syncConflict.local.round]}</b><small>{syncConflict.local.stats.totalScore.toLocaleString()} 누적점</small></div><div className="conflict-card remote"><span>클라우드 · {new Date(syncConflict.remoteUpdatedAt).toLocaleString("ko-KR")}</span><b>ANTE {syncConflict.remote.ante} · {ROUND_LABEL[syncConflict.remote.round]}</b><small>{syncConflict.remote.stats.totalScore.toLocaleString()} 누적점</small></div></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.remote.mode] = conflict.remoteRevision; setRun(conflict.remote); setSelectedIds([]); setSelectedUnoId(null); setLastBreakdown(null); setScorePlayback(null); setSyncConflict(null); setNotice("클라우드 진행을 불러왔습니다."); }}>클라우드 불러오기</button><button type="button" className="primary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.local.mode] = conflict.remoteRevision; setSyncConflict(null); syncCloudRun(conflict.local).then(() => setNotice("이 기기의 진행으로 클라우드를 갱신했습니다.")).catch((cause) => setNotice(cause instanceof Error ? cause.message : "동기화에 실패했습니다.")); }}>이 기기 진행 유지</button></div></div></Modal>}
     </div>
   );
 }
@@ -558,7 +634,7 @@ function GameTable({
   calledColor,
   preview,
   lastBreakdown,
-  scoreBurst,
+  scorePlayback,
   notice,
   cardSort,
   onToggleCard,
@@ -582,7 +658,7 @@ function GameTable({
   calledColor: CardColor;
   preview: ScoreBreakdown | null;
   lastBreakdown: ScoreBreakdown | null;
-  scoreBurst: { key: number; breakdown: ScoreBreakdown } | null;
+  scorePlayback: ScorePlayback | null;
   notice: string;
   cardSort: CardSort;
   onToggleCard: (id: string) => void;
@@ -600,72 +676,122 @@ function GameTable({
   onDiscard: () => void;
   onHotSwap: (color: CardColor) => void;
 }) {
-  const shown = preview ?? lastBreakdown;
+  const shown = scorePlayback?.breakdown ?? preview ?? lastBreakdown;
+  const currentScoreEvent = scorePlayback?.events[scorePlayback.eventIndex] ?? null;
+  const resolving = Boolean(scorePlayback);
+  const animatedRoundScore = scorePlayback
+    ? scorePlayback.roundScoreBefore + (currentScoreEvent?.currentTotal ?? 0)
+    : run.score;
   const hotSwap = run.jokers.find((joker) => joker.jokerId === "hot-swap");
   const displayHand = sortHand(run.hand, cardSort);
-  const scoringIds = new Set(preview?.scoringCardIds ?? []);
-  const lastDiscard = run.discardPile.at(-1);
+  const scoringIds = new Set((scorePlayback?.breakdown ?? preview)?.scoringCardIds ?? []);
   const nextSort = CARD_SORTS[(CARD_SORTS.indexOf(cardSort) + 1) % CARD_SORTS.length];
   return (
-    <main className="game-view balatro-mobile-game">
+    <main className={`game-view balatro-mobile-game deck-game-view${resolving ? " is-resolving-score" : ""}`}>
       <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 카드 테이블을 더 넓게 볼 수 있어요.</div>
-      <div className="mobile-game-shell">
-        <GameLeftRail run={run} breakdown={shown} onOpenHandGuide={onOpenGuide} onOpenDeckInspector={onOpenDeck} onOpenShortcutGuide={onOpenShortcuts} onOpenLobby={onOpenLobby} onOpenSettings={onOpenSettings}>
+      <div className="mobile-game-shell deck-game-shell">
+        <GameLeftRail
+          run={run}
+          breakdown={shown}
+          scoreEvent={currentScoreEvent}
+          displayRoundScore={animatedRoundScore}
+          isResolving={resolving}
+          onOpenHandGuide={onOpenGuide}
+          onOpenDeckInspector={onOpenDeck}
+          onOpenShortcutGuide={onOpenShortcuts}
+          onOpenLobby={onOpenLobby}
+          onOpenSettings={onOpenSettings}
+        >
           {hotSwap && run.handHistory.length === 0 ? <ColorPicker value={hotSwap.selectedColor ?? "red"} onChange={onHotSwap} /> : null}
         </GameLeftRail>
 
-        <section className="felt-table play-felt" aria-label="카드 플레이 테이블">
+        <section className="felt-table play-felt deck-play-table" aria-label="카드 플레이 테이블">
           <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
 
-          <section className="table-joker-zone" aria-labelledby="table-joker-title">
-            <header><h2 id="table-joker-title">JOKERS</h2><span>{run.jokers.length}/{JOKER_SLOT_LIMIT}</span></header>
-            <JokerRack run={run} />
+          <header className="deck-stage-header">
+            <div><span>PLAY FIELD</span><strong>DECK MAYHEM</strong></div>
+            <p role="status" aria-live="polite">{notice || (selectedIds.length ? `${selectedIds.length}/5 카드 선택됨` : "카드를 선택해 조합을 만드세요")}</p>
+          </header>
+
+          <section className={`deck-resolve-zone${scorePlayback ? " has-played-cards" : ""}${scorePlayback?.phase === "discarding" ? " is-discarding" : ""}`} aria-label="제출 카드와 점수 계산 영역">
+            {scorePlayback ? (
+              <>
+                <div className="deck-resolve-cards">
+                  {scorePlayback.cards.map((card, index) => {
+                    const isSource = currentScoreEvent?.sourceCardId === card.id;
+                    return (
+                      <div className={`deck-resolve-card${isSource ? " is-source" : ""}`} style={{ "--card-index": index } as CSSProperties} key={card.id}>
+                        <ColorCard
+                          card={{ ...card, value: card.rank }}
+                          chipValue={rankChipValue(card.rank)}
+                          scoring={scorePlayback.breakdown.scoringCardIds.includes(card.id)}
+                          resolving={isSource}
+                          displayOnly
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {currentScoreEvent && (
+                  <output className={`deck-score-event deck-score-event-${currentScoreEvent.emphasis}`} key={currentScoreEvent.id}>
+                    <span>{currentScoreEvent.type === "hand-detected" ? "COMBO LOCKED" : currentScoreEvent.label}</span>
+                    <strong>{formatScoreEventValue(currentScoreEvent)}</strong>
+                    <small>{currentScoreEvent.description}</small>
+                    <i>{currentScoreEvent.currentTotal.toLocaleString()}</i>
+                  </output>
+                )}
+                <div className={`deck-score-particles deck-score-particles-${currentScoreEvent?.emphasis ?? "subtle"}`} aria-hidden="true">
+                  {Array.from({ length: 8 }, (_, index) => <i key={index} />)}
+                </div>
+              </>
+            ) : (
+              <div className="deck-resolve-idle">
+                <span aria-hidden="true">◇</span>
+                <strong>PLAY AREA</strong>
+                <small>제출한 카드는 계산이 끝날 때까지 이곳에 남습니다.</small>
+              </div>
+            )}
           </section>
 
-          <div className="table-center-status" role="status" aria-live="polite">
-            <span>{notice || (selectedIds.length ? `${selectedIds.length}/5 SELECTED` : "카드를 선택하세요")}</span>
-            <strong>{shown?.handName ?? "READY"}</strong>
-            {preview && <b>+{preview.total.toLocaleString()}</b>}
-          </div>
-
-          <aside className="table-side-dock" aria-label="덱, 버린 카드, UNO">
-            <button type="button" className="table-pile-button draw" onClick={onOpenDeck} aria-label={`뽑기 더미 ${run.drawPile.length}장, 덱 정보 열기`}>
-              <span>DRAW</span><i>◇</i><strong>{run.drawPile.length}</strong>
-            </button>
-            <button type="button" className="table-pile-button discard" onClick={onOpenDeck} aria-label={`버린 카드 ${run.discardPile.length}장, 덱 정보 열기`}>
-              <span>USED</span><i className={lastDiscard ? `card-${lastDiscard.color}` : ""}>{lastDiscard?.rank ?? "—"}</i><strong>{run.discardPile.length}</strong>
-            </button>
-            <section className={`table-uno-dock${run.unoUsedThisAnte ? " is-used" : ""}`} aria-label="커뮤니티 UNO">
-              <header><span>UNO</span><b>{run.unoUsedThisAnte ? "USED" : "1/ANTE"}</b></header>
-              {run.communityUno.length ? run.communityUno.map((card) => {
-                const modules = [...card.positiveModules, ...card.negativeModules].map((id) => UNO_MODULE_CATALOG[id].name).join(" · ");
-                return <button type="button" key={card.id} disabled={run.unoUsedThisAnte} title={`${card.name} · ${card.author} · ${modules}`} className={`table-uno-card${selectedUnoId === card.id ? " active" : ""}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><b>U</b><small>{run.unoUsedThisAnte ? "USED" : card.name}</small></button>;
-              }) : <div className="table-uno-empty">—</div>}
-            </section>
+          <aside className="deck-pile-dock" aria-label="뽑기 더미와 버린 카드 더미">
+            <PileInspector variant="draw" cards={run.drawPile} onOpenDetails={onOpenDeck} disabled={resolving} />
+            <PileInspector variant="discard" cards={run.discardPile} onOpenDetails={onOpenDeck} disabled={resolving} />
           </aside>
 
-          {selectedUnoId && <section className="table-uno-popover" aria-label="UNO 호출 색 선택"><div><b>COLOR CALL</b><small>득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
+          {selectedUnoId && !resolving && <section className="table-uno-popover deck-color-link" aria-label="특수 카드 호출 색 선택"><div><b>COLOR LINK</b><small>득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
 
-          <section className="table-hand-stage" aria-label="손패와 행동">
-            <div className="table-hand-tools">
-              <button id="recommend-hand-button" type="button" onClick={onRecommend}><kbd>A</kbd><span>추천</span></button>
-              <button type="button" onClick={() => onSort(nextSort)} title={`다음 정렬: ${CARD_SORT_LABEL[nextSort]}`}><kbd>S</kbd><span>{CARD_SORT_LABEL[cardSort]}</span></button>
-              <button type="button" disabled={selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
-              <output>{selectedIds.length}/5</output>
+          <section className="table-hand-stage deck-hand-stage" aria-label="손패와 행동">
+            <div className="deck-hand-meta">
+              <section className={`deck-effect-quickbar${run.unoUsedThisAnte ? " is-used" : ""}`} aria-label="사용할 메이헴 카드 선택">
+                <header><span>MAYHEM CARD</span><b>{run.unoUsedThisAnte ? "USED" : "1 / ANTE"}</b></header>
+                <div>
+                  {run.communityUno.length ? run.communityUno.map((card) => {
+                    const modules = [...card.positiveModules, ...card.negativeModules].map((id) => UNO_MODULE_CATALOG[id].name).join(" · ");
+                    return <button type="button" key={card.id} disabled={run.unoUsedThisAnte || resolving} className={selectedUnoId === card.id ? "active" : ""} aria-label={`${card.name}, ${card.author} 제작, ${modules}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><span aria-hidden="true">M</span><b>{card.name}</b><small>{selectedUnoId === card.id ? calledColor.toUpperCase() : "READY"}</small></button>;
+                  }) : <span className="deck-effect-empty">EMPTY</span>}
+                </div>
+              </section>
+              <div className="table-hand-tools">
+                <button id="recommend-hand-button" type="button" disabled={resolving} onClick={onRecommend}><kbd>A</kbd><span>추천</span></button>
+                <button type="button" disabled={resolving} onClick={() => onSort(nextSort)} title={`다음 정렬: ${CARD_SORT_LABEL[nextSort]}`}><kbd>S</kbd><span>{CARD_SORT_LABEL[cardSort]}</span></button>
+                <button type="button" disabled={resolving || selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
+                <output>{selectedIds.length}/5</output>
+              </div>
             </div>
             <div className="hand-zone mobile-table-hand">{displayHand.map((card, index) => {
               const selected = selectedIds.includes(card.id);
-              return <ColorCard key={card.id} card={{ ...card, value: card.rank }} selected={selected} selectionOrder={selected ? selectedIds.indexOf(card.id) + 1 : undefined} shortcut={index + 1} chipValue={rankChipValue(card.rank)} scoring={selected && preview ? scoringIds.has(card.id) : undefined} disabled={!selected && selectedIds.length >= 5} onClick={() => onToggleCard(card.id)} />;
+              return <ColorCard key={card.id} card={{ ...card, value: card.rank }} selected={selected} selectionOrder={selected ? selectedIds.indexOf(card.id) + 1 : undefined} shortcut={index + 1} chipValue={rankChipValue(card.rank)} scoring={selected && preview ? scoringIds.has(card.id) : undefined} disabled={resolving || (!selected && selectedIds.length >= 5)} onClick={() => onToggleCard(card.id)} />;
             })}</div>
             <div className="table-action-dock">
-              <button id="discard-button" type="button" className="table-action discard-action" disabled={!selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
-              <div className="table-action-state">{selectedUnoId ? <><b>UNO</b><span>{calledColor.toUpperCase()}</span></> : <><b>{shown?.handName ?? "HAND"}</b><span>{preview ? preview.total.toLocaleString() : "—"}</span></>}</div>
-              <button id="play-hand-button" type="button" className="table-action play-action" disabled={!selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>핸드 제출</span></button>
+              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
+              <div className="table-action-state">{selectedUnoId ? <><b>MAYHEM</b><span>{calledColor.toUpperCase()}</span></> : <><b>{shown?.handName ?? "HAND"}</b><span>{preview ? preview.total.toLocaleString() : "—"}</span></>}</div>
+              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "계산 중" : "핸드 제출"}</span></button>
             </div>
           </section>
         </section>
+
+        <ModifierRail run={run} breakdown={scorePlayback?.breakdown ?? preview ?? lastBreakdown} className="deck-modifier-rail" />
       </div>
-      {scoreBurst && <div key={scoreBurst.key} className="score-burst" role="status" aria-live="assertive"><span>{scoreBurst.breakdown.handName}</span><strong>+{scoreBurst.breakdown.total.toLocaleString()}</strong><small>{scoreBurst.breakdown.chipsBeforeUno} CHIPS × {scoreBurst.breakdown.multiplierBeforeUno} MULT</small></div>}
     </main>
   );
 }
@@ -694,7 +820,7 @@ function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, o
         <header className="shop-pixel-sign"><span>★</span><strong>SHOP</strong><small>BUILD YOUR RUN</small></header>
         <section className="shop-rail-score"><span>ROUND SCORE</span><b>{run.score.toLocaleString()}</b><small>ANTE {run.ante} · {ROUND_LABEL[run.round]}</small></section>
         <section className="shop-rail-wallet"><span>WALLET</span><strong>{run.coins}¢</strong></section>
-        <dl className="shop-rail-slots"><div><dt>JOKERS</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>UNO</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>OFFERS</dt><dd>{offerCount}</dd></div></dl>
+        <dl className="shop-rail-slots"><div><dt>JOKERS</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>MAYHEM</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>OFFERS</dt><dd>{offerCount}</dd></div></dl>
         <nav className="shop-rail-tools" aria-label="상점 메뉴"><button type="button" onClick={onOpenLobby}>⌂ <span>로비</span></button><button type="button" onClick={onOpenSettings}>⚙ <span>옵션</span></button></nav>
         <div className="shop-rail-actions"><button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost} onClick={onReroll}>리롤 <b>{run.shop?.rerollCost ?? 0}¢</b></button><button type="button" onClick={onNext}>다음 <b>{nextLabel}</b></button></div>
       </aside>
@@ -714,18 +840,20 @@ function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, o
 }
 
 function ShopOfferCard({ offer, run, onBuy }: { offer: ShopOffer; run: RunState; onBuy: () => void }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   let eyebrow = "JOKER"; let name = ""; let description = ""; let symbol = "?";
   let disabledReason = run.coins < offer.price ? `${offer.price - run.coins}¢ 부족` : "";
   if (offer.kind === "joker") { const definition = JOKER_CATALOG[offer.jokerId]; eyebrow = `${definition.rarity.toUpperCase()} JOKER`; name = definition.name; description = definition.description; symbol = name.slice(0,1); if (run.jokers.some((joker) => joker.jokerId === offer.jokerId)) disabledReason = "이미 보유 중"; else if (run.jokers.length >= JOKER_SLOT_LIMIT) disabledReason = "조커 슬롯 가득 참"; }
   if (offer.kind === "hand-upgrade") { const rule = HAND_RULES[offer.handType]; const level = run.handLevels[offer.handType]; eyebrow = "HAND PATCH"; name = `${rule.name} Lv.${level} → ${level + 1}`; description = `기본 Chips +${rule.chipsPerLevel}, Mult +${rule.multiplierPerLevel}`; symbol = "↑"; }
-  if (offer.kind === "community-uno") { eyebrow = "COMMUNITY UNO"; name = offer.card.name; description = `${offer.card.author} 제작 · 앤티당 한 번 사용할 수 있습니다.`; symbol = "U"; }
-  if (offer.kind === "community-uno") { if (run.communityUno.some((card) => card.id === offer.card.id)) disabledReason = "이미 보유 중"; else if (run.communityUno.length >= UNO_SLOT_LIMIT) disabledReason = "UNO 슬롯 가득 참"; }
-  return <article className={`shop-card shop-${offer.kind}${disabledReason ? " unavailable" : ""}`}><div><span className="kicker">{eyebrow}</span><div className="shop-type-art">{symbol}</div><h3>{name}</h3><p>{description}</p>{offer.kind === "community-uno" && <ul className="shop-module-list">{[...offer.card.positiveModules, ...offer.card.negativeModules].map((id) => <li key={id} className={UNO_MODULE_CATALOG[id].kind}>{UNO_MODULE_CATALOG[id].points > 0 ? "+" : ""}{UNO_MODULE_CATALOG[id].points} · {UNO_MODULE_CATALOG[id].name}</li>)}</ul>}</div><footer><b>{offer.price} ¢</b><button type="button" className="small-action" disabled={Boolean(disabledReason)} onClick={onBuy}>{disabledReason || "구매"}</button></footer></article>;
+  if (offer.kind === "community-uno") { eyebrow = "MAYHEM CARD"; name = offer.card.name; description = `${offer.card.author} 제작 · 앤티당 한 번 사용할 수 있습니다.`; symbol = "M"; }
+  if (offer.kind === "community-uno") { if (run.communityUno.some((card) => card.id === offer.card.id)) disabledReason = "이미 보유 중"; else if (run.communityUno.length >= UNO_SLOT_LIMIT) disabledReason = "효과 카드 슬롯 가득 참"; }
+  const moduleIds = offer.kind === "community-uno" ? [...offer.card.positiveModules, ...offer.card.negativeModules] : [];
+  return <article className={`shop-card shop-${offer.kind}${disabledReason ? " unavailable" : ""}${detailsOpen ? " is-details-open" : ""}`}><div><span className="kicker">{eyebrow}</span><button type="button" className="shop-info-button" aria-label={`${name} 상세 정보 ${detailsOpen ? "닫기" : "보기"}`} aria-expanded={detailsOpen} onBlur={() => setDetailsOpen(false)} onClick={(event) => { const nextOpen = !detailsOpen; setDetailsOpen(nextOpen); if (!nextOpen) event.currentTarget.blur(); }}>i</button><div className="shop-type-art">{symbol}</div><h3>{name}</h3><p className="shop-card-summary">{description}</p><div className="shop-card-tooltip" role="tooltip"><strong>{name}</strong><p>{description}</p>{disabledReason && <small>{disabledReason}</small>}{moduleIds.length > 0 && <ul>{moduleIds.map((id) => <li key={id} className={UNO_MODULE_CATALOG[id].kind}>{UNO_MODULE_CATALOG[id].points > 0 ? "+" : ""}{UNO_MODULE_CATALOG[id].points} · {UNO_MODULE_CATALOG[id].name}<br />{UNO_MODULE_CATALOG[id].description.replace(/UNO/g, "메이헴")}</li>)}</ul>}</div></div><footer><b>{offer.price} ¢</b><button type="button" className="small-action" disabled={Boolean(disabledReason)} onClick={onBuy}>{disabledReason || "구매"}</button></footer></article>;
 }
 
 function ResultView({ run, notice, signedIn, onRank, onRestart, onLobby }: { run: RunState; notice: string; signedIn: boolean; onRank: () => void; onRestart: () => void; onLobby: () => void }) {
   const won = run.phase === "won";
-  return <main className="result-view"><section className="result-card"><div className="result-symbol">{won ? "✓" : "×"}</div><span className="kicker">{won ? "SIGNAL COMPLETE" : "CONNECTION LOST"}</span><h1>{won ? "MAYHEM!" : "RUN OVER"}</h1><p>{won ? "5개의 앤티를 모두 돌파했습니다." : `ANTE ${run.ante} · ${ROUND_LABEL[run.round]}에서 신호가 끊겼습니다.`}</p><div className="result-stats"><div><span>TOTAL SCORE</span><b>{run.stats.totalScore.toLocaleString()}</b></div><div><span>BEST HAND</span><b>{run.stats.highestHandScore.toLocaleString()}</b></div><div><span>UNO USED</span><b>{run.stats.unoUses}</b></div></div>{notice && <div className="status-strip">{notice}</div>}<div className="result-actions"><button type="button" className="secondary-button" onClick={onLobby}>로비로</button><button type="button" className="secondary-button" onClick={onRestart}>같은 모드 재도전</button><button type="button" className="primary-button" disabled={!signedIn} onClick={onRank}>{signedIn ? "공식 기록 제출" : "로그인 후 기록 제출"}</button></div></section></main>;
+  return <main className="result-view"><section className="result-card"><div className="result-symbol">{won ? "✓" : "×"}</div><span className="kicker">{won ? "SIGNAL COMPLETE" : "CONNECTION LOST"}</span><h1>{won ? "MAYHEM!" : "RUN OVER"}</h1><p>{won ? "5개의 앤티를 모두 돌파했습니다." : `ANTE ${run.ante} · ${ROUND_LABEL[run.round]}에서 신호가 끊겼습니다.`}</p><div className="result-stats"><div><span>TOTAL SCORE</span><b>{run.stats.totalScore.toLocaleString()}</b></div><div><span>BEST HAND</span><b>{run.stats.highestHandScore.toLocaleString()}</b></div><div><span>MAYHEM USED</span><b>{run.stats.unoUses}</b></div></div>{notice && <div className="status-strip">{notice}</div>}<div className="result-actions"><button type="button" className="secondary-button" onClick={onLobby}>로비로</button><button type="button" className="secondary-button" onClick={onRestart}>같은 모드 재도전</button><button type="button" className="primary-button" disabled={!signedIn} onClick={onRank}>{signedIn ? "공식 기록 제출" : "로그인 후 기록 제출"}</button></div></section></main>;
 }
 
 function SettingsModal({ user, online, audio, highContrast, reducedMotion, onHighContrast, onReducedMotion, onClose }: { user: InitialUser | null; online: boolean; audio: ReturnType<typeof useGameAudio>; highContrast: boolean; reducedMotion: boolean; onHighContrast: (value: boolean) => void; onReducedMotion: (value: boolean) => void; onClose: () => void }) {

@@ -71,7 +71,7 @@ export function Lobby({
           </div>
           <h1 id="mobile-menu-title"><span>DECK</span><strong>MAYHEM</strong></h1>
         </div>
-        <p>색깔 숫자 카드로 족보를 만들고, 단 한 장의 UNO로 덱을 뒤집으세요.</p>
+        <p>색깔 숫자 카드로 족보를 만들고, 단 한 장의 메이헴 카드로 덱을 뒤집으세요.</p>
       </section>
 
       <nav className="mobile-menu-primary" aria-label="메인 메뉴">
@@ -91,7 +91,7 @@ export function Lobby({
           <span>옵션</span><small>계정 · 오디오 · 클라우드</small>
         </button>
         <button type="button" className="mobile-menu-button mobile-menu-collection" onClick={onOpenCommunity}>
-          <span>컬렉션</span><small>커뮤니티 UNO 연구소</small>
+          <span>컬렉션</span><small>커뮤니티 메이헴 연구소</small>
         </button>
       </nav>
 
@@ -104,7 +104,7 @@ export function Lobby({
       </nav>
 
       <button className="mobile-menu-uno" type="button" onClick={onOpenCommunity}>
-        <span className="kicker">EQUIPPED · COMMUNITY UNO</span>
+        <span className="kicker">EQUIPPED · MAYHEM CARD</span>
         {equippedUno ? (
           <>
             <strong>{equippedUno.name}</strong>
@@ -113,7 +113,7 @@ export function Lobby({
           </>
         ) : (
           <>
-            <strong>장착된 UNO 없음</strong>
+            <strong>장착된 메이헴 카드 없음</strong>
             <p>다른 플레이어의 카드를 다음 런 첫 상점에 예약하세요.</p>
             <small>컬렉션 열기 →</small>
           </>
@@ -126,7 +126,7 @@ export function Lobby({
           <ol>
             <li><b>01</b><span><strong>8장 중 최대 5장 선택</strong><small>숫자와 색으로 족보 완성</small></span></li>
             <li><b>02</b><span><strong>Chips × Mult</strong><small>0은 특별하게 10 Chips</small></span></li>
-            <li><b>03</b><span><strong>상점에서 빌드 완성</strong><small>조커와 UNO 효과 조합</small></span></li>
+            <li><b>03</b><span><strong>상점에서 빌드 완성</strong><small>조커와 메이헴 효과 조합</small></span></li>
           </ol>
         </article>
         <article className="mobile-menu-signal">

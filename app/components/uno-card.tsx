@@ -31,7 +31,7 @@ export function UnoCard({
   return (
     <article className={`uno-card${selected ? " is-selected" : ""}`}>
       <div className="uno-orbit" aria-hidden="true">
-        <span>UNO</span>
+        <span>M</span>
       </div>
       <div className="uno-copy">
         <span className="uno-author">BY {card.creatorName ?? "COMMUNITY"}</span>
@@ -52,4 +52,3 @@ export function UnoCard({
     </article>
   );
 }
-
