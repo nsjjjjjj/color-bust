@@ -37,6 +37,17 @@ export interface PileSummary {
   readonly topCard?: GameCard;
 }
 
+interface PilePreviewCard {
+  readonly color: CardColor;
+  readonly rank: CardRank;
+  readonly count: number;
+}
+
+interface PilePreviewGroup {
+  readonly color: CardColor;
+  readonly cards: readonly PilePreviewCard[];
+}
+
 export const PILE_COLOR_ACCESSIBILITY: Readonly<
   Record<
     CardColor,
@@ -106,6 +117,28 @@ export function summarizePile(cards: readonly GameCard[]): PileSummary {
   };
 }
 
+/**
+ * Groups identical cards into at most 40 color/rank cells. This keeps the
+ * hover preview exact even when a run contains duplicate cards without
+ * creating an unbounded tooltip DOM.
+ */
+function groupPilePreviewCards(cards: readonly GameCard[]): readonly PilePreviewGroup[] {
+  const counts = new Map<string, number>();
+
+  for (const card of cards) {
+    const key = `${card.color}:${card.rank}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return COLOR_ORDER.map((color) => ({
+    color,
+    cards: RANK_ORDER.flatMap((rank) => {
+      const count = counts.get(`${color}:${rank}`) ?? 0;
+      return count > 0 ? [{ color, rank, count }] : [];
+    }),
+  })).filter((group) => group.cards.length > 0);
+}
+
 function pileName(variant: PileInspectorVariant): string {
   return variant === "draw" ? "뽑기 더미" : "버린 카드 더미";
 }
@@ -141,6 +174,7 @@ export function PileInspector({
   const [previewOpen, setPreviewOpen] = useState(false);
   const popoverId = useId();
   const summary = useMemo(() => summarizePile(cards), [cards]);
+  const previewGroups = useMemo(() => groupPilePreviewCards(cards), [cards]);
   const description = buildAccessibleDescription(label, summary, variant);
   const topCard = variant === "discard" ? summary.topCard : undefined;
 
@@ -173,7 +207,7 @@ export function PileInspector({
           if (event.key === "Escape") setPreviewOpen(false);
         }}
       >
-        <span className="deck-pile-button-label">{variant === "draw" ? "DRAW" : "USED"}</span>
+        <span className="deck-pile-button-label">{variant === "draw" ? "덱" : "버림"}</span>
         <span
           className={`deck-pile-card${topCard ? ` deck-pile-card-face deck-pile-card-${topCard.color}` : " deck-pile-card-back"}`}
           aria-hidden="true"
@@ -201,7 +235,7 @@ export function PileInspector({
         hidden={!previewOpen}
       >
         <header className="deck-pile-popover-header">
-          <span>{variant === "draw" ? "DRAW PILE" : "DISCARD PILE"}</span>
+          <span>{variant === "draw" ? "남은 덱" : "버린 카드"}</span>
           <strong>{summary.total}장</strong>
         </header>
 
@@ -221,6 +255,62 @@ export function PileInspector({
             </div>
           ))}
         </div>
+
+        {variant === "draw" && (
+          <section className="deck-pile-mini-section" aria-label="실제 남은 카드 목록">
+            <header className="deck-pile-mini-header">
+              <span>남은 카드</span>
+              <small>색 · 숫자 순</small>
+            </header>
+
+            {previewGroups.length > 0 ? (
+              <div className="deck-pile-mini-groups">
+                {previewGroups.map((group) => {
+                  const colorInfo = PILE_COLOR_ACCESSIBILITY[group.color];
+                  const groupLabelId = `${popoverId}-${group.color}-cards`;
+
+                  return (
+                    <div
+                      className={`deck-pile-mini-group deck-pile-mini-group-${group.color}`}
+                      key={group.color}
+                      role="group"
+                      aria-labelledby={groupLabelId}
+                    >
+                      <span className="deck-pile-mini-group-label" id={groupLabelId}>
+                        <i aria-hidden="true">{colorInfo.symbol}</i>
+                        {colorInfo.koreanLabel} {colorInfo.colorLabel}
+                      </span>
+                      <div className="deck-pile-mini-grid" role="list">
+                        {group.cards.map((card) => (
+                          <span
+                            className={`deck-pile-mini-card deck-pile-mini-card-${card.color}`}
+                            data-color={card.color}
+                            data-count={card.count}
+                            data-rank={card.rank}
+                            key={`${card.color}-${card.rank}`}
+                            role="listitem"
+                            aria-label={`${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}, ${card.count}장`}
+                            title={`${colorInfo.symbolName} · ${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}${card.count > 1 ? ` × ${card.count}` : ""}`}
+                          >
+                            <b>{card.rank}</b>
+                            <i aria-hidden="true">{colorInfo.symbol}</i>
+                            {card.count > 1 && (
+                              <small className="deck-pile-mini-card-count" aria-hidden="true">
+                                ×{card.count}
+                              </small>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="deck-pile-mini-empty">남은 카드가 없습니다.</p>
+            )}
+          </section>
+        )}
 
         <div className="deck-pile-rank-section">
           <span className="deck-pile-rank-heading">숫자별 카드 수</span>

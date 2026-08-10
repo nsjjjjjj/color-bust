@@ -811,9 +811,9 @@ function GameTable({
             </div>
             <HandView cards={displayHand} selectedIds={selectedIds} scoringIds={scoringIds} resolving={resolving} onToggleCard={onToggleCard} />
             <div className="table-action-dock">
-              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "SCORING" : "PLAY HAND"}</span></button>
+              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "점수 계산" : "핸드 플레이"}</span></button>
               <SortControl value={cardSort} disabled={resolving} onChange={onSort} />
-              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>DISCARD</span></button>
+              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
             </div>
           </section>
         </section>
@@ -825,9 +825,9 @@ function GameTable({
 function SortControl({ value, disabled, onChange }: { value: CardSort; disabled: boolean; onChange: (sort: CardSort) => void }) {
   return (
     <div className="deck-sort-control" role="group" aria-label="손패 정렬">
-      <span>SORT</span>
-      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>RANK</button>
-      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>SUIT</button>
+      <span>핸드 정렬</span>
+      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>랭크</button>
+      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>슈트</button>
       <button type="button" disabled={disabled || value === "dealt"} className="sort-reset" aria-label="받은 순서로 되돌리기" onClick={() => onChange("dealt")}>↺</button>
     </div>
   );
