@@ -15,12 +15,12 @@ async function render() {
   );
 }
 
-test("server-renders the COLOR BUST application shell", async () => {
+test("server-renders the DECK MAYHEM application shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /COLOR BUST/);
+  assert.match(html, /DECK MAYHEM/);
   assert.match(html, /커뮤니티 카드 로그라이크/);
   assert.match(html, /새 런 시작/);
   assert.match(html, /UNO 연구소/);
@@ -35,11 +35,10 @@ test("ships installable PWA assets and removes the starter preview", async () =>
     readFile(new URL("package.json", root), "utf8"),
   ]);
   assert.match(manifest, /"display": "standalone"/);
-  assert.match(manifest, /COLOR BUST/);
+  assert.match(manifest, /DECK MAYHEM/);
   assert.match(serviceWorker, /networkFirst/);
   assert.match(serviceWorker, /staleWhileRevalidate/);
   assert.match(layout, /manifest\.webmanifest/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));
 });
-

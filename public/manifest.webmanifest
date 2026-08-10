@@ -1,6 +1,6 @@
 {
-  "name": "COLOR BUST",
-  "short_name": "COLOR BUST",
+  "name": "DECK MAYHEM",
+  "short_name": "DECK MAYHEM",
   "description": "네 가지 색으로 족보를 만들고 커뮤니티 UNO로 한 수를 뒤집는 로그라이크 카드 게임",
   "start_url": "/",
   "display": "standalone",
@@ -12,4 +12,3 @@
     { "src": "/icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
   ]
 }
-

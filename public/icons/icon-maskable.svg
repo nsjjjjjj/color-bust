@@ -6,6 +6,5 @@
   <path d="M128 256h128v128H128z" fill="#ffd23f"/>
   <path d="M256 256h128v128H256z" fill="#36c46f"/>
   <circle cx="256" cy="256" r="82" fill="#0b0d14"/>
-  <text x="256" y="281" text-anchor="middle" font-family="monospace" font-weight="900" font-size="76" fill="#f6f0df">CB</text>
+  <text x="256" y="281" text-anchor="middle" font-family="monospace" font-weight="900" font-size="76" fill="#f6f0df">DM</text>
 </svg>
-

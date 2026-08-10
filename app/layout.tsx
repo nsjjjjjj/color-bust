@@ -14,19 +14,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const socialImage = new URL("/og.png", metadataBase).toString();
   return {
     metadataBase,
-    title: "COLOR BUST — 커뮤니티 카드 로그라이크",
+    title: "DECK MAYHEM — 커뮤니티 카드 로그라이크",
     description,
     manifest: "/manifest.webmanifest",
-    applicationName: "COLOR BUST",
-    appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "COLOR BUST" },
+    applicationName: "DECK MAYHEM",
+    appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "DECK MAYHEM" },
     icons: { icon: "/icons/icon.svg", shortcut: "/icons/icon.svg", apple: "/icons/icon.svg" },
     openGraph: {
       type: "website",
-      title: "COLOR BUST",
+      title: "DECK MAYHEM",
       description,
-      images: [{ url: socialImage, width: 1734, height: 907, alt: "COLOR BUST 카드 게임" }],
+      images: [{ url: socialImage, width: 1672, height: 941, alt: "DECK MAYHEM 카드 게임" }],
     },
-    twitter: { card: "summary_large_image", title: "COLOR BUST", description, images: [socialImage] },
+    twitter: { card: "summary_large_image", title: "DECK MAYHEM", description, images: [socialImage] },
   };
 }
 

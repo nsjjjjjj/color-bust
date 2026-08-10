@@ -29,7 +29,7 @@ export function PwaRegister() {
   return (
     <aside className="install-toast" aria-label="앱 설치 안내">
       <div>
-        <strong>COLOR BUST 설치</strong>
+        <strong>DECK MAYHEM 설치</strong>
         <span>홈 화면에서 오프라인으로 바로 플레이하세요.</span>
       </div>
       <button
@@ -49,4 +49,3 @@ export function PwaRegister() {
     </aside>
   );
 }
-

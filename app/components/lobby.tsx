@@ -60,10 +60,18 @@ export function Lobby({
       </div>
 
       <section className="mobile-menu-brand" aria-labelledby="mobile-menu-title">
-        <span className="kicker">A COMMUNITY-BUILT ROGUELIKE</span>
-        <h1 id="mobile-menu-title"><span>COLOR</span><strong>BUST</strong></h1>
-        <p>색을 맞추고, 족보를 터뜨리고, 단 한 장의 UNO로 판을 뒤집으세요.</p>
-        <div className="mobile-menu-logo-pips" aria-hidden="true"><i /><i /><i /><i /></div>
+        <span className="kicker">A COMMUNITY-BUILT CARD ROGUELIKE</span>
+        <div className="deck-mayhem-lockup">
+          <div className="deck-mayhem-card-fan" aria-hidden="true">
+            <i className="deck-logo-card deck-logo-red" data-rank="7" />
+            <i className="deck-logo-card deck-logo-yellow" data-rank="2" />
+            <i className="deck-logo-card deck-logo-back" />
+            <i className="deck-logo-card deck-logo-green" data-rank="0" />
+            <i className="deck-logo-card deck-logo-blue" data-rank="9" />
+          </div>
+          <h1 id="mobile-menu-title"><span>DECK</span><strong>MAYHEM</strong></h1>
+        </div>
+        <p>색깔 숫자 카드로 족보를 만들고, 단 한 장의 UNO로 덱을 뒤집으세요.</p>
       </section>
 
       <nav className="mobile-menu-primary" aria-label="메인 메뉴">
@@ -114,7 +122,7 @@ export function Lobby({
 
       <section className="mobile-menu-support" aria-label="게임 도움말과 오늘의 팁">
         <article className="mobile-menu-how">
-          <span className="kicker">HOW TO BUST</span>
+          <span className="kicker">HOW TO MAYHEM</span>
           <ol>
             <li><b>01</b><span><strong>8장 중 최대 5장 선택</strong><small>숫자와 색으로 족보 완성</small></span></li>
             <li><b>02</b><span><strong>Chips × Mult</strong><small>0은 특별하게 10 Chips</small></span></li>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "color-bust-v2";
+const CACHE_VERSION = "deck-mayhem-v1";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -6,6 +6,8 @@ const APP_SHELL = [
   "/icons/icon-maskable.svg",
   "/art/menu-marble.png",
   "/art/card-back.png",
+  "/fonts/Galmuri11.woff2",
+  "/fonts/Galmuri11-Bold.woff2",
 ];
 const CACHEABLE_API = ["/api/community", "/api/guestbook", "/api/leaderboard"];
 

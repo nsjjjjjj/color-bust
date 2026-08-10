@@ -1,4 +1,4 @@
-/** Shared JSON contracts for the COLOR BUST HTTP API. */
+/** Shared JSON contracts for the DECK MAYHEM HTTP API. */
 
 export type GameMode = "standard" | "endless";
 export type RunStatus = "active" | "won" | "lost" | "abandoned";

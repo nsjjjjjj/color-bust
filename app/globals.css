@@ -1,5 +1,227 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+/* DECK MAYHEM title lockup: a pixel-card fan with the game name layered on top. */
+.deck-mayhem-lockup {
+  position: relative;
+  width: min(820px, 78vw);
+  height: clamp(320px, 42vh, 450px);
+  display: grid;
+  place-items: center;
+  margin: clamp(2px, 1vh, 12px) auto 0;
+  isolation: isolate;
+}
+
+.deck-mayhem-card-fan {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(9px 12px 0 rgba(0, 0, 0, .58));
+  pointer-events: none;
+}
+
+.deck-logo-card {
+  --card-color: #c83e35;
+  position: absolute;
+  width: clamp(105px, 9vw, 150px);
+  aspect-ratio: .69;
+  overflow: hidden;
+  border: clamp(4px, .38vw, 7px) solid #f4ead4;
+  background-color: var(--card-color);
+  background-image:
+    linear-gradient(135deg, rgba(255, 255, 255, .18) 0 18%, transparent 18% 48%, rgba(0, 0, 0, .15) 48% 70%, transparent 70%),
+    repeating-linear-gradient(45deg, transparent 0 8px, rgba(255, 255, 255, .06) 8px 12px);
+  box-shadow:
+    inset 0 0 0 clamp(3px, .24vw, 5px) rgba(4, 8, 10, .42),
+    7px 8px 0 #06090b;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  image-rendering: pixelated;
+}
+
+.deck-logo-card::before {
+  content: attr(data-rank);
+  position: absolute;
+  z-index: 2;
+  left: 10%;
+  top: 6%;
+  color: #fff2db;
+  font-size: clamp(24px, 2.25vw, 38px);
+  font-weight: 1000;
+  line-height: 1;
+  -webkit-text-stroke: 1px #10181d;
+  text-shadow: 3px 3px 0 #10181d;
+}
+
+.deck-logo-card::after {
+  content: "";
+  position: absolute;
+  inset: 19% 14%;
+  border: clamp(3px, .25vw, 5px) solid rgba(255, 245, 218, .78);
+  box-shadow: inset 0 0 0 4px rgba(8, 12, 14, .18);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.deck-logo-red {
+  --card-color: #d84c3d;
+  transform: translateX(-168%) translateY(12%) rotate(-25deg);
+}
+
+.deck-logo-yellow {
+  --card-color: #dda61e;
+  transform: translateX(-84%) translateY(1%) rotate(-12deg);
+}
+
+.deck-logo-green {
+  --card-color: #31915b;
+  transform: translateX(84%) translateY(1%) rotate(12deg);
+}
+
+.deck-logo-blue {
+  --card-color: #277ab0;
+  transform: translateX(168%) translateY(12%) rotate(25deg);
+}
+
+.deck-logo-back {
+  z-index: 2;
+  background: #251755 url("/art/card-back.png") center / cover no-repeat;
+  transform: translateY(-5%);
+}
+
+.deck-logo-back::before,
+.deck-logo-back::after {
+  content: none;
+}
+
+.mobile-menu-brand .deck-mayhem-lockup h1 {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: clamp(88px, 11vh, 132px);
+  margin: 0;
+  color: #f7edd4;
+  font-size: clamp(76px, 7.7vw, 136px);
+  font-weight: 1000;
+  line-height: .66;
+  letter-spacing: -.075em;
+  transform: none;
+  filter: none;
+  pointer-events: none;
+}
+
+.mobile-menu-brand .deck-mayhem-lockup h1 span,
+.mobile-menu-brand .deck-mayhem-lockup h1 strong {
+  display: block;
+  margin: 0;
+  paint-order: stroke fill;
+  -webkit-text-stroke: clamp(2px, .22vw, 4px) #111b25;
+  text-shadow:
+    0 4px 0 #9b9a8e,
+    0 8px 0 #36434a,
+    7px 13px 0 #030506;
+}
+
+.mobile-menu-brand .deck-mayhem-lockup h1 span {
+  color: #fff0cf;
+}
+
+.mobile-menu-brand .deck-mayhem-lockup h1 strong {
+  color: #ff5949;
+  text-shadow:
+    0 4px 0 #a5292d,
+    0 8px 0 #3f1b25,
+    7px 13px 0 #030506;
+}
+
+@media (min-width: 1001px) {
+  .deck-mayhem-lockup {
+    width: min(920px, 70vw);
+    height: clamp(350px, 44vh, 490px);
+  }
+
+  .deck-logo-card { width: clamp(125px, 9vw, 174px); }
+
+  .mobile-menu-brand .deck-mayhem-lockup h1 {
+    gap: clamp(104px, 12vh, 148px);
+    font-size: clamp(100px, 7.7vw, 158px);
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .deck-mayhem-lockup {
+    width: min(530px, 70vw);
+    height: clamp(132px, 42vh, 180px);
+    margin-top: 0;
+  }
+
+  .deck-logo-card {
+    width: clamp(56px, 10.5vh, 80px);
+    border-width: 3px;
+    box-shadow: inset 0 0 0 2px rgba(4, 8, 10, .42), 4px 5px 0 #06090b;
+  }
+
+  .deck-logo-card::before {
+    font-size: clamp(14px, 4vh, 22px);
+    text-shadow: 2px 2px 0 #10181d;
+  }
+
+  .deck-logo-card::after { border-width: 2px; }
+
+  .mobile-menu-brand .deck-mayhem-lockup h1 {
+    gap: clamp(36px, 11vh, 55px);
+    font-size: clamp(43px, 14vh, 67px);
+  }
+
+  .mobile-menu-brand .deck-mayhem-lockup h1 span,
+  .mobile-menu-brand .deck-mayhem-lockup h1 strong {
+    -webkit-text-stroke-width: 2px;
+    text-shadow: 0 2px 0 #767d7a, 0 4px 0 #30383b, 4px 7px 0 #030506;
+  }
+
+  .mobile-menu-brand .deck-mayhem-lockup h1 strong {
+    text-shadow: 0 2px 0 #a5292d, 0 4px 0 #3f1b25, 4px 7px 0 #030506;
+  }
+
+  .mobile-menu-brand > p { margin-top: 2px; }
+}
+
+@media (orientation: portrait) and (max-width: 760px) {
+  .deck-mayhem-lockup {
+    width: 100%;
+    height: clamp(245px, 36vh, 335px);
+  }
+
+  .deck-logo-card { width: clamp(70px, 19vw, 104px); }
+
+  .mobile-menu-brand .deck-mayhem-lockup h1 {
+    gap: clamp(70px, 11vh, 102px);
+    font-size: clamp(54px, 15vw, 82px);
+  }
+
+  .mobile-menu-brand > p {
+    max-width: 330px;
+    margin-top: 4px;
+  }
+}
+
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   --ink: #f4f0e6;
   --muted: #9ea4b6;
@@ -30,8 +252,16 @@ body {
     radial-gradient(circle at 92% 20%, rgba(67,136,255,.09), transparent 32rem),
     var(--black);
   color: var(--ink);
-  font-family: Inter, Pretendard, "Apple SD Gothic Neo", system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  -webkit-font-smoothing: none;
+}
+
+body *,
+button,
+input,
+textarea,
+select {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
 }
 
 button, input, textarea, select { font: inherit; }

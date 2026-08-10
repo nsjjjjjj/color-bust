@@ -390,7 +390,7 @@ export const DEFAULT_COMMUNITY_UNO_CARDS: readonly CommunityUnoCard[] = [
   {
     id: "community-first-signal",
     name: "첫 번째 신호",
-    author: "COLOR BUST",
+    author: "DECK MAYHEM",
     version: 1,
     positiveModules: ["steady-mult"],
     negativeModules: ["mult-drain"],
@@ -398,7 +398,7 @@ export const DEFAULT_COMMUNITY_UNO_CARDS: readonly CommunityUnoCard[] = [
   {
     id: "community-color-overdrive",
     name: "컬러 오버드라이브",
-    author: "COLOR BUST",
+    author: "DECK MAYHEM",
     version: 1,
     positiveModules: ["double-call"],
     negativeModules: ["hard-cap"],
@@ -406,7 +406,7 @@ export const DEFAULT_COMMUNITY_UNO_CARDS: readonly CommunityUnoCard[] = [
   {
     id: "community-precision-glass",
     name: "정밀 유리",
-    author: "COLOR BUST",
+    author: "DECK MAYHEM",
     version: 1,
     positiveModules: ["precision-boost"],
     negativeModules: ["glass-output"],
@@ -414,7 +414,7 @@ export const DEFAULT_COMMUNITY_UNO_CARDS: readonly CommunityUnoCard[] = [
   {
     id: "community-low-pulse",
     name: "저주파 펄스",
-    author: "COLOR BUST",
+    author: "DECK MAYHEM",
     version: 1,
     positiveModules: ["low-frequency", "number-echo"],
     negativeModules: ["signal-loss", "off-color-tax"],
