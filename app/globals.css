@@ -810,8 +810,9 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 /* Shared game and shop surface */
 .balatro-mobile-game,
 .balatro-mobile-shop { width: 100%; max-width: none; min-height: 100dvh; height: 100dvh; margin: 0; padding: 0; overflow: hidden; background: #05090b; }
+.balatro-mobile-game { display: block; grid-template-rows: none; }
 .mobile-game-shell,
-.mobile-shop-shell { width: 100%; height: 100%; display: grid; grid-template-columns: clamp(150px, 18vw, 220px) minmax(0, 1fr); overflow: hidden; }
+.mobile-shop-shell { width: 100%; height: 100dvh; min-height: 100dvh; display: grid; grid-template-columns: clamp(150px, 18vw, 220px) minmax(0, 1fr); overflow: hidden; }
 .felt-table { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: radial-gradient(circle at 58% 40%, rgba(77,151,105,.22), transparent 31%), radial-gradient(ellipse at 18% 90%, rgba(14,49,38,.5), transparent 44%), repeating-linear-gradient(128deg, rgba(255,255,255,.018) 0 2px, transparent 2px 11px), linear-gradient(135deg, var(--felt-light), var(--felt) 45%, var(--felt-deep)); box-shadow: inset 0 0 0 3px rgba(4,19,14,.42), inset 0 0 70px rgba(1,11,8,.32); }
 .felt-watermark { position: absolute; inset: 0; pointer-events: none; overflow: hidden; opacity: .08; }.felt-watermark i { position: absolute; width: 26vw; aspect-ratio: 1; border: 4vw solid #d8efdd; border-radius: 44% 56% 42% 58%; transform: rotate(25deg); }.felt-watermark i:nth-child(1) { left: -8vw; top: -19vw; }.felt-watermark i:nth-child(2) { left: 27%; top: 14%; transform: rotate(-36deg) scale(.72); }.felt-watermark i:nth-child(3) { right: -6vw; top: -10vw; transform: rotate(67deg) scale(.8); }.felt-watermark i:nth-child(4) { right: 10%; bottom: -18vw; transform: rotate(13deg) scale(1.15); }
 .rotate-hint { display: none; }
