@@ -53,7 +53,7 @@ import {
 import { ColorCard } from "./components/color-card";
 import { CommunityHub } from "./components/community-hub";
 import { DeckInspector, HandGuide, ShortcutGuide } from "./components/game-reference";
-import { GameLeftRail, GameRightRail } from "./components/game-side-panels";
+import { GameLeftRail } from "./components/game-side-panels";
 import { Lobby, type RunSummary } from "./components/lobby";
 import { Modal } from "./components/modal";
 import { GuestbookView, LeaderboardView } from "./components/social-views";
@@ -496,11 +496,11 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         </div>
       </header>
 
-      {view === "lobby" && <Lobby savedRun={summary} equippedUno={equippedUno} signedIn={signedIn} onContinue={() => setView("game")} onStart={requestStartRun} onOpenCommunity={() => setView("community")} onOpenGuide={() => setUtilityModal("hands")} />}
+      {view === "lobby" && <Lobby savedRun={summary} equippedUno={equippedUno} signedIn={signedIn} onContinue={() => setView("game")} onStart={requestStartRun} onOpenCommunity={() => setView("community")} onOpenGuide={() => setUtilityModal("hands")} onOpenSettings={() => setSettingsOpen(true)} onOpenLeaderboard={() => setView("leaderboard")} onOpenGuestbook={() => setView("guestbook")} />}
       {view === "community" && <CommunityHub signedIn={signedIn} equippedId={equippedUno?.id} onEquip={(card) => { setEquippedUno(card); setLocalSetting("equippedCommunityUno", card).catch(() => undefined); setNotice(`${card.name} 카드를 다음 런의 첫 상점에 예약했습니다.`); }} />}
       {view === "leaderboard" && <LeaderboardView />}
       {view === "guestbook" && <GuestbookView signedIn={signedIn} />}
-      {view === "game" && !run && <Lobby savedRun={null} equippedUno={equippedUno} signedIn={signedIn} onContinue={() => requestStartRun("standard")} onStart={requestStartRun} onOpenCommunity={() => setView("community")} onOpenGuide={() => setUtilityModal("hands")} />}
+      {view === "game" && !run && <Lobby savedRun={null} equippedUno={equippedUno} signedIn={signedIn} onContinue={() => requestStartRun("standard")} onStart={requestStartRun} onOpenCommunity={() => setView("community")} onOpenGuide={() => setUtilityModal("hands")} onOpenSettings={() => setSettingsOpen(true)} onOpenLeaderboard={() => setView("leaderboard")} onOpenGuestbook={() => setView("guestbook")} />}
       {view === "game" && run?.phase === "playing" && (
         <GameTable
           run={run}
@@ -521,12 +521,14 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onOpenGuide={() => setUtilityModal("hands")}
           onOpenDeck={() => setUtilityModal("deck")}
           onOpenShortcuts={() => setUtilityModal("shortcuts")}
+          onOpenLobby={() => setView("lobby")}
+          onOpenSettings={() => setSettingsOpen(true)}
           onPlay={handlePlay}
           onDiscard={handleDiscard}
           onHotSwap={(color) => updateRun(() => setHotSwapColor(run, color))}
         />
       )}
-      {view === "game" && run?.phase === "shop" && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { updateRun(() => nextRound(run)); setLastBreakdown(null); setSelectedIds([]); }} />}
+      {view === "game" && run?.phase === "shop" && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { updateRun(() => nextRound(run)); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
       {view === "game" && run && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onLobby={() => setView("lobby")} />}
 
       <nav className="mobile-nav" aria-label="모바일 메뉴">{navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => item.id !== "game" || run ? setView(item.id) : requestStartRun("standard")}><b>{item.icon}</b>{item.label}</button>)}</nav>
@@ -568,6 +570,8 @@ function GameTable({
   onOpenGuide,
   onOpenDeck,
   onOpenShortcuts,
+  onOpenLobby,
+  onOpenSettings,
   onPlay,
   onDiscard,
   onHotSwap,
@@ -590,6 +594,8 @@ function GameTable({
   onOpenGuide: () => void;
   onOpenDeck: () => void;
   onOpenShortcuts: () => void;
+  onOpenLobby: () => void;
+  onOpenSettings: () => void;
   onPlay: () => void;
   onDiscard: () => void;
   onHotSwap: (color: CardColor) => void;
@@ -599,57 +605,65 @@ function GameTable({
   const displayHand = sortHand(run.hand, cardSort);
   const scoringIds = new Set(preview?.scoringCardIds ?? []);
   const lastDiscard = run.discardPile.at(-1);
+  const nextSort = CARD_SORTS[(CARD_SORTS.indexOf(cardSort) + 1) % CARD_SORTS.length];
   return (
-    <main className="game-view game-view-pixel">
-      <div className="pixel-game-layout">
-        <GameLeftRail run={run} breakdown={shown} onOpenHandGuide={onOpenGuide} onOpenDeckInspector={onOpenDeck} onOpenShortcutGuide={onOpenShortcuts}>
+    <main className="game-view balatro-mobile-game">
+      <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 카드 테이블을 더 넓게 볼 수 있어요.</div>
+      <div className="mobile-game-shell">
+        <GameLeftRail run={run} breakdown={shown} onOpenHandGuide={onOpenGuide} onOpenDeckInspector={onOpenDeck} onOpenShortcutGuide={onOpenShortcuts} onOpenLobby={onOpenLobby} onOpenSettings={onOpenSettings}>
           {hotSwap && run.handHistory.length === 0 ? <ColorPicker value={hotSwap.selectedColor ?? "red"} onChange={onHotSwap} /> : null}
         </GameLeftRail>
 
-        <section className="game-center-column" aria-label="카드 플레이 영역">
-          <section className="pixel-panel score-console" aria-labelledby="score-console-title">
-            <header className="pixel-panel-title score-console-title"><h2 id="score-console-title">✦ SCORE TERMINAL ✦</h2><span>{preview ? "LIVE PREVIEW" : lastBreakdown ? "LAST HAND" : "STANDBY"}</span></header>
-            <div className="score-console-body">
-              <div className="played-summary" role="status" aria-live="polite"><span>{notice || "최대 5장을 선택해 족보를 만드세요"}</span><strong>{shown ? <><em>{shown.handName}</em> · Lv.{shown.handLevel}</> : "NO HAND SELECTED"}</strong></div>
-              <div className="score-equation"><div className="score-box"><span>CHIPS</span><b>{shown?.chipsBeforeUno ?? 0}</b></div><b>×</b><div className="score-box mult"><span>MULT</span><b>{shown?.multiplierBeforeUno ?? 0}</b></div></div>
-              <div className="estimated-score"><span>{preview ? "예상 획득 점수" : "직전 획득 점수"}</span><b>{(shown?.total ?? 0).toLocaleString()}</b></div>
-            </div>
-            {shown && <div className="breakdown-list score-console-breakdown"><div><span>족보 기본값</span><b>{shown.baseChips} Chips × {shown.baseMultiplier}</b></div><div><span>득점 숫자 카드</span><b>+{shown.numericChips} Chips</b></div>{shown.jokerChipBonus !== 0 && <div><span>조커 칩</span><b>+{shown.jokerChipBonus}</b></div>}{shown.jokerMultiplierBonus !== 0 && <div><span>조커 배수</span><b>+{shown.jokerMultiplierBonus}</b></div>}{shown.jokerXMultiplier !== 1 && <div><span>조커 최종 배수</span><b>×{shown.jokerXMultiplier.toFixed(2)}</b></div>}{shown.uno && <div className="uno-breakdown"><span>{shown.uno.cardName}</span><b>{shown.uno.scoreBeforeUno.toLocaleString()} → {shown.uno.scoreAfterUno.toLocaleString()}</b></div>}</div>}
+        <section className="felt-table play-felt" aria-label="카드 플레이 테이블">
+          <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
+
+          <section className="table-joker-zone" aria-labelledby="table-joker-title">
+            <header><h2 id="table-joker-title">JOKERS</h2><span>{run.jokers.length}/{JOKER_SLOT_LIMIT}</span></header>
+            <JokerRack run={run} />
           </section>
 
-          <section className="pixel-panel card-table-panel" aria-labelledby="card-table-title">
-            <header className="pixel-panel-title card-table-title"><h2 id="card-table-title">♠ CARD TABLE ♠</h2><span>HAND {run.hand.length} · SELECTED {selectedIds.length}/5</span></header>
-            <div className="pile-stage" aria-label="버린 카드와 뽑기 더미">
-              <div className="pile-widget"><span>버린 카드</span><div className={`pile-card${lastDiscard ? ` face card-${lastDiscard.color}` : " empty"}`}>{lastDiscard ? <><b>{lastDiscard.rank}</b><small>{rankChipValue(lastDiscard.rank)}c</small></> : <b>—</b>}</div><small>{run.discardPile.length}장 · 라운드 중 복귀 없음</small></div>
-              <div className="pile-arrow" aria-hidden="true">→</div>
-              <div className="pile-widget"><span>뽑기 더미</span><div className="pile-card back"><i>◇</i></div><small>{run.drawPile.length}장 남음</small></div>
+          <div className="table-center-status" role="status" aria-live="polite">
+            <span>{notice || (selectedIds.length ? `${selectedIds.length}/5 SELECTED` : "카드를 선택하세요")}</span>
+            <strong>{shown?.handName ?? "READY"}</strong>
+            {preview && <b>+{preview.total.toLocaleString()}</b>}
+          </div>
+
+          <aside className="table-side-dock" aria-label="덱, 버린 카드, UNO">
+            <button type="button" className="table-pile-button draw" onClick={onOpenDeck} aria-label={`뽑기 더미 ${run.drawPile.length}장, 덱 정보 열기`}>
+              <span>DRAW</span><i>◇</i><strong>{run.drawPile.length}</strong>
+            </button>
+            <button type="button" className="table-pile-button discard" onClick={onOpenDeck} aria-label={`버린 카드 ${run.discardPile.length}장, 덱 정보 열기`}>
+              <span>USED</span><i className={lastDiscard ? `card-${lastDiscard.color}` : ""}>{lastDiscard?.rank ?? "—"}</i><strong>{run.discardPile.length}</strong>
+            </button>
+            <section className={`table-uno-dock${run.unoUsedThisAnte ? " is-used" : ""}`} aria-label="커뮤니티 UNO">
+              <header><span>UNO</span><b>{run.unoUsedThisAnte ? "USED" : "1/ANTE"}</b></header>
+              {run.communityUno.length ? run.communityUno.map((card) => {
+                const modules = [...card.positiveModules, ...card.negativeModules].map((id) => UNO_MODULE_CATALOG[id].name).join(" · ");
+                return <button type="button" key={card.id} disabled={run.unoUsedThisAnte} title={`${card.name} · ${card.author} · ${modules}`} className={`table-uno-card${selectedUnoId === card.id ? " active" : ""}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><b>U</b><small>{run.unoUsedThisAnte ? "USED" : card.name}</small></button>;
+              }) : <div className="table-uno-empty">—</div>}
+            </section>
+          </aside>
+
+          {selectedUnoId && <section className="table-uno-popover" aria-label="UNO 호출 색 선택"><div><b>COLOR CALL</b><small>득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
+
+          <section className="table-hand-stage" aria-label="손패와 행동">
+            <div className="table-hand-tools">
+              <button id="recommend-hand-button" type="button" onClick={onRecommend}><kbd>A</kbd><span>추천</span></button>
+              <button type="button" onClick={() => onSort(nextSort)} title={`다음 정렬: ${CARD_SORT_LABEL[nextSort]}`}><kbd>S</kbd><span>{CARD_SORT_LABEL[cardSort]}</span></button>
+              <button type="button" disabled={selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
+              <output>{selectedIds.length}/5</output>
             </div>
-            <div className="hand-toolbar">
-              <div className="sort-tabs" role="group" aria-label="손패 정렬">{CARD_SORTS.map((sort) => <button type="button" key={sort} className={cardSort === sort ? "active" : ""} aria-pressed={cardSort === sort} onClick={() => onSort(sort)}>{CARD_SORT_LABEL[sort]}</button>)}</div>
-              <div><button id="recommend-hand-button" type="button" className="smart-action" onClick={onRecommend}><kbd>A</kbd> 추천 패</button><button type="button" className="smart-action" disabled={selectedIds.length === 0} onClick={onClear}>선택 해제</button></div>
-            </div>
-            <div className="hand-scroll-hint" aria-hidden="true">← 카드 손패를 옆으로 밀 수 있어요 →</div>
-            <div className="hand-zone">{displayHand.map((card, index) => {
+            <div className="hand-zone mobile-table-hand">{displayHand.map((card, index) => {
               const selected = selectedIds.includes(card.id);
               return <ColorCard key={card.id} card={{ ...card, value: card.rank }} selected={selected} selectionOrder={selected ? selectedIds.indexOf(card.id) + 1 : undefined} shortcut={index + 1} chipValue={rankChipValue(card.rank)} scoring={selected && preview ? scoringIds.has(card.id) : undefined} disabled={!selected && selectedIds.length >= 5} onClick={() => onToggleCard(card.id)} />;
             })}</div>
-            <div className="game-controls"><span className="selection-count">숫자키 1–8로 선택 · A 추천 · S 정렬</span><button id="discard-button" type="button" className="pixel-action pixel-action-danger" disabled={!selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd> 선택 버리기</button><button id="play-hand-button" type="button" className="pixel-action pixel-action-primary" disabled={!selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd> 핸드 제출</button></div>
+            <div className="table-action-dock">
+              <button id="discard-button" type="button" className="table-action discard-action" disabled={!selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
+              <div className="table-action-state">{selectedUnoId ? <><b>UNO</b><span>{calledColor.toUpperCase()}</span></> : <><b>{shown?.handName ?? "HAND"}</b><span>{preview ? preview.total.toLocaleString() : "—"}</span></>}</div>
+              <button id="play-hand-button" type="button" className="table-action play-action" disabled={!selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>핸드 제출</span></button>
+            </div>
           </section>
-
-          <div className="game-module-row">
-            <section className="pixel-panel joker-module-panel" aria-labelledby="joker-module-title"><h2 className="pixel-panel-title" id="joker-module-title">JOKER MODULES · {run.jokers.length}/{JOKER_SLOT_LIMIT}</h2><JokerRack run={run} /></section>
-            <section className="pixel-panel uno-module-panel" aria-labelledby="uno-module-title">
-              <header className="pixel-panel-title"><h2 id="uno-module-title">COMMUNITY UNO</h2><b className={run.unoUsedThisAnte ? "used" : "ready"}>{run.unoUsedThisAnte ? "USED" : "READY · 1/ANTE"}</b></header>
-              <div className="uno-deck">{run.communityUno.map((card) => {
-                const modules = [...card.positiveModules, ...card.negativeModules].map((id) => UNO_MODULE_CATALOG[id].name).join(" · ");
-                return <button type="button" key={card.id} disabled={run.unoUsedThisAnte} className={`uno-trigger${selectedUnoId === card.id ? " active" : ""}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><b>UNO</b><span><strong>{card.name}</strong><small>{run.unoUsedThisAnte ? "이번 앤티 사용 완료" : `${card.author} · ${modules}`}</small></span></button>;
-              })}</div>
-              {selectedUnoId && <><div className="color-call-label"><span>호출할 색</span><small>같은 색 득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></>}
-            </section>
-          </div>
         </section>
-
-        <GameRightRail run={run} breakdown={shown} />
       </div>
       {scoreBurst && <div key={scoreBurst.key} className="score-burst" role="status" aria-live="assertive"><span>{scoreBurst.breakdown.handName}</span><strong>+{scoreBurst.breakdown.total.toLocaleString()}</strong><small>{scoreBurst.breakdown.chipsBeforeUno} CHIPS × {scoreBurst.breakdown.multiplierBeforeUno} MULT</small></div>}
     </main>
@@ -670,26 +684,32 @@ function JokerRack({ run, onSell }: { run: RunState; onSell?: (id: string) => vo
   return <div className="joker-rack"><div className="joker-rack-label"><b>JOKERS</b><small>{run.jokers.length} / 4</small></div>{run.jokers.map((joker) => { const definition = JOKER_CATALOG[joker.jokerId]; const refund = Math.max(1, Math.floor(definition.price / 2)); return <article className="joker-slot" key={joker.instanceId} title={definition.description}><span className="joker-slot-art">{definition.name.slice(0,1)}</span><div><b>{definition.name}</b><small>{definition.description}</small></div>{onSell && <button type="button" className="joker-sell" aria-label={`${definition.name} 판매`} onClick={() => onSell(joker.instanceId)}>판매 {refund}¢</button>}</article>; })}{Array.from({ length: Math.max(0, 4-run.jokers.length) }, (_, index) => <div className="joker-slot empty" key={`empty-${index}`}>+</div>)}</div>;
 }
 
-function ShopView({ run, notice, onBuy, onReroll, onSell, onNext }: { run: RunState; notice: string; onBuy: (offer: ShopOffer) => void; onReroll: () => void; onSell: (id: string) => void; onNext: () => void }) {
+function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, onOpenSettings }: { run: RunState; notice: string; onBuy: (offer: ShopOffer) => void; onReroll: () => void; onSell: (id: string) => void; onNext: () => void; onOpenLobby: () => void; onOpenSettings: () => void }) {
   const offerCount = run.shop?.offers.length ?? 0;
-  return <main className="shop-view pixel-shop-view">
-    <section className="shop-header pixel-panel">
-      <div><span className="kicker">ROUND CLEAR · SUPPLY DROP</span><h1>컬러 마켓</h1><p role="status" aria-live="polite">{notice || "다음 라운드를 위한 빌드를 완성하세요."}</p></div>
-      <div className="shop-wallet"><span>WALLET</span><div className="coin-display">{run.coins} ¢</div><small>남은 코인은 유지됩니다</small></div>
-    </section>
-    <div className="shop-summary">
-      <div className="pixel-panel"><span>JOKER SLOTS</span><b>{run.jokers.length} / {JOKER_SLOT_LIMIT}</b></div>
-      <div className="pixel-panel"><span>UNO SLOTS</span><b>{run.communityUno.length} / {UNO_SLOT_LIMIT}</b></div>
-      <div className="pixel-panel"><span>OFFERS</span><b>{offerCount}</b></div>
-      <div className="pixel-panel"><span>NEXT</span><b>{run.round === "boss" ? `ANTE ${run.ante + 1}` : ROUND_LABEL[ROUND_ORDER[ROUND_ORDER.indexOf(run.round) + 1]]}</b></div>
+  const nextLabel = run.round === "boss" ? `ANTE ${run.ante + 1}` : ROUND_LABEL[ROUND_ORDER[ROUND_ORDER.indexOf(run.round) + 1]];
+  return <main className="shop-view balatro-mobile-shop">
+    <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 상점 전체를 한눈에 볼 수 있어요.</div>
+    <div className="mobile-shop-shell">
+      <aside className="shop-mobile-rail" aria-label="상점 정보와 행동">
+        <header className="shop-pixel-sign"><span>★</span><strong>SHOP</strong><small>BUILD YOUR RUN</small></header>
+        <section className="shop-rail-score"><span>ROUND SCORE</span><b>{run.score.toLocaleString()}</b><small>ANTE {run.ante} · {ROUND_LABEL[run.round]}</small></section>
+        <section className="shop-rail-wallet"><span>WALLET</span><strong>{run.coins}¢</strong></section>
+        <dl className="shop-rail-slots"><div><dt>JOKERS</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>UNO</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>OFFERS</dt><dd>{offerCount}</dd></div></dl>
+        <nav className="shop-rail-tools" aria-label="상점 메뉴"><button type="button" onClick={onOpenLobby}>⌂ <span>로비</span></button><button type="button" onClick={onOpenSettings}>⚙ <span>옵션</span></button></nav>
+        <div className="shop-rail-actions"><button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost} onClick={onReroll}>리롤 <b>{run.shop?.rerollCost ?? 0}¢</b></button><button type="button" onClick={onNext}>다음 <b>{nextLabel}</b></button></div>
+      </aside>
+
+      <section className="felt-table shop-felt" aria-label="컬러 마켓 진열대">
+        <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
+        <section className="shop-owned-tray" aria-labelledby="shop-owned-title"><header><h2 id="shop-owned-title">OWNED JOKERS</h2><span>탭해서 판매</span></header><JokerRack run={run} onSell={onSell} /></section>
+        <section className="shop-window" aria-labelledby="shop-window-title">
+          <header><div><span>ROUND CLEAR</span><h1 id="shop-window-title">컬러 마켓</h1></div><p role="status" aria-live="polite">{notice || "다음 라운드를 위한 빌드를 완성하세요."}</p></header>
+          <div className="shop-shelf">{run.shop?.offers.map((offer) => <ShopOfferCard key={offer.id} offer={offer} run={run} onBuy={() => onBuy(offer)} />)}</div>
+          {offerCount === 0 && <div className="shop-empty"><b>SOLD OUT</b><span>리롤하거나 다음 라운드로 이동하세요.</span></div>}
+        </section>
+        <div className="shop-table-deck" aria-hidden="true"><div className="pile-card back"><i>◇</i></div><strong>{run.drawPile.length || 40}</strong></div>
+      </section>
     </div>
-    <section className="pixel-panel shop-owned-panel" aria-labelledby="shop-owned-title"><h2 className="pixel-panel-title" id="shop-owned-title">보유 조커 · 판매하려면 버튼 선택</h2><JokerRack run={run} onSell={onSell} /></section>
-    <section className="pixel-panel shop-offers-panel" aria-labelledby="shop-offers-title">
-      <h2 className="pixel-panel-title" id="shop-offers-title">✦ SHOP OFFERS ✦</h2>
-      <div className="shop-shelf">{run.shop?.offers.map((offer) => <ShopOfferCard key={offer.id} offer={offer} run={run} onBuy={() => onBuy(offer)} />)}</div>
-      {offerCount === 0 && <div className="shop-empty"><b>진열 상품을 모두 확인했습니다.</b><span>다음 라운드로 이동하거나 리롤해 새 상품을 불러오세요.</span></div>}
-    </section>
-    <div className="shop-actions pixel-panel"><p>조커 판매는 확인 후 처리됩니다. 상품은 구매 즉시 적용되고, 다음 라운드로 넘어가면 현재 상점은 닫힙니다.</p><div><button type="button" className="secondary-button" disabled={!run.shop || run.coins < run.shop.rerollCost} onClick={onReroll}>리롤 · {run.shop?.rerollCost ?? 0}¢</button><button type="button" className="primary-button" onClick={onNext}>다음 라운드 →</button></div></div>
   </main>;
 }
 
