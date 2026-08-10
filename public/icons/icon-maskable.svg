@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0b0d14"/>
+  <circle cx="256" cy="256" r="180" fill="#f6f0df"/>
+  <path d="M128 128h128v128H128z" fill="#ff4d38"/>
+  <path d="M256 128h128v128H256z" fill="#3c82f6"/>
+  <path d="M128 256h128v128H128z" fill="#ffd23f"/>
+  <path d="M256 256h128v128H256z" fill="#36c46f"/>
+  <circle cx="256" cy="256" r="82" fill="#0b0d14"/>
+  <text x="256" y="281" text-anchor="middle" font-family="monospace" font-weight="900" font-size="76" fill="#f6f0df">CB</text>
+</svg>
+
