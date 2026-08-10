@@ -49,6 +49,16 @@ export function Lobby({
         {signedIn ? "CLOUD SAVE · 다른 기기에서 이어하기 가능" : "GUEST · 로그인하면 클라우드 저장 활성화"}
       </p>
 
+      <button type="button" className="mobile-menu-profile" onClick={onOpenSettings} aria-label="프로필과 계정 설정 열기">
+        <span className="mobile-menu-profile-avatar" aria-hidden="true"><i /><i /><i /></span>
+        <span><b>{signedIn ? "PLAYER" : "GUEST"}</b><small>P1</small></span>
+      </button>
+
+      <div className="mobile-menu-side-controls" aria-label="빠른 메뉴">
+        <button type="button" onClick={() => onStart("endless")} aria-label="무한 모드 시작"><b>∞</b><small>ENDLESS</small></button>
+        <button type="button" onClick={onOpenSettings} aria-label="언어와 옵션 열기"><b>KR</b><small>OPTIONS</small></button>
+      </div>
+
       <section className="mobile-menu-brand" aria-labelledby="mobile-menu-title">
         <span className="kicker">A COMMUNITY-BUILT ROGUELIKE</span>
         <h1 id="mobile-menu-title"><span>COLOR</span><strong>BUST</strong></h1>

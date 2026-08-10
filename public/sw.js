@@ -1,5 +1,12 @@
-const CACHE_VERSION = "color-bust-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icons/icon.svg", "/icons/icon-maskable.svg"];
+const CACHE_VERSION = "color-bust-v2";
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/icons/icon.svg",
+  "/icons/icon-maskable.svg",
+  "/art/menu-marble.png",
+  "/art/card-back.png",
+];
 const CACHEABLE_API = ["/api/community", "/api/guestbook", "/api/leaderboard"];
 
 self.addEventListener("install", (event) => {
@@ -64,4 +71,3 @@ self.addEventListener("fetch", (event) => {
     ),
   );
 });
-
