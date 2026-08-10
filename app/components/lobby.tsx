@@ -17,6 +17,7 @@ export function Lobby({
   onContinue,
   onStart,
   onOpenCommunity,
+  onOpenGuide,
 }: {
   savedRun: RunSummary | null;
   equippedUno?: CommunityUnoCard;
@@ -24,6 +25,7 @@ export function Lobby({
   onContinue: () => void;
   onStart: (mode: "standard" | "endless") => void;
   onOpenCommunity: () => void;
+  onOpenGuide: () => void;
 }) {
   return (
     <main className="lobby-view">
@@ -47,6 +49,7 @@ export function Lobby({
               {savedRun ? "새 5 앤티" : "무한 모드"}
             </button>
             {savedRun && <button type="button" className="secondary-button" onClick={() => onStart("endless")}>무한 모드</button>}
+            <button type="button" className="secondary-button" onClick={onOpenGuide}>족보와 점수표</button>
           </div>
           <p className="cloud-note"><span className={signedIn ? "cloud-on" : "cloud-off"} />{signedIn ? "클라우드 저장 활성화 · 다른 기기에서 이어하기 가능" : "게스트 모드 · 로그인하면 다른 기기에서도 이어할 수 있습니다"}</p>
         </div>
@@ -62,7 +65,7 @@ export function Lobby({
       <section className="lobby-lower">
         <button className="equipped-uno-panel" type="button" onClick={onOpenCommunity}>
           <span className="kicker">NEXT RUN · COMMUNITY UNO</span>
-          {equippedUno ? <><strong>{equippedUno.name}</strong><p>{equippedUno.description}</p><small>제작자 {equippedUno.creatorName} · 앤티당 1회</small></> : <><strong>커뮤니티 카드 장착</strong><p>다른 플레이어가 만든 효과 하나를 다음 런에 가져가세요.</p><small>첫 상점에서 무료 획득</small></>}
+          {equippedUno ? <><strong>{equippedUno.name}</strong><p>{equippedUno.description}</p><small>제작자 {equippedUno.creatorName} · 앤티당 1회</small></> : <><strong>커뮤니티 카드 장착</strong><p>다른 플레이어가 만든 효과 하나를 다음 런에 가져가세요.</p><small>첫 상점에 확정 등장</small></>}
           <i>→</i>
         </button>
         <article className="how-panel">
@@ -83,4 +86,3 @@ export function Lobby({
     </main>
   );
 }
-
