@@ -24,7 +24,7 @@ import {
 } from "../lib/game/constants";
 import { recommendBestHand } from "../lib/game/advisor";
 import { calculateHandScore } from "../lib/game/scoring";
-import { buildScoreEvents, type ScoreEvent } from "../lib/game/score-events";
+import { buildScoreEvents, type ScoreEvent, type ScoreEventType } from "../lib/game/score-events";
 import { validateCommunityUnoCard } from "../lib/game/uno";
 import type {
   CardColor,
@@ -60,7 +60,7 @@ import { Modal } from "./components/modal";
 import { ModifierRail } from "./components/modifier-rail";
 import { PileInspector } from "./components/pile-inspector";
 import { GuestbookView, LeaderboardView } from "./components/social-views";
-import { useGameAudio } from "./use-game-audio";
+import { useGameAudio, type AudioScene } from "./use-game-audio";
 
 type View = "lobby" | "game" | "community" | "leaderboard" | "guestbook";
 type UtilityModal = "hands" | "deck" | "shortcuts" | null;
@@ -89,6 +89,12 @@ const CARD_SORT_LABEL: Record<CardSort, string> = {
   rank: "숫자순",
   color: "색상순",
 };
+const SCORE_SOUND_EVENTS = new Set<ScoreEventType>([
+  "card-score",
+  "joker-effect",
+  "uno-effect",
+  "uno-result",
+]);
 const BASE_HAND_LEVELS = Object.fromEntries(
   Object.keys(HAND_RULES).map((handType) => [handType, 1]),
 ) as RunState["handLevels"];
@@ -193,10 +199,39 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [loadingSave, setLoadingSave] = useState(true);
   const cloudRevision = useRef<Record<"standard" | "endless", number>>({ standard: 0, endless: 0 });
   const latestRunRef = useRef<RunState | null>(null);
+  const drawSoundTimerRef = useRef<number | null>(null);
 
-  const audioScene = view === "game" && run?.round === "boss" ? "boss" : view === "game" ? "run" : "menu";
+  const audioScene: AudioScene = view !== "game" || !run
+    ? "menu"
+    : scorePlayback
+      ? run.round === "boss" ? "boss" : "run"
+      : run.phase === "shop"
+        ? "shop"
+        : run.phase === "won" || run.phase === "lost"
+          ? "silent"
+          : run.round === "boss" ? "boss" : "run";
   const audio = useGameAudio(audioScene);
+  const playEffect = audio.playEffect;
   const signedIn = Boolean(initialUser);
+  const currentScoreSoundEvent = scorePlayback?.phase === "scoring"
+    ? scorePlayback.events[scorePlayback.eventIndex]
+    : null;
+
+  const scheduleDrawSound = useCallback((delay = 180) => {
+    if (drawSoundTimerRef.current !== null) {
+      window.clearTimeout(drawSoundTimerRef.current);
+    }
+    drawSoundTimerRef.current = window.setTimeout(() => {
+      drawSoundTimerRef.current = null;
+      playEffect("card-draw");
+    }, delay);
+  }, [playEffect]);
+
+  useEffect(() => () => {
+    if (drawSoundTimerRef.current !== null) {
+      window.clearTimeout(drawSoundTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     latestRunRef.current = run;
@@ -305,7 +340,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     if (!scorePlayback) return;
     if (scorePlayback.phase === "discarding") {
       const discardTimer = window.setTimeout(
-        () => setScorePlayback(null),
+        () => {
+          if (run?.phase === "playing") playEffect("card-draw");
+          setScorePlayback(null);
+        },
         reducedMotion ? 80 : 430,
       );
       return () => window.clearTimeout(discardTimer);
@@ -331,7 +369,13 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       });
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [reducedMotion, scorePlayback]);
+  }, [playEffect, reducedMotion, run?.phase, scorePlayback]);
+
+  useEffect(() => {
+    if (currentScoreSoundEvent && SCORE_SOUND_EVENTS.has(currentScoreSoundEvent.type)) {
+      playEffect("score");
+    }
+  }, [currentScoreSoundEvent, playEffect]);
 
   const preview = useMemo(() => {
     if (!run || run.phase !== "playing" || selectedIds.length === 0) return null;
@@ -412,6 +456,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setScorePlayback(null);
     setSelectedUnoId(null);
     setView("game");
+    audio.playEffect("deck-setup");
     setNotice(mode === "standard" ? "5 앤티 런을 시작합니다." : "끝없는 신호에 접속했습니다.");
   }
 
@@ -443,8 +488,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         phase: "scoring",
       });
       setSelectedIds([]);
-      if (selectedUnoId) audio.playEffect("uno");
-      audio.playEffect(result.state.phase === "lost" ? "lose" : result.roundCleared ? "win" : "score");
+      audio.playEffect("card-play");
       setSelectedUnoId(null);
       setNotice(result.roundCleared ? `라운드 클리어 · ${result.breakdown.roundReward}코인 획득` : `${result.breakdown.handName} ${result.breakdown.total.toLocaleString()}점`);
     } catch (cause) {
@@ -464,6 +508,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
     setSelectedIds([]);
     audio.playEffect("card-play");
+    scheduleDrawSound();
   }
 
   useEffect(() => {
@@ -604,7 +649,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onHotSwap={(color) => updateRun(() => setHotSwapColor(run, color))}
         />
       )}
-      {view === "game" && run?.phase === "shop" && !scorePlayback && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { updateRun(() => nextRound(run)); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
+      {view === "game" && run?.phase === "shop" && !scorePlayback && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { if (updateRun(() => nextRound(run))) audio.playEffect("card-draw"); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
       {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onLobby={() => setView("lobby")} />}
 
       <nav className="mobile-nav" aria-label="모바일 메뉴">{navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => item.id !== "game" || run ? setView(item.id) : requestStartRun("standard")}><b>{item.icon}</b>{item.label}</button>)}</nav>
