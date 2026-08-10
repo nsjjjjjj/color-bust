@@ -45,13 +45,23 @@ test("builds hand, base, scoring-card, and final events in play order", () => {
   const events = buildScoreEvents(breakdown, selectedCards);
 
   assert.equal(events[0].type, "hand-detected");
+  assert.deepEqual(
+    [events[0].currentChips, events[0].currentMultiplier, events[0].currentXMultiplier],
+    [0, 0, 1],
+  );
   assert.equal(events[1].type, "base-score");
+  assert.deepEqual(
+    [events[1].currentChips, events[1].currentMultiplier, events[1].currentXMultiplier],
+    [breakdown.baseChips, breakdown.baseMultiplier, 1],
+  );
   assert.deepEqual(
     events.filter(({ type }) => type === "card-score").map(({ sourceCardId }) => sourceCardId),
     ["pair-red", "pair-blue"],
   );
   assert.equal(events.at(-1)?.type, "final-score");
   assert.equal(events.at(-1)?.currentTotal, breakdown.total);
+  assert.equal(events.at(-1)?.currentChips, breakdown.chipsBeforeUno);
+  assert.equal(events.at(-1)?.currentMultiplier, breakdown.multiplierBeforeUno);
   assert.equal(events.at(-1)?.total, breakdown.total);
   assert.equal(JSON.stringify({ breakdown, selectedCards }), before);
 });

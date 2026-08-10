@@ -14,6 +14,8 @@ export interface PileInspectorProps {
   readonly onOpenDetails: () => void;
   readonly className?: string;
   readonly disabled?: boolean;
+  /** Full run deck size, used for the compact remaining/total counter. */
+  readonly totalCards?: number;
   /** Optional visible/accessible pile name override. */
   readonly label?: string;
 }
@@ -133,6 +135,7 @@ export function PileInspector({
   onOpenDetails,
   className,
   disabled = false,
+  totalCards,
   label = pileName(variant),
 }: PileInspectorProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -184,7 +187,9 @@ export function PileInspector({
             <i>{summary.total > 0 ? "◇" : "—"}</i>
           )}
         </span>
-        <strong className="deck-pile-count">{summary.total}</strong>
+        <strong className="deck-pile-count">
+          {variant === "draw" && totalCards ? `${summary.total}/${totalCards}` : summary.total}
+        </strong>
         <span className="deck-pile-open-hint">상세 보기</span>
       </button>
 

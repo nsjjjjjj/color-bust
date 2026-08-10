@@ -1561,3 +1561,783 @@
   animation: none !important;
   transition: none !important;
 }
+
+/* Gameplay hierarchy v2: 21% run HUD + 79% card table. */
+:root {
+  --dm-space-0: 4px;
+  --dm-hud-width: clamp(272px, 21vw, 400px);
+  --dm-pile-reserve: clamp(92px, 8vw, 120px);
+}
+
+.deck-game-shell {
+  grid-template-columns: var(--dm-hud-width) minmax(0, 1fr) !important;
+}
+
+.deck-game-view .mobile-run-rail.pixel-panel {
+  gap: var(--dm-space-1);
+  padding: var(--dm-space-2);
+}
+
+.deck-game-view .mobile-run-rail-round {
+  overflow: hidden;
+  border: 3px solid var(--dm-info);
+  background: #0b1215;
+  box-shadow: 4px 4px var(--dm-shadow);
+}
+
+.deck-game-view .mobile-run-rail.is-boss .mobile-run-rail-round {
+  border-color: var(--dm-danger);
+}
+
+.deck-game-view .mobile-run-rail-blind {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  border: 0;
+  border-bottom: 2px solid var(--dm-line-soft);
+  background: transparent;
+  box-shadow: none;
+}
+
+.mobile-run-rail-blind-mark {
+  display: grid;
+  place-items: center;
+  margin: 10px 0 10px 10px;
+  border: 2px solid var(--dm-info);
+  color: var(--dm-info);
+  background: #111d21;
+  font-size: 22px;
+  text-shadow: 2px 2px var(--dm-shadow);
+}
+
+.is-boss .mobile-run-rail-blind-mark {
+  border-color: var(--dm-danger);
+  color: #f07168;
+  background: #2a1515;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy {
+  align-content: center;
+  gap: 5px;
+  padding: 9px 12px;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy > span {
+  font-size: 7px;
+  letter-spacing: .06em;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy h2 {
+  font-size: clamp(14px, 1vw, 19px);
+}
+
+.deck-game-view .mobile-run-rail-blind-copy p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: #aab5b4;
+  font-size: 8px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mobile-run-rail-round-goal {
+  display: grid;
+  grid-template-columns: 1.1fr .9fr;
+  background: #080e11;
+}
+
+.mobile-run-rail-round-goal > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border-right: 1px solid var(--dm-line-soft);
+}
+
+.mobile-run-rail-round-goal > div:last-child { border-right: 0; }
+.mobile-run-rail-round-goal span { color: var(--dm-muted); font-size: 7px; }
+.mobile-run-rail-round-goal strong { color: var(--dm-text); font-size: clamp(13px, 1.15vw, 21px); }
+.mobile-run-rail-round-goal strong i { margin-right: 5px; color: var(--dm-score); font-style: normal; }
+.mobile-run-rail-round-goal strong small { display: block; margin-top: 4px; color: var(--dm-muted); font-size: 6px; }
+
+.deck-game-view .mobile-run-rail-score {
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.deck-game-view .mobile-run-rail-current {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
+.deck-game-view .mobile-run-rail-current span {
+  color: var(--dm-muted);
+  font-size: 8px;
+  letter-spacing: .08em;
+}
+
+.deck-game-view .mobile-run-rail-current strong {
+  color: var(--dm-score);
+  font-size: clamp(28px, 2.25vw, 42px);
+  line-height: .95;
+  text-shadow: 3px 3px var(--dm-shadow);
+}
+
+.deck-game-view .mobile-run-rail-progress {
+  height: 9px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.deck-game-view .mobile-run-rail-preview {
+  padding: 12px;
+}
+
+.deck-game-view .mobile-run-rail-hand-name {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+  font-size: clamp(14px, 1.15vw, 20px);
+}
+
+.deck-game-view .mobile-run-rail-hand-name small {
+  color: var(--dm-muted);
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+.deck-game-view .mobile-run-rail-equation strong {
+  font-size: clamp(23px, 1.9vw, 34px);
+  animation: dm-score-bump 180ms steps(3, end);
+}
+
+.deck-game-view .mobile-run-rail-preview-total {
+  margin-top: 9px;
+  padding-top: 9px;
+}
+
+.deck-game-view .mobile-run-rail-preview-total strong {
+  font-size: clamp(18px, 1.55vw, 28px);
+}
+
+.deck-game-view .mobile-run-rail-resources {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deck-game-view .mobile-run-rail-resources div {
+  padding: 9px 3px;
+}
+
+.deck-game-view .mobile-run-rail-resources dd {
+  font-size: clamp(18px, 1.45vw, 25px);
+}
+
+.mobile-run-rail-wallet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dm-space-1);
+  padding: 9px 12px;
+  border: 2px solid var(--dm-line);
+  background: var(--dm-panel-soft);
+  box-shadow: 4px 4px var(--dm-shadow);
+}
+
+.mobile-run-rail-wallet span { color: var(--dm-muted); font-size: 7px; }
+.mobile-run-rail-wallet strong { color: var(--dm-score); font-size: clamp(20px, 1.55vw, 28px); }
+
+.mobile-run-rail-run-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+  border: 1px solid var(--dm-line-soft);
+  background: #0a1114;
+}
+
+.mobile-run-rail-run-meta > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 7px 9px;
+  border-right: 1px solid var(--dm-line-soft);
+}
+
+.mobile-run-rail-run-meta > div:last-child { border-right: 0; }
+.mobile-run-rail-run-meta dt { color: var(--dm-muted); font-size: 6px; }
+.mobile-run-rail-run-meta dd { margin: 0; color: var(--dm-text); font-size: 10px; }
+.mobile-run-rail-run-meta small { color: var(--dm-muted); font-size: 6px; }
+
+.deck-game-view .mobile-run-rail-tools {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--dm-space-0);
+  margin-top: auto;
+}
+
+.deck-game-view .mobile-run-rail-tools button {
+  min-height: 30px;
+  padding: 4px 3px;
+  border-width: 1px;
+  box-shadow: 2px 2px var(--dm-shadow);
+  font-size: 6px;
+}
+
+.deck-game-view .mobile-run-rail-tools .rail-tool-primary {
+  grid-column: span 3;
+  min-height: 34px;
+  grid-template-columns: auto 1fr;
+  justify-content: start;
+  padding-inline: 9px;
+  text-align: left;
+}
+
+.deck-game-view .mobile-run-rail-tools .rail-tool-mini {
+  grid-column: span 2;
+  opacity: .78;
+}
+
+.deck-game-view .mobile-run-rail-tools button > span { font-size: 11px; }
+
+/* The table stays open; modifiers become a thin build strip instead of a third column. */
+.deck-play-table {
+  grid-template-rows: auto auto minmax(120px, 3fr) auto minmax(24px, 1fr);
+  gap: var(--dm-space-1);
+  padding: var(--dm-space-2) var(--dm-pile-reserve) var(--dm-space-2) var(--dm-space-2);
+}
+
+.deck-stage-header {
+  min-height: 36px;
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 1px solid rgba(85,175,189,.22);
+  background: rgba(7,16,18,.32);
+}
+
+.deck-stage-header span { font-size: 6px; }
+.deck-stage-header strong { font-size: 10px; }
+.deck-stage-header p { font-size: 7px; }
+
+.deck-play-table .modifier-rail-root {
+  position: relative;
+  z-index: 30;
+  order: 0;
+  width: 100%;
+  height: auto;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 96px minmax(320px, 1.15fr) minmax(250px, .85fr);
+  gap: var(--dm-space-1);
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.deck-play-table .modifier-rail-header {
+  min-height: 64px;
+  grid-template-columns: 28px 1fr;
+  gap: 7px;
+  padding: 7px;
+}
+
+.deck-play-table .modifier-rail-header-icon { width: 27px; height: 29px; font-size: 10px; }
+.deck-play-table .modifier-rail-header-copy strong { font-size: 8px; }
+.deck-play-table .modifier-rail-header-copy small { font-size: 5px; }
+
+.deck-play-table .modifier-rail-section {
+  min-width: 0;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+  padding: 5px;
+}
+
+.deck-play-table .modifier-rail-section-header h2,
+.deck-play-table .modifier-rail-section-header span { font-size: 6px; }
+
+.deck-play-table .modifier-rail-slots {
+  grid-template-columns: repeat(4, minmax(44px, 1fr));
+  gap: 3px;
+}
+
+.deck-play-table .modifier-rail-uno-slots {
+  grid-template-columns: repeat(3, minmax(48px, 1fr));
+}
+
+.deck-play-table .modifier-rail-slot-trigger,
+.deck-play-table .modifier-rail-empty-slot {
+  min-height: 38px;
+  grid-template-columns: 27px minmax(0, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-width: 1px;
+}
+
+.deck-play-table .modifier-rail-slot-icon { width: 26px; height: 29px; border-width: 1px; font-size: 8px; }
+.deck-play-table .modifier-rail-slot-copy strong { font-size: 6px; }
+.deck-play-table .modifier-rail-slot-copy small { font-size: 5px; }
+.deck-play-table .modifier-rail-slot-status { display: none; }
+.deck-play-table .modifier-rail-empty-slot { grid-template-columns: 1fr; justify-items: center; }
+.deck-play-table .modifier-rail-empty-slot small { display: none; }
+.deck-play-table .modifier-rail-summary { display: none; }
+.deck-play-table .modifier-rail-tooltip { left: 0; right: auto; top: calc(100% + 7px); transform: none; }
+
+.deck-resolve-zone {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+
+.deck-resolve-zone.has-played-cards {
+  background: radial-gradient(circle at center, rgba(85,175,189,.08), transparent 62%);
+}
+
+.deck-resolve-idle { gap: 4px; opacity: .42; }
+.deck-resolve-idle > span { font-size: 18px; }
+.deck-resolve-idle strong { font-size: 6px; letter-spacing: .12em; }
+.deck-resolve-idle small { display: none; }
+
+.deck-played-layout {
+  position: relative;
+  width: 100%;
+  height: var(--hand-layout-height);
+  display: block;
+  padding: 0;
+}
+
+.deck-played-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--hand-card-width);
+  height: var(--hand-card-height);
+  z-index: var(--hand-card-active-z, var(--hand-card-z));
+  transform:
+    translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift, 0px)), 0)
+    rotate(var(--hand-card-rotation))
+    scale(var(--hand-card-scale, 1));
+  transition: transform var(--hand-score-duration) steps(5, end), filter 120ms steps(2, end);
+}
+
+.deck-resolve-card.deck-played-card.is-source {
+  transform:
+    translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift, 0px)), 0)
+    rotate(var(--hand-card-rotation))
+    scale(var(--hand-card-scale, 1));
+}
+
+.deck-played-card .number-card,
+.deck-resolve-card.deck-played-card .number-card {
+  width: 100%;
+  height: 100%;
+  transform: none !important;
+}
+
+.deck-resolve-zone.is-discarding .deck-played-card {
+  animation-delay: calc(var(--hand-card-index) * 35ms);
+}
+
+.deck-card-score-popup {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: var(--hand-feedback-offset);
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 2px solid var(--dm-score);
+  transform: translateX(-50%);
+  color: var(--dm-score);
+  background: #091114;
+  box-shadow: 3px 3px var(--dm-shadow);
+  font-size: 17px;
+  animation: dm-card-feedback 360ms steps(5, end);
+}
+
+.deck-card-score-popup small { color: var(--dm-muted); font-size: 5px; }
+
+.deck-score-event {
+  left: 2%;
+  width: min(180px, 24%);
+}
+
+/* HandLayoutManager owns geometry; card buttons only own appearance and input. */
+.deck-hand-stage {
+  grid-template-rows: auto minmax(190px, 23vh) auto !important;
+  align-content: start;
+}
+
+.deck-hand-meta {
+  align-items: center;
+}
+
+.deck-effect-quickbar {
+  min-width: 180px;
+  max-width: 320px;
+}
+
+.deck-hand-stage .table-hand-tools {
+  min-height: 34px;
+  padding: 3px;
+}
+
+.deck-hand-stage .table-hand-tools button { min-height: 25px; }
+
+.deck-hand-stage .deck-hand-layout {
+  position: relative;
+  width: 100%;
+  height: var(--hand-layout-height);
+  min-height: 0;
+  align-self: center;
+  display: block;
+  padding: 0;
+  overflow: visible;
+}
+
+/* Retire legacy scroll padding so the manager owns the hand geometry on every breakpoint. */
+.deck-hand-stage .mobile-table-hand.hand-zone.deck-hand-layout {
+  padding: 0;
+  overflow: visible;
+}
+
+.deck-hand-card {
+  --hand-card-lift: 0px;
+  --hand-card-scale: 1;
+  --hand-card-active-z: var(--hand-card-z);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--hand-card-width);
+  height: var(--hand-card-height);
+  z-index: var(--hand-card-active-z);
+  transform:
+    translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift)), 0)
+    rotate(var(--hand-card-rotation))
+    scale(var(--hand-card-scale));
+  transition: transform var(--hand-motion-duration) ease, filter var(--hand-motion-duration) ease;
+  will-change: transform;
+}
+
+.deck-hand-card .number-card {
+  width: 100%;
+  height: 100%;
+  transform: none !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-hand-card:hover {
+    --hand-card-lift: var(--hand-hover-lift);
+    --hand-card-scale: var(--hand-hover-scale);
+    --hand-card-active-z: 90;
+  }
+}
+
+.deck-hand-card[data-selected="true"] {
+  --hand-card-lift: var(--hand-selected-lift);
+  --hand-card-scale: var(--hand-selected-scale);
+  --hand-card-active-z: 100;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-hand-card[data-selected="true"]:hover {
+    --hand-card-lift: var(--hand-selected-lift);
+    --hand-card-scale: var(--hand-hover-scale);
+  }
+}
+
+.deck-hand-card[data-selected="true"] .number-card {
+  box-shadow: 0 0 0 4px var(--dm-score), 7px 12px var(--dm-shadow);
+}
+
+.is-resolving-score .deck-hand-stage .deck-hand-layout {
+  opacity: .58;
+  filter: saturate(.7) brightness(.78);
+}
+
+.deck-hand-stage .table-action-dock {
+  width: min(650px, 72%);
+  min-width: 460px;
+  margin-top: 20px;
+  grid-template-columns: minmax(190px, 1.25fr) minmax(150px, .75fr) minmax(150px, 1fr);
+  align-items: center;
+  gap: var(--dm-space-1);
+}
+
+.deck-hand-stage .table-action {
+  min-height: 60px;
+  font-size: 11px;
+}
+
+.deck-hand-stage .play-action {
+  border-color: #1c5667;
+  background: #277f9a;
+  box-shadow: inset 0 -6px rgba(0,0,0,.25), 5px 5px var(--dm-shadow);
+}
+
+.deck-hand-stage .discard-action {
+  min-height: 54px;
+  background: #9d403a;
+}
+
+.deck-sort-control {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr 24px;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--dm-line-soft);
+  background: rgba(7,13,15,.82);
+}
+
+.deck-sort-control > span {
+  grid-column: 1 / -1;
+  color: var(--dm-muted);
+  font-size: 5px;
+  letter-spacing: .08em;
+}
+
+.deck-sort-control button {
+  min-width: 0;
+  min-height: 26px;
+  padding: 3px;
+  border: 1px solid var(--dm-line);
+  color: var(--dm-muted);
+  background: var(--dm-panel);
+  box-shadow: none;
+  font-size: 6px;
+}
+
+.deck-sort-control button.active {
+  border-color: var(--dm-info);
+  color: #c8f0f1;
+  background: #17343a;
+}
+
+.deck-sort-control .sort-reset { color: var(--dm-muted); }
+
+/* Draw and discard stay close to the hand without becoming a competing panel. */
+.deck-pile-dock {
+  right: var(--dm-space-2);
+  top: auto;
+  bottom: clamp(105px, 15vh, 170px);
+  width: clamp(78px, 6.5vw, 94px);
+  justify-content: flex-end;
+  gap: var(--dm-space-1);
+}
+
+.deck-pile-button { min-height: 112px; }
+.deck-pile-count { min-width: 34px; white-space: nowrap; }
+.deck-pile-discard .deck-pile-button { min-height: 62px; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; }
+.deck-pile-discard .deck-pile-button-label { grid-column: 1 / -1; }
+.deck-pile-discard .deck-pile-card { width: 29px; grid-row: 2; }
+.deck-pile-discard .deck-pile-count { position: static; grid-row: 2; }
+.deck-pile-discard .deck-pile-open-hint { display: none; }
+.deck-pile-popover { top: auto; bottom: 0; transform: none; }
+
+@keyframes dm-card-feedback {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(.65); }
+  45% { opacity: 1; transform: translate(-50%, -5px) scale(1.12); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* Mid-size 16:9 screens move the hand up instead of shrinking it. */
+@media (orientation: landscape) and (max-width: 1600px) and (max-height: 900px) {
+  .deck-play-table {
+    grid-template-rows: 36px auto minmax(80px, 2.4fr) auto minmax(16px, 1fr);
+  }
+}
+
+/* 1280×720 and similar laptops keep the same hierarchy with tighter rhythm. */
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
+  :root { --dm-hud-width: clamp(238px, 21vw, 288px); --dm-pile-reserve: 92px; }
+
+  .deck-game-view .mobile-run-rail.pixel-panel { gap: 5px; padding: 8px; }
+  .deck-game-view .mobile-run-rail-blind { min-height: 58px; grid-template-columns: 42px 1fr; }
+  .mobile-run-rail-blind-mark { margin: 7px 0 7px 7px; font-size: 16px; }
+  .deck-game-view .mobile-run-rail-blind-copy { gap: 3px; padding: 6px 8px; }
+  .deck-game-view .mobile-run-rail-blind-copy > span { font-size: 5px; }
+  .deck-game-view .mobile-run-rail-blind-copy h2 { font-size: 12px; }
+  .deck-game-view .mobile-run-rail-blind-copy p { font-size: 6px; }
+  .mobile-run-rail-round-goal > div { gap: 3px; padding: 6px 8px; }
+  .mobile-run-rail-round-goal span { font-size: 5px; }
+  .mobile-run-rail-round-goal strong { font-size: 13px; }
+  .mobile-run-rail-round-goal strong small { font-size: 4px; }
+  .deck-game-view .mobile-run-rail-score { gap: 5px; padding: 8px 10px; }
+  .deck-game-view .mobile-run-rail-current { gap: 4px; }
+  .deck-game-view .mobile-run-rail-current span { font-size: 6px; }
+  .deck-game-view .mobile-run-rail-current strong { font-size: 27px; }
+  .deck-game-view .mobile-run-rail-preview { padding: 8px; }
+  .deck-game-view .mobile-run-rail-hand-name { gap: 3px; margin-bottom: 6px; font-size: 12px; }
+  .deck-game-view .mobile-run-rail-hand-name small { font-size: 5px; }
+  .deck-game-view .mobile-run-rail-chips,
+  .deck-game-view .mobile-run-rail-mult { gap: 3px; padding: 6px 3px; }
+  .deck-game-view .mobile-run-rail-equation strong { font-size: 21px; }
+  .deck-game-view .mobile-run-rail-preview-total { margin-top: 6px; padding-top: 6px; }
+  .deck-game-view .mobile-run-rail-preview-total strong { font-size: 17px; }
+  .deck-game-view .mobile-run-rail-resources div { padding: 6px 2px; }
+  .deck-game-view .mobile-run-rail-resources dd { margin-top: 3px; font-size: 16px; }
+  .mobile-run-rail-wallet { padding: 6px 9px; }
+  .mobile-run-rail-wallet strong { font-size: 18px; }
+  .mobile-run-rail-run-meta > div { padding: 5px 7px; }
+  .deck-game-view .mobile-run-rail-tools button { min-height: 25px; }
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 29px; }
+
+  .deck-play-table { grid-template-rows: 30px auto minmax(80px, 1.5fr) auto minmax(16px, 1fr); gap: 5px; padding: 8px var(--dm-pile-reserve) 8px 8px; }
+  .deck-stage-header { min-height: 30px; }
+  .deck-play-table .modifier-rail-root { min-height: 52px; grid-template-columns: 76px minmax(280px, 1.15fr) minmax(210px, .85fr); gap: 5px; }
+  .deck-play-table .modifier-rail-header { min-height: 52px; grid-template-columns: 23px 1fr; gap: 4px; padding: 4px; }
+  .deck-play-table .modifier-rail-header-icon { width: 22px; height: 24px; font-size: 8px; }
+  .deck-play-table .modifier-rail-header-copy strong { font-size: 6px; }
+  .deck-play-table .modifier-rail-header-copy small { display: none; }
+  .deck-play-table .modifier-rail-section { padding: 3px; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { min-height: 30px; grid-template-columns: 22px minmax(0,1fr); }
+  .deck-play-table .modifier-rail-slot-icon { width: 21px; height: 23px; }
+  .deck-hand-stage { grid-template-rows: 32px minmax(145px, 22vh) 89px !important; }
+  .deck-effect-quickbar { min-width: 150px; max-width: 250px; }
+  .deck-effect-quickbar button { min-width: 86px; min-height: 26px; }
+  .deck-hand-stage .table-hand-tools { min-height: 30px; }
+  .deck-hand-stage .table-action-dock { width: min(540px, 78%); min-width: 410px; grid-template-columns: minmax(170px,1.25fr) minmax(128px,.75fr) minmax(130px,1fr); }
+  .deck-hand-stage .table-action-dock { margin-top: 36px; }
+  .deck-hand-stage .table-action { min-height: 50px; }
+  .deck-hand-stage .discard-action { min-height: 46px; }
+  .deck-pile-dock { right: 8px; bottom: 94px; width: 70px; }
+  .deck-pile-button { min-height: 89px; padding: 5px; }
+  .deck-pile-card { width: 42px; }
+  .deck-pile-discard .deck-pile-button { min-height: 52px; }
+}
+
+/* Phone landscape keeps the two anchors and compresses detail, not the cards. */
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  :root { --dm-hud-width: clamp(132px, 21vw, 180px); --dm-pile-reserve: 62px; }
+  .deck-game-shell { grid-template-columns: var(--dm-hud-width) minmax(0, 1fr) !important; }
+
+  .deck-game-view .mobile-run-rail.pixel-panel { gap: 3px; padding: 4px 4px max(4px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)); }
+  .deck-game-view .mobile-run-rail-round { border-width: 1px; box-shadow: 1px 1px var(--dm-shadow); }
+  .deck-game-view .mobile-run-rail-blind { min-height: 35px; grid-template-columns: 27px 1fr; border-bottom-width: 1px; }
+  .mobile-run-rail-blind-mark { margin: 4px 0 4px 4px; border-width: 1px; font-size: 9px; }
+  .deck-game-view .mobile-run-rail-blind-copy { gap: 1px; padding: 3px 4px; }
+  .deck-game-view .mobile-run-rail-blind-copy > span { font-size: 3px; }
+  .deck-game-view .mobile-run-rail-blind-copy h2 { font-size: 7px; }
+  .deck-game-view .mobile-run-rail-blind-copy p { font-size: 4px; -webkit-line-clamp: 1; }
+  .mobile-run-rail-round-goal > div { gap: 1px; padding: 3px 4px; }
+  .mobile-run-rail-round-goal span { font-size: 3px; }
+  .mobile-run-rail-round-goal strong { font-size: 7px; }
+  .mobile-run-rail-round-goal strong small { display: none; }
+  .deck-game-view .mobile-run-rail-score { gap: 2px; padding: 3px 5px; border-width: 1px; box-shadow: 1px 1px var(--dm-shadow); }
+  .deck-game-view .mobile-run-rail-current { gap: 2px; }
+  .deck-game-view .mobile-run-rail-current span { font-size: 3px; }
+  .deck-game-view .mobile-run-rail-current strong { font-size: 15px; }
+  .deck-game-view .mobile-run-rail-progress { height: 4px; border-width: 1px; }
+  .deck-game-view .mobile-run-rail-preview { padding: 4px; border-width: 1px; box-shadow: 1px 1px var(--dm-shadow); }
+  .deck-game-view .mobile-run-rail-hand-name { gap: 1px; margin-bottom: 3px; font-size: 8px; }
+  .deck-game-view .mobile-run-rail-hand-name small { font-size: 3px; }
+  .deck-game-view .mobile-run-rail-chips,
+  .deck-game-view .mobile-run-rail-mult { gap: 1px; padding: 2px; border-width: 1px; }
+  .deck-game-view .mobile-run-rail-equation strong { font-size: 11px; }
+  .deck-game-view .mobile-run-rail-preview-total { margin-top: 2px; padding-top: 2px; }
+  .deck-game-view .mobile-run-rail-preview-total span { font-size: 3px; }
+  .deck-game-view .mobile-run-rail-preview-total strong { font-size: 9px; }
+  .mobile-run-rail-score-event { display: none; }
+  .deck-game-view .mobile-run-rail-resources div { padding: 3px 1px; }
+  .deck-game-view .mobile-run-rail-resources dt { font-size: 3px; }
+  .deck-game-view .mobile-run-rail-resources dd { margin-top: 1px; font-size: 9px; }
+  .mobile-run-rail-wallet { padding: 3px 5px; border-width: 1px; box-shadow: 1px 1px var(--dm-shadow); }
+  .mobile-run-rail-wallet span { font-size: 3px; }
+  .mobile-run-rail-wallet strong { font-size: 10px; }
+  .mobile-run-rail-run-meta > div { padding: 2px 3px; }
+  .mobile-run-rail-run-meta dt,
+  .mobile-run-rail-run-meta small { font-size: 3px; }
+  .mobile-run-rail-run-meta dd { font-size: 6px; }
+  .deck-game-view .mobile-run-rail-tools { gap: 2px; }
+  .deck-game-view .mobile-run-rail-tools button,
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 20px; padding: 2px; font-size: 3px; }
+  .deck-game-view .mobile-run-rail-tools button > span { font-size: 7px; }
+
+  .deck-play-table { grid-template-rows: 24px auto minmax(38px, 3fr) auto minmax(4px, 1fr); gap: 3px; padding: 4px var(--dm-pile-reserve) max(4px, env(safe-area-inset-bottom)) 4px; }
+  .deck-stage-header { min-height: 24px; padding: 2px 4px; }
+  .deck-play-table .modifier-rail-root { min-height: 34px; grid-template-columns: 40px minmax(190px,1.15fr) minmax(135px,.85fr); gap: 3px; }
+  .deck-play-table .modifier-rail-header { min-height: 34px; grid-template-columns: 1fr; place-items: center; padding: 2px; }
+  .deck-play-table .modifier-rail-header-icon { width: 20px; height: 21px; font-size: 7px; }
+  .deck-play-table .modifier-rail-header-copy { display: none; }
+  .deck-play-table .modifier-rail-section { gap: 2px; padding: 2px; border-width: 1px; }
+  .deck-play-table .modifier-rail-section-header h2,
+  .deck-play-table .modifier-rail-section-header span { font-size: 3px; }
+  .deck-play-table .modifier-rail-slots { gap: 1px; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { min-height: 20px; grid-template-columns: 17px 1fr; padding: 1px; }
+  .deck-play-table .modifier-rail-slot-icon { width: 16px; height: 17px; font-size: 5px; }
+  .deck-play-table .modifier-rail-slot-copy strong { font-size: 3px; }
+  .deck-play-table .modifier-rail-slot-copy small { display: none; }
+  .deck-hand-stage { grid-template-rows: 27px minmax(94px, 27vh) 80px !important; }
+  .deck-hand-meta { gap: 3px; }
+  .deck-effect-quickbar { min-width: 108px; max-width: 155px; }
+  .deck-hand-stage .table-hand-tools { min-height: 24px; }
+  .deck-hand-stage .table-hand-tools button { min-height: 19px; }
+  .deck-hand-stage .table-action-dock { width: min(370px, 92%); min-width: 300px; grid-template-columns: minmax(110px,1.25fr) minmax(92px,.75fr) minmax(94px,1fr); gap: 3px; }
+  .deck-hand-stage .table-action-dock { margin-top: 41px; }
+  .deck-hand-stage .table-action { min-height: 36px; font-size: 7px; }
+  .deck-hand-stage .discard-action { min-height: 34px; }
+  .deck-sort-control { padding: 2px; gap: 1px; }
+  .deck-sort-control button { min-height: 19px; font-size: 4px; }
+  .deck-pile-dock { right: 4px; bottom: 43px; width: 51px; gap: 3px; }
+  .deck-pile-button { min-height: 60px; padding: 2px; }
+  .deck-pile-card { width: 27px; }
+  .deck-pile-discard .deck-pile-button { min-height: 36px; }
+  .deck-pile-discard .deck-pile-card { width: 19px; }
+}
+
+/* Portrait keeps the HUD compact, then gives the hand a full-width table. */
+@media (orientation: portrait) and (max-width: 1100px) {
+  .deck-game-view .mobile-run-rail.pixel-panel {
+    grid-template-columns: 1.15fr .85fr;
+  }
+
+  .deck-game-view .mobile-run-rail-round { grid-column: 1 / -1; }
+  .deck-game-view .mobile-run-rail-score { grid-column: 1; grid-row: 2; }
+  .deck-game-view .mobile-run-rail-preview { grid-column: 2; grid-row: 2 / span 2; }
+  .deck-game-view .mobile-run-rail-resources { grid-column: 1; grid-row: 3; }
+  .mobile-run-rail-wallet { grid-column: 1; grid-row: 4; }
+  .mobile-run-rail-run-meta { grid-column: 2; grid-row: 4; }
+  .deck-game-view .mobile-run-rail-hot-swap,
+  .deck-game-view .mobile-run-rail-tools { grid-column: 1 / -1; }
+
+  .deck-play-table {
+    min-height: 720px;
+    grid-template-rows: 34px auto minmax(145px, 3fr) auto minmax(24px, 1fr);
+    padding: 8px 66px max(10px, env(safe-area-inset-bottom)) 8px;
+  }
+
+  .deck-play-table .modifier-rail-root {
+    order: 0;
+    min-height: 58px;
+    grid-template-columns: 68px minmax(250px, 1fr) minmax(210px, .85fr);
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+
+  .deck-play-table .modifier-rail-header { min-height: 56px; }
+  .deck-play-table .modifier-rail-slot-copy { display: none; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { grid-template-columns: 1fr; justify-items: center; }
+  .deck-hand-stage { grid-template-rows: auto 150px 74px !important; }
+  .deck-hand-meta { align-items: stretch; flex-direction: column; }
+  .deck-hand-stage .deck-hand-layout { overflow: visible; }
+  .deck-hand-stage .table-action-dock { width: 100%; min-width: 0; grid-template-columns: 1.2fr .8fr 1fr; }
+  .deck-hand-stage .table-action { min-height: 50px; }
+  .deck-hand-stage .discard-action { min-height: 47px; }
+  .deck-pile-dock { right: 7px; bottom: 104px; width: 53px; }
+  .deck-pile-button { min-height: 78px; padding: 3px; }
+  .deck-pile-card { width: 32px; }
+  .deck-pile-discard .deck-pile-button { min-height: 45px; }
+}
+
+.reduced-motion .deck-hand-card,
+.reduced-motion .deck-played-card,
+.reduced-motion .deck-card-score-popup {
+  animation: none !important;
+  transition: none !important;
+}

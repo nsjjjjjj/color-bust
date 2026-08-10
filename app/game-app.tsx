@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buyShopOffer,
   createRun,
@@ -20,7 +20,6 @@ import {
   ROUND_ORDER,
   UNO_SLOT_LIMIT,
   UNO_MODULE_CATALOG,
-  rankChipValue,
 } from "../lib/game/constants";
 import { recommendBestHand } from "../lib/game/advisor";
 import { calculateHandScore } from "../lib/game/scoring";
@@ -51,10 +50,10 @@ import {
   setLocalSetting,
   subscribeConnectivity,
 } from "../lib/offline";
-import { ColorCard } from "./components/color-card";
 import { CommunityHub } from "./components/community-hub";
 import { DeckInspector, HandGuide, ShortcutGuide } from "./components/game-reference";
 import { GameLeftRail } from "./components/game-side-panels";
+import { HandView, PlayedCardsView } from "./components/hand-view";
 import { Lobby, type RunSummary } from "./components/lobby";
 import { Modal } from "./components/modal";
 import { ModifierRail } from "./components/modifier-rail";
@@ -76,6 +75,7 @@ type ScorePlayback = {
   readonly key: number;
   readonly breakdown: ScoreBreakdown;
   readonly cards: readonly GameCard[];
+  readonly handBefore: readonly GameCard[];
   readonly events: readonly ScoreEvent[];
   readonly roundScoreBefore: number;
   readonly eventIndex: number;
@@ -84,11 +84,6 @@ type ScorePlayback = {
 
 const COLOR_ORDER: Record<CardColor, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
 const CARD_SORTS: readonly CardSort[] = ["dealt", "rank", "color"];
-const CARD_SORT_LABEL: Record<CardSort, string> = {
-  dealt: "받은 순서",
-  rank: "숫자순",
-  color: "색상순",
-};
 const SCORE_SOUND_EVENTS = new Set<ScoreEventType>([
   "card-score",
   "joker-effect",
@@ -482,6 +477,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         key: Date.now(),
         breakdown: result.breakdown,
         cards: playedCards,
+        handBefore: run.hand,
         events: scoreEvents,
         roundScoreBefore: run.score,
         eventIndex: 0,
@@ -521,8 +517,9 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       }
       if (view !== "game" || !run || run.phase !== "playing" || scorePlayback) return;
       const displayHand = sortHand(run.hand, cardSort);
-      if (/^[1-8]$/.test(event.key)) {
-        const card = displayHand[Number(event.key) - 1];
+      if (/^[0-9]$/.test(event.key)) {
+        const shortcutIndex = event.key === "0" ? 9 : Number(event.key) - 1;
+        const card = displayHand[shortcutIndex];
         if (!card) return;
         event.preventDefault();
         setSelectedIds((current) => current.includes(card.id)
@@ -728,9 +725,11 @@ function GameTable({
     ? scorePlayback.roundScoreBefore + (currentScoreEvent?.currentTotal ?? 0)
     : run.score;
   const hotSwap = run.jokers.find((joker) => joker.jokerId === "hot-swap");
-  const displayHand = sortHand(run.hand, cardSort);
+  const cardsLeftInHand = scorePlayback
+    ? scorePlayback.handBefore.filter((card) => !scorePlayback.cards.some((played) => played.id === card.id))
+    : run.hand;
+  const displayHand = sortHand(cardsLeftInHand, cardSort);
   const scoringIds = new Set((scorePlayback?.breakdown ?? preview)?.scoringCardIds ?? []);
-  const nextSort = CARD_SORTS[(CARD_SORTS.indexOf(cardSort) + 1) % CARD_SORTS.length];
   return (
     <main className={`game-view balatro-mobile-game deck-game-view${resolving ? " is-resolving-score" : ""}`}>
       <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 카드 테이블을 더 넓게 볼 수 있어요.</div>
@@ -741,6 +740,7 @@ function GameTable({
           scoreEvent={currentScoreEvent}
           displayRoundScore={animatedRoundScore}
           isResolving={resolving}
+          showingLastHand={!scorePlayback && !preview && Boolean(lastBreakdown)}
           onOpenHandGuide={onOpenGuide}
           onOpenDeckInspector={onOpenDeck}
           onOpenShortcutGuide={onOpenShortcuts}
@@ -758,25 +758,12 @@ function GameTable({
             <p role="status" aria-live="polite">{notice || (selectedIds.length ? `${selectedIds.length}/5 카드 선택됨` : "카드를 선택해 조합을 만드세요")}</p>
           </header>
 
+          <ModifierRail run={run} breakdown={scorePlayback?.breakdown ?? preview ?? lastBreakdown} className="deck-modifier-rail" />
+
           <section className={`deck-resolve-zone${scorePlayback ? " has-played-cards" : ""}${scorePlayback?.phase === "discarding" ? " is-discarding" : ""}`} aria-label="제출 카드와 점수 계산 영역">
             {scorePlayback ? (
               <>
-                <div className="deck-resolve-cards">
-                  {scorePlayback.cards.map((card, index) => {
-                    const isSource = currentScoreEvent?.sourceCardId === card.id;
-                    return (
-                      <div className={`deck-resolve-card${isSource ? " is-source" : ""}`} style={{ "--card-index": index } as CSSProperties} key={card.id}>
-                        <ColorCard
-                          card={{ ...card, value: card.rank }}
-                          chipValue={rankChipValue(card.rank)}
-                          scoring={scorePlayback.breakdown.scoringCardIds.includes(card.id)}
-                          resolving={isSource}
-                          displayOnly
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
+                <PlayedCardsView cards={scorePlayback.cards} breakdown={scorePlayback.breakdown} scoreEvent={currentScoreEvent} />
                 {currentScoreEvent && (
                   <output className={`deck-score-event deck-score-event-${currentScoreEvent.emphasis}`} key={currentScoreEvent.id}>
                     <span>{currentScoreEvent.type === "hand-detected" ? "COMBO LOCKED" : currentScoreEvent.label}</span>
@@ -799,8 +786,8 @@ function GameTable({
           </section>
 
           <aside className="deck-pile-dock" aria-label="뽑기 더미와 버린 카드 더미">
-            <PileInspector variant="draw" cards={run.drawPile} onOpenDetails={onOpenDeck} disabled={resolving} />
-            <PileInspector variant="discard" cards={run.discardPile} onOpenDetails={onOpenDeck} disabled={resolving} />
+            <PileInspector variant="draw" cards={run.drawPile} totalCards={run.drawPile.length + run.discardPile.length + run.hand.length} onOpenDetails={onOpenDeck} disabled={resolving} />
+            <PileInspector variant="discard" cards={run.discardPile} totalCards={run.drawPile.length + run.discardPile.length + run.hand.length} onOpenDetails={onOpenDeck} disabled={resolving} />
           </aside>
 
           {selectedUnoId && !resolving && <section className="table-uno-popover deck-color-link" aria-label="특수 카드 호출 색 선택"><div><b>COLOR LINK</b><small>득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
@@ -818,26 +805,31 @@ function GameTable({
               </section>
               <div className="table-hand-tools">
                 <button id="recommend-hand-button" type="button" disabled={resolving} onClick={onRecommend}><kbd>A</kbd><span>추천</span></button>
-                <button type="button" disabled={resolving} onClick={() => onSort(nextSort)} title={`다음 정렬: ${CARD_SORT_LABEL[nextSort]}`}><kbd>S</kbd><span>{CARD_SORT_LABEL[cardSort]}</span></button>
                 <button type="button" disabled={resolving || selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
                 <output>{selectedIds.length}/5</output>
               </div>
             </div>
-            <div className="hand-zone mobile-table-hand">{displayHand.map((card, index) => {
-              const selected = selectedIds.includes(card.id);
-              return <ColorCard key={card.id} card={{ ...card, value: card.rank }} selected={selected} selectionOrder={selected ? selectedIds.indexOf(card.id) + 1 : undefined} shortcut={index + 1} chipValue={rankChipValue(card.rank)} scoring={selected && preview ? scoringIds.has(card.id) : undefined} disabled={resolving || (!selected && selectedIds.length >= 5)} onClick={() => onToggleCard(card.id)} />;
-            })}</div>
+            <HandView cards={displayHand} selectedIds={selectedIds} scoringIds={scoringIds} resolving={resolving} onToggleCard={onToggleCard} />
             <div className="table-action-dock">
-              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
-              <div className="table-action-state">{selectedUnoId ? <><b>MAYHEM</b><span>{calledColor.toUpperCase()}</span></> : <><b>{shown?.handName ?? "HAND"}</b><span>{preview ? preview.total.toLocaleString() : "—"}</span></>}</div>
-              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "계산 중" : "핸드 제출"}</span></button>
+              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "SCORING" : "PLAY HAND"}</span></button>
+              <SortControl value={cardSort} disabled={resolving} onChange={onSort} />
+              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>DISCARD</span></button>
             </div>
           </section>
         </section>
-
-        <ModifierRail run={run} breakdown={scorePlayback?.breakdown ?? preview ?? lastBreakdown} className="deck-modifier-rail" />
       </div>
     </main>
+  );
+}
+
+function SortControl({ value, disabled, onChange }: { value: CardSort; disabled: boolean; onChange: (sort: CardSort) => void }) {
+  return (
+    <div className="deck-sort-control" role="group" aria-label="손패 정렬">
+      <span>SORT</span>
+      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>RANK</button>
+      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>SUIT</button>
+      <button type="button" disabled={disabled || value === "dealt"} className="sort-reset" aria-label="받은 순서로 되돌리기" onClick={() => onChange("dealt")}>↺</button>
+    </div>
   );
 }
 

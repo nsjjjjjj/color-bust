@@ -45,6 +45,10 @@ export interface ScoreEvent {
   readonly emphasis: ScoreEventEmphasis;
   /** The score that should be visible after this event has finished. */
   readonly currentTotal: number;
+  /** Presentation snapshot after this event; consumers never recalculate rules. */
+  readonly currentChips: number;
+  readonly currentMultiplier: number;
+  readonly currentXMultiplier: number;
   /** Present on the final event for consumers that store a completed result. */
   readonly total?: number;
 }
@@ -129,15 +133,26 @@ export function buildScoreEvents(
   const events: ScoreEvent[] = [];
   let sequence = 0;
   let visibleTotal = 0;
+  const running: RunningScore = {
+    chips: 0,
+    multiplier: 0,
+    xMultiplier: 1,
+  };
 
   const push = (
-    event: Omit<ScoreEvent, "id"> & { readonly idHint: string },
+    event: Omit<
+      ScoreEvent,
+      "id" | "currentChips" | "currentMultiplier" | "currentXMultiplier"
+    > & { readonly idHint: string },
   ): void => {
     const { idHint, ...scoreEvent } = event;
     sequence += 1;
     events.push({
       id: `score-${String(sequence).padStart(2, "0")}-${idHint}`,
       ...scoreEvent,
+      currentChips: running.chips,
+      currentMultiplier: running.multiplier,
+      currentXMultiplier: running.xMultiplier,
     });
     visibleTotal = scoreEvent.currentTotal;
   };
@@ -152,11 +167,8 @@ export function buildScoreEvents(
     currentTotal: 0,
   });
 
-  const running: RunningScore = {
-    chips: breakdown.baseChips,
-    multiplier: breakdown.baseMultiplier,
-    xMultiplier: 1,
-  };
+  running.chips = breakdown.baseChips;
+  running.multiplier = breakdown.baseMultiplier;
 
   push({
     idHint: "base",
