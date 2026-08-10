@@ -15,8 +15,8 @@ const closeTo = (actual: number, expected: number, tolerance = 0.000_001) => {
 test("centers a single upright card", () => {
   const layout = handLayoutManager.calculate({ cardCount: 1, availableWidth: 1000 });
   assert.equal(layout.cards.length, 1);
-  assert.equal(layout.cardWidth, 105);
-  closeTo(layout.cards[0].x, (1000 - 105) / 2);
+  assert.equal(layout.cardWidth, 132);
+  closeTo(layout.cards[0].x, (1000 - 132) / 2);
   assert.equal(layout.cards[0].rotation, 0);
   assert.equal(layout.cards[0].normalizedPosition, 0);
 
@@ -25,15 +25,31 @@ test("centers a single upright card", () => {
   assert.equal(narrow.cards[0].x, 0);
 });
 
-test("uses roomy, regular, and compact gaps before compression", () => {
+test("uses gaps for small groups and deliberate overlap for a full hand", () => {
   const manager = new HandLayoutManager({ responsiveCardWidthRatio: 1 });
   const five = manager.calculate({ cardCount: 5, availableWidth: 2000 });
   const six = manager.calculate({ cardCount: 6, availableWidth: 2000 });
+  const eight = manager.calculate({ cardCount: 8, availableWidth: 2000 });
   const nine = manager.calculate({ cardCount: 9, availableWidth: 2000 });
+  const ten = manager.calculate({ cardCount: 10, availableWidth: 2000 });
 
   closeTo(five.step - five.cardWidth, 16);
   closeTo(six.step - six.cardWidth, 8);
-  closeTo(nine.step - nine.cardWidth, 4);
+  closeTo(eight.step / eight.cardWidth, 0.92);
+  closeTo(nine.step / nine.cardWidth, 0.86);
+  closeTo(ten.step / ten.cardWidth, 0.8);
+});
+
+test("keeps cards readable by increasing overlap before shrinking", () => {
+  const layout = handLayoutManager.calculate({ cardCount: 10, availableWidth: 320 });
+  const phoneLandscape = handLayoutManager.calculate({ cardCount: 10, availableWidth: 334 });
+
+  assert.equal(layout.cardWidth, 64);
+  assert.ok(layout.overlap > layout.cardWidth / 2);
+  closeTo(layout.span, 320);
+  assert.equal(phoneLandscape.cardWidth, 64);
+  assert.ok(phoneLandscape.step >= 30);
+  closeTo(phoneLandscape.span, 334);
 });
 
 test("keeps ten cards inside the measured hand width", () => {

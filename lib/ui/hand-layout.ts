@@ -86,16 +86,16 @@ export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.fre
   maximumCards: 10,
   // Existing cards use width / height ~= .69.
   cardAspectRatio: 0.69,
-  minimumCardWidth: 56,
-  // 124px is roughly 11% larger than the previous 112px desktop maximum.
-  maximumHandCardWidth: 124,
+  // Keep the card readable first. Dense hands should overlap before shrinking.
+  minimumCardWidth: 64,
+  maximumHandCardWidth: 132,
   maximumPlayedCardWidth: 136,
-  responsiveCardWidthRatio: 0.105,
+  responsiveCardWidthRatio: 0.135,
   roomyGap: 16,
   regularGap: 8,
   compactGap: 4,
-  maximumOverlapRatio: 0.38,
-  maximumFanRotation: 4.5,
+  maximumOverlapRatio: 0.58,
+  maximumFanRotation: 3.5,
   playedFanRotation: 1.5,
   maximumFanDrop: 10,
   hoverLift: -20,
@@ -123,6 +123,21 @@ function preferredGap(cardCount: number, tuning: HandLayoutTuning): number {
   if (cardCount <= 5) return tuning.roomyGap;
   if (cardCount <= 8) return tuning.regularGap;
   return tuning.compactGap;
+}
+
+function preferredStep(
+  cardCount: number,
+  cardWidth: number,
+  gap: number,
+  variant: HandLayoutVariant,
+): number {
+  if (variant !== "hand") return cardWidth + gap;
+  // The starting eight-card hand should read as one fan, not eight tiny tiles.
+  // Extra cards overlap a little more while every card keeps a selectable edge.
+  if (cardCount === 8) return cardWidth * 0.92;
+  if (cardCount === 9) return cardWidth * 0.86;
+  if (cardCount >= 10) return cardWidth * 0.8;
+  return cardWidth + gap;
 }
 
 function normalizedPosition(index: number, cardCount: number): number {
@@ -200,10 +215,12 @@ export class HandLayoutManager {
     if (cardCount === 1 && cardWidth > availableWidth) {
       cardWidth = availableWidth;
     }
-    const naturalSpan = cardWidth * cardCount + gap * Math.max(0, cardCount - 1);
     const minimumStepRatio = 1 - this.tuning.maximumOverlapRatio;
-    let step = cardCount === 1 ? 0 : cardWidth + gap;
-    const isCompressed = naturalSpan > availableWidth;
+    let step = cardCount === 1
+      ? 0
+      : preferredStep(cardCount, cardWidth, gap, variant);
+    const preferredSpan = cardWidth + step * Math.max(0, cardCount - 1);
+    const isCompressed = preferredSpan > availableWidth;
 
     if (isCompressed && cardCount > 1) {
       step = (availableWidth - cardWidth) / (cardCount - 1);
