@@ -21,9 +21,7 @@ import {
   UNO_SLOT_LIMIT,
   UNO_MODULE_CATALOG,
 } from "../lib/game/constants";
-import { recommendBestHand } from "../lib/game/advisor";
-import { calculateHandScore } from "../lib/game/scoring";
-import { buildScoreEvents, type ScoreEvent, type ScoreEventType } from "../lib/game/score-events";
+import { buildScoreEvents, type ScoreEvent } from "../lib/game/score-events";
 import { validateCommunityUnoCard } from "../lib/game/uno";
 import type {
   CardColor,
@@ -59,11 +57,11 @@ import { Modal } from "./components/modal";
 import { ModifierRail } from "./components/modifier-rail";
 import { PileInspector } from "./components/pile-inspector";
 import { GuestbookView, LeaderboardView } from "./components/social-views";
-import { useGameAudio, type AudioScene } from "./use-game-audio";
+import { audioSceneForBossAnte, useGameAudio, type AudioScene } from "./use-game-audio";
 
 type View = "lobby" | "game" | "community" | "leaderboard" | "guestbook";
 type UtilityModal = "hands" | "deck" | "shortcuts" | null;
-type CardSort = "dealt" | "rank" | "color";
+type CardSort = "rank" | "color";
 type InitialUser = Pick<UserProfile, "displayName" | "email"> & { userId?: string };
 type SyncConflict = {
   local: RunState;
@@ -76,28 +74,32 @@ type ScorePlayback = {
   readonly breakdown: ScoreBreakdown;
   readonly cards: readonly GameCard[];
   readonly handBefore: readonly GameCard[];
+  readonly drawPileBefore: readonly GameCard[];
+  readonly discardPileBefore: readonly GameCard[];
   readonly events: readonly ScoreEvent[];
   readonly roundScoreBefore: number;
   readonly eventIndex: number;
-  readonly phase: "scoring" | "discarding";
+  readonly phase: "moving" | "scoring" | "discarding";
+};
+type DiscardPlayback = {
+  readonly key: number;
+  readonly sourceRunId: string;
+  readonly sourceActionCount: number;
+  readonly cardIds: readonly string[];
+  readonly discardedCount: number;
+  readonly nextState: RunState;
 };
 
 const COLOR_ORDER: Record<CardColor, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
-const CARD_SORTS: readonly CardSort[] = ["dealt", "rank", "color"];
-const SCORE_SOUND_EVENTS = new Set<ScoreEventType>([
-  "card-score",
-  "joker-effect",
-  "uno-effect",
-  "uno-result",
-]);
+const CARD_SORTS: readonly CardSort[] = ["rank", "color"];
 const BASE_HAND_LEVELS = Object.fromEntries(
   Object.keys(HAND_RULES).map((handType) => [handType, 1]),
 ) as RunState["handLevels"];
 
 const ROUND_LABEL: Record<RunState["round"], string> = {
-  small: "SMALL BLIND",
-  big: "BIG BLIND",
-  boss: "BOSS BLIND",
+  small: "스몰 블라인드",
+  big: "빅 블라인드",
+  boss: "보스 블라인드",
 };
 
 function isRunState(value: unknown): value is RunState {
@@ -133,7 +135,6 @@ function runStatus(run: RunState): "active" | "won" | "lost" {
 }
 
 function sortHand(hand: readonly GameCard[], sort: CardSort): GameCard[] {
-  if (sort === "dealt") return [...hand];
   return [...hand].sort((left, right) => {
     if (sort === "rank") {
       return left.rank - right.rank || COLOR_ORDER[left.color] - COLOR_ORDER[right.color];
@@ -153,23 +154,56 @@ function formatScoreEventValue(event: ScoreEvent | null): string {
   if (!event) return "";
   if (event.type === "final-score") return event.currentTotal.toLocaleString();
   if (event.multiplierMode === "base") {
-    return `${event.value?.toLocaleString() ?? 0} CHIPS × ${event.multiplier ?? 0} MULT`;
+    return `${event.value?.toLocaleString() ?? 0}칩 × ${event.multiplier ?? 0}배수`;
   }
 
   const parts: string[] = [];
   if (event.value !== undefined) {
-    const unit = event.operation === "set-score" ? "SCORE" : "CHIPS";
+    const unit = event.operation === "set-score" ? "점" : "칩";
     parts.push(`${event.value >= 0 ? "+" : ""}${event.value.toLocaleString()} ${unit}`);
   }
   if (event.multiplierMode === "additive" && event.multiplier !== undefined) {
-    parts.push(`${event.multiplier >= 0 ? "+" : ""}${event.multiplier} MULT`);
+    parts.push(`${event.multiplier >= 0 ? "+" : ""}${event.multiplier}배수`);
   } else if (event.multiplierMode === "multiplicative" && event.multiplier !== undefined) {
     parts.push(`×${event.multiplier.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`);
   }
   if (event.reward !== undefined) {
     parts.push(`${event.reward >= 0 ? "+" : ""}${event.reward}¢`);
   }
-  return parts.join(" · ") || "CHECK";
+  return parts.join(" · ") || "확인";
+}
+
+function scoreCountUpDuration(event: ScoreEvent, scoreDelta: number): number {
+  const magnitude = Math.abs(scoreDelta);
+  const byMagnitude = magnitude <= 75
+    ? 100
+    : magnitude <= 350
+      ? 160
+      : magnitude <= 1_500
+        ? 240
+        : magnitude <= 6_000
+          ? 320
+          : 400;
+  if (event.emphasis === "final") return Math.max(280, byMagnitude);
+  if (event.emphasis === "strong") return Math.max(240, byMagnitude);
+  return byMagnitude;
+}
+
+function scoreEventPlaybackDelay(
+  event: ScoreEvent | undefined,
+  previousTotal: number,
+  reducedMotion: boolean,
+): number {
+  if (reducedMotion) return 70;
+  if (!event) return 220;
+  const hold = event.emphasis === "final"
+    ? 520
+    : event.emphasis === "strong"
+      ? 390
+      : event.emphasis === "subtle"
+        ? 150
+        : 240;
+  return Math.max(hold, scoreCountUpDuration(event, event.currentTotal - previousTotal) + 50);
 }
 
 export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
@@ -183,50 +217,105 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [online, setOnline] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [utilityModal, setUtilityModal] = useState<UtilityModal>(null);
-  const [cardSort, setCardSort] = useState<CardSort>("dealt");
+  const [cardSort, setCardSort] = useState<CardSort>("rank");
   const [highContrast, setHighContrast] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [pendingSellId, setPendingSellId] = useState<string | null>(null);
   const [pendingStartMode, setPendingStartMode] = useState<"standard" | "endless" | null>(null);
   const [syncConflict, setSyncConflict] = useState<SyncConflict | null>(null);
   const [scorePlayback, setScorePlayback] = useState<ScorePlayback | null>(null);
+  const [discardPlayback, setDiscardPlayback] = useState<DiscardPlayback | null>(null);
+  const [displayRoundScore, setDisplayRoundScore] = useState(0);
   const [notice, setNotice] = useState("");
   const [loadingSave, setLoadingSave] = useState(true);
   const cloudRevision = useRef<Record<"standard" | "endless", number>>({ standard: 0, endless: 0 });
   const latestRunRef = useRef<RunState | null>(null);
-  const drawSoundTimerRef = useRef<number | null>(null);
+  const lastScoreSoundEventRef = useRef<string | null>(null);
+  const scoreCountUpFrameRef = useRef<number | null>(null);
+  const displayRoundScoreRef = useRef(0);
+
+  const replaceRun = useCallback((state: RunState) => {
+    setRun(state);
+    setSelectedIds([]);
+    setSelectedUnoId(null);
+    setLastBreakdown(null);
+    setScorePlayback(null);
+    setDiscardPlayback(null);
+    displayRoundScoreRef.current = state.score;
+    setDisplayRoundScore(state.score);
+  }, []);
 
   const audioScene: AudioScene = view !== "game" || !run
     ? "menu"
     : scorePlayback
-      ? run.round === "boss" ? "boss" : "run"
+      ? run.round === "boss" ? audioSceneForBossAnte(run.ante) : "run"
       : run.phase === "shop"
         ? "shop"
         : run.phase === "won" || run.phase === "lost"
           ? "silent"
-          : run.round === "boss" ? "boss" : "run";
+          : run.round === "boss" ? audioSceneForBossAnte(run.ante) : "run";
   const audio = useGameAudio(audioScene);
   const playEffect = audio.playEffect;
+  const playScoreTick = audio.playScoreTick;
   const signedIn = Boolean(initialUser);
   const currentScoreSoundEvent = scorePlayback?.phase === "scoring"
     ? scorePlayback.events[scorePlayback.eventIndex]
     : null;
+  const scoreAnimationTarget = scorePlayback
+    ? scorePlayback.roundScoreBefore + (
+      scorePlayback.phase === "moving"
+        ? 0
+        : scorePlayback.phase === "discarding"
+          ? scorePlayback.breakdown.total
+          : currentScoreSoundEvent?.currentTotal ?? 0
+    )
+    : run?.score ?? 0;
+  const scoreAnimationActive = scorePlayback?.phase === "scoring" && Boolean(currentScoreSoundEvent);
 
-  const scheduleDrawSound = useCallback((delay = 180) => {
-    if (drawSoundTimerRef.current !== null) {
-      window.clearTimeout(drawSoundTimerRef.current);
+  useEffect(() => {
+    if (scoreCountUpFrameRef.current !== null) {
+      window.cancelAnimationFrame(scoreCountUpFrameRef.current);
+      scoreCountUpFrameRef.current = null;
     }
-    drawSoundTimerRef.current = window.setTimeout(() => {
-      drawSoundTimerRef.current = null;
-      playEffect("card-draw");
-    }, delay);
-  }, [playEffect]);
 
-  useEffect(() => () => {
-    if (drawSoundTimerRef.current !== null) {
-      window.clearTimeout(drawSoundTimerRef.current);
+    const startScore = displayRoundScoreRef.current;
+    if (!scoreAnimationActive || reducedMotion || startScore === scoreAnimationTarget) {
+      displayRoundScoreRef.current = scoreAnimationTarget;
+      setDisplayRoundScore(scoreAnimationTarget);
+      return;
     }
-  }, []);
+
+    const duration = scoreCountUpDuration(
+      currentScoreSoundEvent!,
+      scoreAnimationTarget - startScore,
+    );
+    let startedAt: number | null = null;
+    const animate = (now: number) => {
+      startedAt ??= now;
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const easedProgress = 1 - (1 - progress) ** 3;
+      const nextScore = progress === 1
+        ? scoreAnimationTarget
+        : Math.round(startScore + (scoreAnimationTarget - startScore) * easedProgress);
+      if (displayRoundScoreRef.current !== nextScore) {
+        displayRoundScoreRef.current = nextScore;
+        setDisplayRoundScore(nextScore);
+      }
+      if (progress < 1) {
+        scoreCountUpFrameRef.current = window.requestAnimationFrame(animate);
+      } else {
+        scoreCountUpFrameRef.current = null;
+      }
+    };
+    scoreCountUpFrameRef.current = window.requestAnimationFrame(animate);
+
+    return () => {
+      if (scoreCountUpFrameRef.current !== null) {
+        window.cancelAnimationFrame(scoreCountUpFrameRef.current);
+        scoreCountUpFrameRef.current = null;
+      }
+    };
+  }, [currentScoreSoundEvent, reducedMotion, scoreAnimationActive, scoreAnimationTarget]);
 
   useEffect(() => {
     latestRunRef.current = run;
@@ -238,17 +327,17 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       const [localRuns, savedUno, savedSort, savedContrast, savedMotion] = await Promise.all([
         listLocalRuns<RunState>().catch(() => []),
         getLocalSetting<CommunityUnoCard | undefined>("equippedCommunityUno", undefined).catch(() => undefined),
-        getLocalSetting<CardSort>("handSort", "dealt").catch(() => "dealt" as const),
+        getLocalSetting<CardSort>("handSort", "rank").catch(() => "rank" as const),
         getLocalSetting<boolean>("highContrast", false).catch(() => false),
         getLocalSetting<boolean>("reducedMotion", false).catch(() => false),
       ]);
       if (cancelled) return;
       setEquippedUno(savedUno);
-      setCardSort(CARD_SORTS.includes(savedSort) ? savedSort : "dealt");
+      setCardSort(CARD_SORTS.includes(savedSort) ? savedSort : "rank");
       setHighContrast(savedContrast);
       setReducedMotion(savedMotion);
       const local = localRuns.find((record) => isRunState(record.data) && record.data.phase !== "won" && record.data.phase !== "lost");
-      if (local) setRun(local.data);
+      if (local) replaceRun(local.data);
 
       if (signedIn && navigator.onLine) {
         const remoteRuns = await Promise.all(["standard", "endless"].map(async (mode) => {
@@ -265,7 +354,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         const latestRemote = remoteRuns.filter(Boolean).sort((a, b) => Date.parse(b!.updatedAt) - Date.parse(a!.updatedAt))[0];
         const localUpdated = local?.updatedAt ?? 0;
         if (latestRemote && Date.parse(latestRemote.updatedAt) > localUpdated && isRunState(latestRemote.snapshot)) {
-          setRun(latestRemote.snapshot);
+          replaceRun(latestRemote.snapshot);
           setNotice("다른 기기의 최신 진행을 불러왔습니다.");
         }
       }
@@ -273,7 +362,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
     restore();
     return () => { cancelled = true; };
-  }, [signedIn]);
+  }, [replaceRun, signedIn]);
 
   const syncCloudRun = useCallback(async (state: RunState): Promise<number> => {
     if (!signedIn || !navigator.onLine) return cloudRevision.current[state.mode];
@@ -333,10 +422,27 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
 
   useEffect(() => {
     if (!scorePlayback) return;
+    if (scorePlayback.phase === "moving") {
+      const movementTimer = window.setTimeout(
+        () => {
+          setScorePlayback((current) => {
+            if (!current || current.key !== scorePlayback.key || current.phase !== "moving") {
+              return current;
+            }
+            return { ...current, phase: "scoring" };
+          });
+        },
+        reducedMotion ? 60 : 260,
+      );
+      return () => window.clearTimeout(movementTimer);
+    }
     if (scorePlayback.phase === "discarding") {
       const discardTimer = window.setTimeout(
         () => {
           if (run?.phase === "playing") playEffect("card-draw");
+          setNotice(scorePlayback.breakdown.roundReward > 0
+            ? `라운드 클리어 · ${scorePlayback.breakdown.roundReward}코인 획득`
+            : `${scorePlayback.breakdown.handName} ${scorePlayback.breakdown.total.toLocaleString()}점`);
           setScorePlayback(null);
         },
         reducedMotion ? 80 : 430,
@@ -345,15 +451,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
 
     const event = scorePlayback.events[scorePlayback.eventIndex];
-    const delay = reducedMotion
-      ? 70
-      : event?.emphasis === "final"
-        ? 520
-        : event?.emphasis === "strong"
-          ? 390
-          : event?.emphasis === "subtle"
-            ? 150
-            : 240;
+    const previousTotal = scorePlayback.eventIndex > 0
+      ? scorePlayback.events[scorePlayback.eventIndex - 1]?.currentTotal ?? 0
+      : 0;
+    const delay = scoreEventPlaybackDelay(event, previousTotal, reducedMotion);
     const timer = window.setTimeout(() => {
       setScorePlayback((current) => {
         if (!current || current.key !== scorePlayback.key) return current;
@@ -367,24 +468,41 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   }, [playEffect, reducedMotion, run?.phase, scorePlayback]);
 
   useEffect(() => {
-    if (currentScoreSoundEvent && SCORE_SOUND_EVENTS.has(currentScoreSoundEvent.type)) {
-      playEffect("score");
-    }
-  }, [currentScoreSoundEvent, playEffect]);
+    if (!discardPlayback) return;
+    const timer = window.setTimeout(() => {
+      const activeRun = latestRunRef.current;
+      if (!activeRun
+        || activeRun.runId !== discardPlayback.sourceRunId
+        || activeRun.actionLog.length !== discardPlayback.sourceActionCount) {
+        setDiscardPlayback(null);
+        return;
+      }
+      setRun(discardPlayback.nextState);
+      setSelectedIds([]);
+      setNotice(`${discardPlayback.discardedCount}장 버림 · 이번 라운드에는 다시 나오지 않습니다.`);
+      setDiscardPlayback(null);
+      playEffect("card-draw");
+    }, reducedMotion ? 70 : 240);
+    return () => window.clearTimeout(timer);
+  }, [discardPlayback, playEffect, reducedMotion]);
 
-  const preview = useMemo(() => {
-    if (!run || run.phase !== "playing" || selectedIds.length === 0) return null;
-    try {
-      const cards = selectedIds.map((id) => run.hand.find((card) => card.id === id)).filter(Boolean) as RunState["hand"];
-      return calculateHandScore(
-        run,
-        cards,
-        selectedUnoId ? { unoCardId: selectedUnoId, calledColor } : {},
-      ).breakdown;
-    } catch {
-      return null;
+  useEffect(() => {
+    if (!scorePlayback || !currentScoreSoundEvent) {
+      lastScoreSoundEventRef.current = null;
+      return;
     }
-  }, [run, selectedIds, selectedUnoId, calledColor]);
+    const soundEventKey = `${scorePlayback.key}:${currentScoreSoundEvent.id}`;
+    if (lastScoreSoundEventRef.current === soundEventKey) return;
+    lastScoreSoundEventRef.current = soundEventKey;
+
+    if (currentScoreSoundEvent.type !== "card-score") return;
+    const cardScoreEvents = scorePlayback.events.filter((event) => event.type === "card-score");
+    const cardStep = cardScoreEvents.findIndex((event) => event.id === currentScoreSoundEvent.id);
+    if (cardStep < 0) return;
+    playScoreTick(cardStep, {
+      gain: cardStep === cardScoreEvents.length - 1 ? 1.18 : 1,
+    });
+  }, [currentScoreSoundEvent, playScoreTick, scorePlayback]);
 
   function updateRun(action: () => RunState): boolean {
     try {
@@ -417,20 +535,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setLocalSetting("handSort", nextSort).catch(() => undefined);
   }
 
-  function handleRecommend() {
-    if (!run || run.phase !== "playing") return;
-    try {
-      const recommendation = recommendBestHand(
-        run,
-        selectedUnoId ? { unoCardId: selectedUnoId, calledColor } : {},
-      );
-      setSelectedIds([...recommendation.cardIds]);
-      setNotice(`추천: ${recommendation.breakdown.handName} · ${recommendation.breakdown.total.toLocaleString()}점`);
-      audio.playEffect("card-select");
-    } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "추천 패를 계산할 수 없습니다.");
-    }
-  }
 
   function startRun(mode: "standard" | "endless") {
     const chosen = equippedUno ? serverCardToEngine(equippedUno) : null;
@@ -449,6 +553,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setSelectedIds([]);
     setLastBreakdown(null);
     setScorePlayback(null);
+    setDiscardPlayback(null);
     setSelectedUnoId(null);
     setView("game");
     audio.playEffect("deck-setup");
@@ -464,7 +569,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   }
 
   function handlePlay() {
-    if (!run || selectedIds.length === 0 || scorePlayback) return;
+    if (!run || selectedIds.length === 0 || scorePlayback || discardPlayback) return;
     try {
       const playedCards = selectedIds
         .map((id) => run.hand.find((card) => card.id === id))
@@ -478,33 +583,41 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         breakdown: result.breakdown,
         cards: playedCards,
         handBefore: run.hand,
+        drawPileBefore: run.drawPile,
+        discardPileBefore: run.discardPile,
         events: scoreEvents,
         roundScoreBefore: run.score,
         eventIndex: 0,
-        phase: "scoring",
+        phase: "moving",
       });
       setSelectedIds([]);
       audio.playEffect("card-play");
       setSelectedUnoId(null);
-      setNotice(result.roundCleared ? `라운드 클리어 · ${result.breakdown.roundReward}코인 획득` : `${result.breakdown.handName} ${result.breakdown.total.toLocaleString()}점`);
+      setNotice("카드를 제출했습니다. 점수를 계산합니다.");
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "핸드를 제출할 수 없습니다.");
     }
   }
 
   function handleDiscard() {
-    if (!run || selectedIds.length === 0 || scorePlayback) return;
+    if (!run || selectedIds.length === 0 || scorePlayback || discardPlayback) return;
     const discardedCount = selectedIds.length;
     try {
-      setRun(discardCards(run, selectedIds));
-      setNotice(`${discardedCount}장 버림 · 이번 라운드에는 다시 나오지 않습니다.`);
+      const nextState = discardCards(run, selectedIds);
+      setDiscardPlayback({
+        key: Date.now(),
+        sourceRunId: run.runId,
+        sourceActionCount: run.actionLog.length,
+        cardIds: [...selectedIds],
+        discardedCount,
+        nextState,
+      });
+      setNotice("선택한 카드를 버리는 중입니다.");
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "카드를 버릴 수 없습니다.");
       return;
     }
-    setSelectedIds([]);
-    audio.playEffect("card-play");
-    scheduleDrawSound();
+    audio.playEffect("card-play", { playbackRate: 1.12, gain: 0.86 });
   }
 
   useEffect(() => {
@@ -515,7 +628,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         setUtilityModal("shortcuts");
         return;
       }
-      if (view !== "game" || !run || run.phase !== "playing" || scorePlayback) return;
+      if (view !== "game" || !run || run.phase !== "playing" || scorePlayback || discardPlayback) return;
       const displayHand = sortHand(run.hand, cardSort);
       if (/^[0-9]$/.test(event.key)) {
         const shortcutIndex = event.key === "0" ? 9 : Number(event.key) - 1;
@@ -534,9 +647,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       } else if (key === "d") {
         event.preventDefault();
         document.getElementById("discard-button")?.click();
-      } else if (key === "a") {
-        event.preventDefault();
-        document.getElementById("recommend-hand-button")?.click();
       } else if (key === "s") {
         event.preventDefault();
         const next = CARD_SORTS[(CARD_SORTS.indexOf(cardSort) + 1) % CARD_SORTS.length];
@@ -556,7 +666,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [cardSort, pendingSellId, pendingStartMode, run, scorePlayback, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
+  }, [cardSort, discardPlayback, pendingSellId, pendingStartMode, run, scorePlayback, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
 
   async function submitRank() {
     if (!run || !signedIn || !navigator.onLine) {
@@ -607,10 +717,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           {navItems.map((item) => <button type="button" key={item.id} className={`nav-button${view === item.id ? " active" : ""}`} onClick={() => item.id !== "game" || run ? setView(item.id) : requestStartRun("standard")}>{item.label}</button>)}
         </nav>
         <div className="top-actions">
-          <span className={`online-pill${online ? "" : " offline"}`}><i />{online ? "ONLINE" : "OFFLINE"}</span>
+          <span className={`online-pill${online ? "" : " offline"}`}><i />{online ? "온라인" : "오프라인"}</span>
           <button type="button" className="icon-button" aria-label={audio.musicEnabled ? "음악 끄기" : "음악 켜기"} onClick={audio.toggleMusic}>{audio.musicEnabled ? "♪" : "♩"}</button>
           <button type="button" className="icon-button" aria-label="키보드 단축키" onClick={() => setUtilityModal("shortcuts")}>?</button>
-          <button type="button" className="icon-button profile-button" onClick={() => setSettingsOpen(true)}><i>{initialUser?.displayName.slice(0, 1) ?? "G"}</i><span>{initialUser?.displayName ?? "GUEST"}</span></button>
+          <button type="button" className="icon-button profile-button" onClick={() => setSettingsOpen(true)}><i>{initialUser?.displayName.slice(0, 1) ?? "게"}</i><span>{initialUser?.displayName ?? "게스트"}</span></button>
         </div>
       </header>
 
@@ -625,16 +735,16 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           selectedIds={selectedIds}
           selectedUnoId={selectedUnoId}
           calledColor={calledColor}
-          preview={preview}
           lastBreakdown={lastBreakdown}
           scorePlayback={scorePlayback}
+          discardPlayback={discardPlayback}
+          displayRoundScore={displayRoundScore}
           notice={notice}
           cardSort={cardSort}
           onToggleCard={handleToggleCard}
           onSelectUno={setSelectedUnoId}
           onCallColor={setCalledColor}
           onSort={changeSort}
-          onRecommend={handleRecommend}
           onClear={() => setSelectedIds([])}
           onOpenGuide={() => setUtilityModal("hands")}
           onOpenDeck={() => setUtilityModal("deck")}
@@ -643,7 +753,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onOpenSettings={() => setSettingsOpen(true)}
           onPlay={handlePlay}
           onDiscard={handleDiscard}
-          onHotSwap={(color) => updateRun(() => setHotSwapColor(run, color))}
+          onHotSwap={(color) => {
+            if (scorePlayback || discardPlayback) return;
+            updateRun(() => setHotSwapColor(run, color));
+          }}
         />
       )}
       {view === "game" && run?.phase === "shop" && !scorePlayback && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { if (updateRun(() => nextRound(run))) audio.playEffect("card-draw"); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
@@ -663,8 +776,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         const refund = Math.max(1, Math.floor(definition.price / 2));
         return <Modal title="조커 판매" onClose={() => setPendingSellId(null)}><div className="confirm-body"><div className="confirm-joker"><span>{definition.name.slice(0, 1)}</span><div><b>{definition.name}</b><small>{definition.description}</small></div></div><p>이 조커를 판매하고 <strong>{refund}¢</strong>를 받을까요?</p><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingSellId(null)}>취소</button><button type="button" className="primary-button" onClick={() => { if (updateRun(() => sellJoker(run, pendingSellId))) audio.playEffect("buy"); setPendingSellId(null); }}>판매 +{refund}¢</button></div></div></Modal>;
       })()}
-      {pendingStartMode && run && <Modal title="새 런 시작" onClose={() => setPendingStartMode(null)}><div className="confirm-body"><p>진행 중인 <strong>{run.mode === "standard" ? "5 앤티" : "무한"} 런</strong> 대신 새 {pendingStartMode === "standard" ? "5 앤티" : "무한"} 런을 시작할까요?</p><div className="conflict-card"><span>현재 진행</span><b>ANTE {run.ante} · {ROUND_LABEL[run.round]}</b><small>{run.score.toLocaleString()} / {run.target.toLocaleString()}점</small></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingStartMode(null)}>현재 런 계속</button><button type="button" className="primary-button" onClick={() => { const mode = pendingStartMode; setPendingStartMode(null); startRun(mode); }}>새 런 시작</button></div></div></Modal>}
-      {syncConflict && <Modal title="진행 상황 충돌" onClose={() => setSyncConflict(null)} wide><div className="confirm-body"><p>다른 기기에서 같은 모드의 런이 업데이트되었습니다. 자동으로 덮어쓰지 않고 선택을 기다립니다.</p><div className="conflict-grid"><div className="conflict-card"><span>이 기기</span><b>ANTE {syncConflict.local.ante} · {ROUND_LABEL[syncConflict.local.round]}</b><small>{syncConflict.local.stats.totalScore.toLocaleString()} 누적점</small></div><div className="conflict-card remote"><span>클라우드 · {new Date(syncConflict.remoteUpdatedAt).toLocaleString("ko-KR")}</span><b>ANTE {syncConflict.remote.ante} · {ROUND_LABEL[syncConflict.remote.round]}</b><small>{syncConflict.remote.stats.totalScore.toLocaleString()} 누적점</small></div></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.remote.mode] = conflict.remoteRevision; setRun(conflict.remote); setSelectedIds([]); setSelectedUnoId(null); setLastBreakdown(null); setScorePlayback(null); setSyncConflict(null); setNotice("클라우드 진행을 불러왔습니다."); }}>클라우드 불러오기</button><button type="button" className="primary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.local.mode] = conflict.remoteRevision; setSyncConflict(null); syncCloudRun(conflict.local).then(() => setNotice("이 기기의 진행으로 클라우드를 갱신했습니다.")).catch((cause) => setNotice(cause instanceof Error ? cause.message : "동기화에 실패했습니다.")); }}>이 기기 진행 유지</button></div></div></Modal>}
+      {pendingStartMode && run && <Modal title="새 런 시작" onClose={() => setPendingStartMode(null)}><div className="confirm-body"><p>진행 중인 <strong>{run.mode === "standard" ? "5 앤티" : "무한"} 런</strong> 대신 새 {pendingStartMode === "standard" ? "5 앤티" : "무한"} 런을 시작할까요?</p><div className="conflict-card"><span>현재 진행</span><b>앤티 {run.ante} · {ROUND_LABEL[run.round]}</b><small>{run.score.toLocaleString()} / {run.target.toLocaleString()}점</small></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingStartMode(null)}>현재 런 계속</button><button type="button" className="primary-button" onClick={() => { const mode = pendingStartMode; setPendingStartMode(null); startRun(mode); }}>새 런 시작</button></div></div></Modal>}
+      {syncConflict && <Modal title="진행 상황 충돌" onClose={() => setSyncConflict(null)} wide><div className="confirm-body"><p>다른 기기에서 같은 모드의 런이 업데이트되었습니다. 자동으로 덮어쓰지 않고 선택을 기다립니다.</p><div className="conflict-grid"><div className="conflict-card"><span>이 기기</span><b>앤티 {syncConflict.local.ante} · {ROUND_LABEL[syncConflict.local.round]}</b><small>{syncConflict.local.stats.totalScore.toLocaleString()} 누적점</small></div><div className="conflict-card remote"><span>클라우드 · {new Date(syncConflict.remoteUpdatedAt).toLocaleString("ko-KR")}</span><b>앤티 {syncConflict.remote.ante} · {ROUND_LABEL[syncConflict.remote.round]}</b><small>{syncConflict.remote.stats.totalScore.toLocaleString()} 누적점</small></div></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.remote.mode] = conflict.remoteRevision; replaceRun(conflict.remote); setSyncConflict(null); setNotice("클라우드 진행을 불러왔습니다."); }}>클라우드 불러오기</button><button type="button" className="primary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.local.mode] = conflict.remoteRevision; setSyncConflict(null); syncCloudRun(conflict.local).then(() => setNotice("이 기기의 진행으로 클라우드를 갱신했습니다.")).catch((cause) => setNotice(cause instanceof Error ? cause.message : "동기화에 실패했습니다.")); }}>이 기기 진행 유지</button></div></div></Modal>}
     </div>
   );
 }
@@ -674,16 +787,16 @@ function GameTable({
   selectedIds,
   selectedUnoId,
   calledColor,
-  preview,
   lastBreakdown,
   scorePlayback,
+  discardPlayback,
+  displayRoundScore,
   notice,
   cardSort,
   onToggleCard,
   onSelectUno,
   onCallColor,
   onSort,
-  onRecommend,
   onClear,
   onOpenGuide,
   onOpenDeck,
@@ -698,16 +811,16 @@ function GameTable({
   selectedIds: string[];
   selectedUnoId: string | null;
   calledColor: CardColor;
-  preview: ScoreBreakdown | null;
   lastBreakdown: ScoreBreakdown | null;
   scorePlayback: ScorePlayback | null;
+  discardPlayback: DiscardPlayback | null;
+  displayRoundScore: number;
   notice: string;
   cardSort: CardSort;
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
   onCallColor: (color: CardColor) => void;
   onSort: (sort: CardSort) => void;
-  onRecommend: () => void;
   onClear: () => void;
   onOpenGuide: () => void;
   onOpenDeck: () => void;
@@ -718,55 +831,80 @@ function GameTable({
   onDiscard: () => void;
   onHotSwap: (color: CardColor) => void;
 }) {
-  const shown = scorePlayback?.breakdown ?? preview ?? lastBreakdown;
-  const currentScoreEvent = scorePlayback?.events[scorePlayback.eventIndex] ?? null;
-  const resolving = Boolean(scorePlayback);
-  const animatedRoundScore = scorePlayback
-    ? scorePlayback.roundScoreBefore + (currentScoreEvent?.currentTotal ?? 0)
-    : run.score;
+  const currentScoreEvent = scorePlayback && scorePlayback.phase !== "moving"
+    ? scorePlayback.events[scorePlayback.eventIndex] ?? null
+    : null;
+  const shown = scorePlayback
+    ? currentScoreEvent ? scorePlayback.breakdown : null
+    : lastBreakdown;
+  const resolvingScore = Boolean(scorePlayback);
+  const inputLocked = resolvingScore || Boolean(discardPlayback);
   const hotSwap = run.jokers.find((joker) => joker.jokerId === "hot-swap");
   const cardsLeftInHand = scorePlayback
     ? scorePlayback.handBefore.filter((card) => !scorePlayback.cards.some((played) => played.id === card.id))
     : run.hand;
   const displayHand = sortHand(cardsLeftInHand, cardSort);
-  const scoringIds = new Set((scorePlayback?.breakdown ?? preview)?.scoringCardIds ?? []);
+  const scorePhase = scorePlayback?.phase ?? (discardPlayback ? "direct-discard" : "idle");
+  const displayedDrawPile = scorePlayback?.drawPileBefore ?? run.drawPile;
+  const displayedDiscardPile = scorePlayback?.discardPileBefore ?? run.discardPile;
+  const referenceHand = scorePlayback?.handBefore ?? run.hand;
+  const deckReferenceCards = useMemo(
+    () => [...displayedDrawPile, ...displayedDiscardPile, ...referenceHand],
+    [displayedDiscardPile, displayedDrawPile, referenceHand],
+  );
   return (
-    <main className={`game-view balatro-mobile-game deck-game-view${resolving ? " is-resolving-score" : ""}`}>
+    <main
+      className={`game-view balatro-mobile-game deck-game-view${resolvingScore ? " is-resolving-score" : ""}${discardPlayback ? " is-discarding-hand" : ""}`}
+      data-score-phase={scorePhase}
+      aria-busy={inputLocked}
+    >
       <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 카드 테이블을 더 넓게 볼 수 있어요.</div>
       <div className="mobile-game-shell deck-game-shell">
         <GameLeftRail
           run={run}
           breakdown={shown}
           scoreEvent={currentScoreEvent}
-          displayRoundScore={animatedRoundScore}
-          isResolving={resolving}
-          showingLastHand={!scorePlayback && !preview && Boolean(lastBreakdown)}
+          displayRoundScore={displayRoundScore}
+          isResolving={resolvingScore}
+          showingLastHand={!scorePlayback && Boolean(lastBreakdown)}
           onOpenHandGuide={onOpenGuide}
           onOpenDeckInspector={onOpenDeck}
           onOpenShortcutGuide={onOpenShortcuts}
           onOpenLobby={onOpenLobby}
           onOpenSettings={onOpenSettings}
         >
-          {hotSwap && run.handHistory.length === 0 ? <ColorPicker value={hotSwap.selectedColor ?? "red"} onChange={onHotSwap} /> : null}
+          {hotSwap && run.handHistory.length === 0 ? <ColorPicker value={hotSwap.selectedColor ?? "red"} disabled={inputLocked} onChange={onHotSwap} /> : null}
         </GameLeftRail>
 
         <section className="felt-table play-felt deck-play-table" aria-label="카드 플레이 테이블">
           <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
 
           <header className="deck-stage-header">
-            <div><span>PLAY FIELD</span><strong>DECK MAYHEM</strong></div>
+            <div><span>플레이 공간</span><strong>DECK MAYHEM</strong></div>
             <p role="status" aria-live="polite">{notice || (selectedIds.length ? `${selectedIds.length}/5 카드 선택됨` : "카드를 선택해 조합을 만드세요")}</p>
           </header>
 
-          <ModifierRail run={run} breakdown={scorePlayback?.breakdown ?? preview ?? lastBreakdown} className="deck-modifier-rail" />
+          <ModifierRail run={run} breakdown={shown} className="deck-modifier-rail" />
 
-          <section className={`deck-resolve-zone${scorePlayback ? " has-played-cards" : ""}${scorePlayback?.phase === "discarding" ? " is-discarding" : ""}`} aria-label="제출 카드와 점수 계산 영역">
+          <section
+            className={`deck-resolve-zone${scorePlayback ? " has-played-cards" : ""}${scorePlayback?.phase === "discarding" ? " is-discarding" : ""}`}
+            aria-label="제출 카드와 점수 계산 영역"
+            data-score-phase={scorePhase}
+            data-score-event={currentScoreEvent?.type}
+          >
             {scorePlayback ? (
               <>
-                <PlayedCardsView cards={scorePlayback.cards} breakdown={scorePlayback.breakdown} scoreEvent={currentScoreEvent} />
+                <PlayedCardsView
+                  cards={scorePlayback.cards}
+                  breakdown={scorePlayback.breakdown}
+                  scoreEvents={scorePlayback.events}
+                  scoreEvent={currentScoreEvent}
+                  scoreEventIndex={scorePlayback.eventIndex}
+                  playbackPhase={scorePlayback.phase}
+                />
                 {currentScoreEvent && (
                   <output className={`deck-score-event deck-score-event-${currentScoreEvent.emphasis}`} key={currentScoreEvent.id}>
-                    <span>{currentScoreEvent.type === "hand-detected" ? "COMBO LOCKED" : currentScoreEvent.label}</span>
+                    <span>{currentScoreEvent.type === "hand-detected" ? "족보 확정" : currentScoreEvent.label}</span>
                     <strong>{formatScoreEventValue(currentScoreEvent)}</strong>
                     <small>{currentScoreEvent.description}</small>
                     <i>{currentScoreEvent.currentTotal.toLocaleString()}</i>
@@ -779,41 +917,40 @@ function GameTable({
             ) : (
               <div className="deck-resolve-idle">
                 <span aria-hidden="true">◇</span>
-                <strong>PLAY AREA</strong>
+                <strong>제출 영역</strong>
                 <small>제출한 카드는 계산이 끝날 때까지 이곳에 남습니다.</small>
               </div>
             )}
           </section>
 
           <aside className="deck-pile-dock" aria-label="뽑기 더미와 버린 카드 더미">
-            <PileInspector variant="draw" cards={run.drawPile} totalCards={run.drawPile.length + run.discardPile.length + run.hand.length} onOpenDetails={onOpenDeck} disabled={resolving} />
-            <PileInspector variant="discard" cards={run.discardPile} totalCards={run.drawPile.length + run.discardPile.length + run.hand.length} onOpenDetails={onOpenDeck} disabled={resolving} />
+            <PileInspector variant="draw" cards={displayedDrawPile} referenceCards={deckReferenceCards} totalCards={deckReferenceCards.length} onOpenDetails={onOpenDeck} disabled={inputLocked} />
+            <PileInspector variant="discard" cards={displayedDiscardPile} totalCards={deckReferenceCards.length} onOpenDetails={onOpenDeck} disabled={inputLocked} />
           </aside>
 
-          {selectedUnoId && !resolving && <section className="table-uno-popover deck-color-link" aria-label="특수 카드 호출 색 선택"><div><b>COLOR LINK</b><small>득점 카드마다 +2 Chips</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
+          {selectedUnoId && !inputLocked && <section className="table-uno-popover deck-color-link" aria-label="특수 카드 호출 색 선택"><div><b>색상 연결</b><small>득점 카드마다 +2칩</small></div><ColorPicker value={calledColor} onChange={onCallColor} /></section>}
 
           <section className="table-hand-stage deck-hand-stage" aria-label="손패와 행동">
             <div className="deck-hand-meta">
               <section className={`deck-effect-quickbar${run.unoUsedThisAnte ? " is-used" : ""}`} aria-label="사용할 메이헴 카드 선택">
-                <header><span>MAYHEM CARD</span><b>{run.unoUsedThisAnte ? "USED" : "1 / ANTE"}</b></header>
+                <header><span>메이헴 카드</span><b>{run.unoUsedThisAnte ? "사용함" : "앤티당 1회"}</b></header>
                 <div>
                   {run.communityUno.length ? run.communityUno.map((card) => {
                     const modules = [...card.positiveModules, ...card.negativeModules].map((id) => UNO_MODULE_CATALOG[id].name).join(" · ");
-                    return <button type="button" key={card.id} disabled={run.unoUsedThisAnte || resolving} className={selectedUnoId === card.id ? "active" : ""} aria-label={`${card.name}, ${card.author} 제작, ${modules}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><span aria-hidden="true">M</span><b>{card.name}</b><small>{selectedUnoId === card.id ? calledColor.toUpperCase() : "READY"}</small></button>;
-                  }) : <span className="deck-effect-empty">EMPTY</span>}
+                    return <button type="button" key={card.id} disabled={run.unoUsedThisAnte || inputLocked} className={selectedUnoId === card.id ? "active" : ""} aria-label={`${card.name}, ${card.author} 제작, ${modules}`} aria-pressed={selectedUnoId === card.id} onClick={() => onSelectUno(selectedUnoId === card.id ? null : card.id)}><span aria-hidden="true">M</span><b>{card.name}</b><small>{selectedUnoId === card.id ? ({ red: "빨강", blue: "파랑", green: "초록", yellow: "노랑" } as const)[calledColor] : "준비"}</small></button>;
+                  }) : <span className="deck-effect-empty">빈 슬롯</span>}
                 </div>
               </section>
-              <div className="table-hand-tools">
-                <button id="recommend-hand-button" type="button" disabled={resolving} onClick={onRecommend}><kbd>A</kbd><span>추천</span></button>
-                <button type="button" disabled={resolving || selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
+              <div className="table-hand-tools selection-tools">
+                <button type="button" disabled={inputLocked || selectedIds.length === 0} onClick={onClear}><kbd>ESC</kbd><span>해제</span></button>
                 <output>{selectedIds.length}/5</output>
               </div>
             </div>
-            <HandView cards={displayHand} selectedIds={selectedIds} scoringIds={scoringIds} resolving={resolving} onToggleCard={onToggleCard} />
+            <HandView cards={displayHand} selectedIds={selectedIds} discardingIds={discardPlayback?.cardIds ?? []} resolving={inputLocked} onToggleCard={onToggleCard} />
             <div className="table-action-dock">
-              <button id="play-hand-button" type="button" className="table-action play-action" disabled={resolving || !selectedIds.length || !preview} onClick={onPlay}><kbd>↵</kbd><span>{resolving ? "점수 계산" : "핸드 플레이"}</span></button>
-              <SortControl value={cardSort} disabled={resolving} onChange={onSort} />
-              <button id="discard-button" type="button" className="table-action discard-action" disabled={resolving || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>버리기</span></button>
+              <button id="play-hand-button" type="button" className="table-action play-action" disabled={inputLocked || !selectedIds.length} onClick={onPlay}><kbd>↵</kbd><span>{resolvingScore ? "점수 계산" : "내기"}</span></button>
+              <SortControl value={cardSort} disabled={inputLocked} onChange={onSort} />
+              <button id="discard-button" type="button" className="table-action discard-action" disabled={inputLocked || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>{discardPlayback ? "버리는 중" : "버리기"}</span></button>
             </div>
           </section>
         </section>
@@ -824,51 +961,50 @@ function GameTable({
 
 function SortControl({ value, disabled, onChange }: { value: CardSort; disabled: boolean; onChange: (sort: CardSort) => void }) {
   return (
-    <div className="deck-sort-control" role="group" aria-label="손패 정렬">
+    <div className="deck-sort-control deck-sort-control-two-way" role="group" aria-label="손패 정렬">
       <span>핸드 정렬</span>
-      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>랭크</button>
-      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>슈트</button>
-      <button type="button" disabled={disabled || value === "dealt"} className="sort-reset" aria-label="받은 순서로 되돌리기" onClick={() => onChange("dealt")}>↺</button>
+      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>숫자</button>
+      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>색상</button>
     </div>
   );
 }
 
-function ColorPicker({ value, onChange }: { value: CardColor; onChange: (color: CardColor) => void }) {
+function ColorPicker({ value, disabled = false, onChange }: { value: CardColor; disabled?: boolean; onChange: (color: CardColor) => void }) {
   const labels: Record<CardColor, { name: string; short: string }> = {
     red: { name: "빨강", short: "R" },
     blue: { name: "파랑", short: "B" },
     green: { name: "초록", short: "G" },
     yellow: { name: "노랑", short: "Y" },
   };
-  return <div className="color-call" role="group" aria-label="호출할 색">{CARD_COLORS.map((color) => <button type="button" key={color} className={`${color}${value === color ? " active" : ""}`} aria-label={`${labels[color].name} 선택`} aria-pressed={value === color} onClick={() => onChange(color)}><span>{labels[color].short}</span></button>)}</div>;
+  return <div className="color-call" role="group" aria-label="호출할 색">{CARD_COLORS.map((color) => <button type="button" key={color} disabled={disabled} className={`${color}${value === color ? " active" : ""}`} aria-label={`${labels[color].name} 선택`} aria-pressed={value === color} onClick={() => onChange(color)}><span>{labels[color].short}</span></button>)}</div>;
 }
 
 function JokerRack({ run, onSell }: { run: RunState; onSell?: (id: string) => void }) {
-  return <div className="joker-rack"><div className="joker-rack-label"><b>JOKERS</b><small>{run.jokers.length} / 4</small></div>{run.jokers.map((joker) => { const definition = JOKER_CATALOG[joker.jokerId]; const refund = Math.max(1, Math.floor(definition.price / 2)); return <article className={`joker-slot joker-${definition.rarity}`} key={joker.instanceId} title={definition.description}><span className="joker-slot-art" aria-hidden="true"><i>{definition.name.slice(0,1)}</i></span><div><b>{definition.name}</b><small>{definition.description}</small></div>{onSell && <button type="button" className="joker-sell" aria-label={`${definition.name} 판매`} onClick={() => onSell(joker.instanceId)}>판매 {refund}¢</button>}</article>; })}{Array.from({ length: Math.max(0, 4-run.jokers.length) }, (_, index) => <div className="joker-slot empty" key={`empty-${index}`}>+</div>)}</div>;
+  return <div className="joker-rack"><div className="joker-rack-label"><b>조커</b><small>{run.jokers.length} / 4</small></div>{run.jokers.map((joker) => { const definition = JOKER_CATALOG[joker.jokerId]; const refund = Math.max(1, Math.floor(definition.price / 2)); return <article className={`joker-slot joker-${definition.rarity}`} key={joker.instanceId} title={definition.description}><span className="joker-slot-art" aria-hidden="true"><i>{definition.name.slice(0,1)}</i></span><div><b>{definition.name}</b><small>{definition.description}</small></div>{onSell && <button type="button" className="joker-sell" aria-label={`${definition.name} 판매`} onClick={() => onSell(joker.instanceId)}>판매 {refund}¢</button>}</article>; })}{Array.from({ length: Math.max(0, 4-run.jokers.length) }, (_, index) => <div className="joker-slot empty" aria-label={`빈 조커 슬롯 ${index + 1}`} key={`empty-${index}`}>+</div>)}</div>;
 }
 
 function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, onOpenSettings }: { run: RunState; notice: string; onBuy: (offer: ShopOffer) => void; onReroll: () => void; onSell: (id: string) => void; onNext: () => void; onOpenLobby: () => void; onOpenSettings: () => void }) {
   const offerCount = run.shop?.offers.length ?? 0;
-  const nextLabel = run.round === "boss" ? `ANTE ${run.ante + 1}` : ROUND_LABEL[ROUND_ORDER[ROUND_ORDER.indexOf(run.round) + 1]];
+  const nextLabel = run.round === "boss" ? `앤티 ${run.ante + 1}` : ROUND_LABEL[ROUND_ORDER[ROUND_ORDER.indexOf(run.round) + 1]];
   return <main className="shop-view balatro-mobile-shop">
     <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 상점 전체를 한눈에 볼 수 있어요.</div>
     <div className="mobile-shop-shell">
       <aside className="shop-mobile-rail" aria-label="상점 정보와 행동">
-        <header className="shop-pixel-sign"><span>★</span><strong>SHOP</strong><small>BUILD YOUR RUN</small></header>
-        <section className="shop-rail-score"><span>ROUND SCORE</span><b>{run.score.toLocaleString()}</b><small>ANTE {run.ante} · {ROUND_LABEL[run.round]}</small></section>
-        <section className="shop-rail-wallet"><span>WALLET</span><strong>{run.coins}¢</strong></section>
-        <dl className="shop-rail-slots"><div><dt>JOKERS</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>MAYHEM</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>OFFERS</dt><dd>{offerCount}</dd></div></dl>
+        <header className="shop-pixel-sign"><span>★</span><strong>상점</strong><small>런을 강화하세요</small></header>
+        <section className="shop-rail-score"><span>라운드 점수</span><b>{run.score.toLocaleString()}</b><small>앤티 {run.ante} · {ROUND_LABEL[run.round]}</small></section>
+        <section className="shop-rail-wallet"><span>보유 금액</span><strong>{run.coins}¢</strong></section>
+        <dl className="shop-rail-slots"><div><dt>조커</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>메이헴</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>상품</dt><dd>{offerCount}</dd></div></dl>
         <nav className="shop-rail-tools" aria-label="상점 메뉴"><button type="button" onClick={onOpenLobby}>⌂ <span>로비</span></button><button type="button" onClick={onOpenSettings}>⚙ <span>옵션</span></button></nav>
         <div className="shop-rail-actions"><button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost} onClick={onReroll}>리롤 <b>{run.shop?.rerollCost ?? 0}¢</b></button><button type="button" onClick={onNext}>다음 <b>{nextLabel}</b></button></div>
       </aside>
 
       <section className="felt-table shop-felt" aria-label="컬러 마켓 진열대">
         <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
-        <section className="shop-owned-tray" aria-labelledby="shop-owned-title"><header><h2 id="shop-owned-title">OWNED JOKERS</h2><span>탭해서 판매</span></header><JokerRack run={run} onSell={onSell} /></section>
+        <section className="shop-owned-tray" aria-labelledby="shop-owned-title"><header><h2 id="shop-owned-title">보유 조커</h2><span>탭해서 판매</span></header><JokerRack run={run} onSell={onSell} /></section>
         <section className="shop-window" aria-labelledby="shop-window-title">
-          <header><div><span>ROUND CLEAR</span><h1 id="shop-window-title">컬러 마켓</h1></div><p role="status" aria-live="polite">{notice || "다음 라운드를 위한 빌드를 완성하세요."}</p></header>
+          <header><div><span>라운드 클리어</span><h1 id="shop-window-title">컬러 마켓</h1></div><p role="status" aria-live="polite">{notice || "다음 라운드를 위한 빌드를 완성하세요."}</p></header>
           <div className="shop-shelf">{run.shop?.offers.map((offer) => <ShopOfferCard key={offer.id} offer={offer} run={run} onBuy={() => onBuy(offer)} />)}</div>
-          {offerCount === 0 && <div className="shop-empty"><b>SOLD OUT</b><span>리롤하거나 다음 라운드로 이동하세요.</span></div>}
+          {offerCount === 0 && <div className="shop-empty"><b>품절</b><span>리롤하거나 다음 라운드로 이동하세요.</span></div>}
         </section>
         <div className="shop-table-deck" aria-hidden="true"><div className="pile-card back"><i>◇</i></div><strong>{run.drawPile.length || 40}</strong></div>
       </section>
@@ -878,11 +1014,11 @@ function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, o
 
 function ShopOfferCard({ offer, run, onBuy }: { offer: ShopOffer; run: RunState; onBuy: () => void }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
-  let eyebrow = "JOKER"; let name = ""; let description = ""; let symbol = "?";
+  let eyebrow = "조커"; let name = ""; let description = ""; let symbol = "?";
   let disabledReason = run.coins < offer.price ? `${offer.price - run.coins}¢ 부족` : "";
-  if (offer.kind === "joker") { const definition = JOKER_CATALOG[offer.jokerId]; eyebrow = `${definition.rarity.toUpperCase()} JOKER`; name = definition.name; description = definition.description; symbol = name.slice(0,1); if (run.jokers.some((joker) => joker.jokerId === offer.jokerId)) disabledReason = "이미 보유 중"; else if (run.jokers.length >= JOKER_SLOT_LIMIT) disabledReason = "조커 슬롯 가득 참"; }
-  if (offer.kind === "hand-upgrade") { const rule = HAND_RULES[offer.handType]; const level = run.handLevels[offer.handType]; eyebrow = "HAND PATCH"; name = `${rule.name} Lv.${level} → ${level + 1}`; description = `기본 Chips +${rule.chipsPerLevel}, Mult +${rule.multiplierPerLevel}`; symbol = "↑"; }
-  if (offer.kind === "community-uno") { eyebrow = "MAYHEM CARD"; name = offer.card.name; description = `${offer.card.author} 제작 · 앤티당 한 번 사용할 수 있습니다.`; symbol = "M"; }
+  if (offer.kind === "joker") { const definition = JOKER_CATALOG[offer.jokerId]; const rarity = { common: "일반", uncommon: "고급", rare: "희귀" } as const; eyebrow = `${rarity[definition.rarity]} 조커`; name = definition.name; description = definition.description; symbol = name.slice(0,1); if (run.jokers.some((joker) => joker.jokerId === offer.jokerId)) disabledReason = "이미 보유 중"; else if (run.jokers.length >= JOKER_SLOT_LIMIT) disabledReason = "조커 슬롯 가득 참"; }
+  if (offer.kind === "hand-upgrade") { const rule = HAND_RULES[offer.handType]; const level = run.handLevels[offer.handType]; eyebrow = "족보 강화"; name = `${rule.name} 레벨 ${level} → ${level + 1}`; description = `기본 칩 +${rule.chipsPerLevel}, 배수 +${rule.multiplierPerLevel}`; symbol = "↑"; }
+  if (offer.kind === "community-uno") { eyebrow = "메이헴 카드"; name = offer.card.name; description = `${offer.card.author} 제작 · 앤티당 한 번 사용할 수 있습니다.`; symbol = "M"; }
   if (offer.kind === "community-uno") { if (run.communityUno.some((card) => card.id === offer.card.id)) disabledReason = "이미 보유 중"; else if (run.communityUno.length >= UNO_SLOT_LIMIT) disabledReason = "효과 카드 슬롯 가득 참"; }
   const moduleIds = offer.kind === "community-uno" ? [...offer.card.positiveModules, ...offer.card.negativeModules] : [];
   return <article className={`shop-card shop-${offer.kind}${disabledReason ? " unavailable" : ""}${detailsOpen ? " is-details-open" : ""}`}><div><span className="kicker">{eyebrow}</span><button type="button" className="shop-info-button" aria-label={`${name} 상세 정보 ${detailsOpen ? "닫기" : "보기"}`} aria-expanded={detailsOpen} onBlur={() => setDetailsOpen(false)} onClick={(event) => { const nextOpen = !detailsOpen; setDetailsOpen(nextOpen); if (!nextOpen) event.currentTarget.blur(); }}>i</button><div className="shop-type-art">{symbol}</div><h3>{name}</h3><p className="shop-card-summary">{description}</p><div className="shop-card-tooltip" role="tooltip"><strong>{name}</strong><p>{description}</p>{disabledReason && <small>{disabledReason}</small>}{moduleIds.length > 0 && <ul>{moduleIds.map((id) => <li key={id} className={UNO_MODULE_CATALOG[id].kind}>{UNO_MODULE_CATALOG[id].points > 0 ? "+" : ""}{UNO_MODULE_CATALOG[id].points} · {UNO_MODULE_CATALOG[id].name}<br />{UNO_MODULE_CATALOG[id].description.replace(/UNO/g, "메이헴")}</li>)}</ul>}</div></div><footer><b>{offer.price} ¢</b><button type="button" className="small-action" disabled={Boolean(disabledReason)} onClick={onBuy}>{disabledReason || "구매"}</button></footer></article>;
@@ -890,9 +1026,9 @@ function ShopOfferCard({ offer, run, onBuy }: { offer: ShopOffer; run: RunState;
 
 function ResultView({ run, notice, signedIn, onRank, onRestart, onLobby }: { run: RunState; notice: string; signedIn: boolean; onRank: () => void; onRestart: () => void; onLobby: () => void }) {
   const won = run.phase === "won";
-  return <main className="result-view"><section className="result-card"><div className="result-symbol">{won ? "✓" : "×"}</div><span className="kicker">{won ? "SIGNAL COMPLETE" : "CONNECTION LOST"}</span><h1>{won ? "MAYHEM!" : "RUN OVER"}</h1><p>{won ? "5개의 앤티를 모두 돌파했습니다." : `ANTE ${run.ante} · ${ROUND_LABEL[run.round]}에서 신호가 끊겼습니다.`}</p><div className="result-stats"><div><span>TOTAL SCORE</span><b>{run.stats.totalScore.toLocaleString()}</b></div><div><span>BEST HAND</span><b>{run.stats.highestHandScore.toLocaleString()}</b></div><div><span>MAYHEM USED</span><b>{run.stats.unoUses}</b></div></div>{notice && <div className="status-strip">{notice}</div>}<div className="result-actions"><button type="button" className="secondary-button" onClick={onLobby}>로비로</button><button type="button" className="secondary-button" onClick={onRestart}>같은 모드 재도전</button><button type="button" className="primary-button" disabled={!signedIn} onClick={onRank}>{signedIn ? "공식 기록 제출" : "로그인 후 기록 제출"}</button></div></section></main>;
+  return <main className="result-view"><section className="result-card"><div className="result-symbol">{won ? "✓" : "×"}</div><span className="kicker">{won ? "신호 연결 완료" : "연결 종료"}</span><h1>{won ? "메이헴 완주!" : "런 종료"}</h1><p>{won ? "5개의 앤티를 모두 돌파했습니다." : `앤티 ${run.ante} · ${ROUND_LABEL[run.round]}에서 신호가 끊겼습니다.`}</p><div className="result-stats"><div><span>누적 점수</span><b>{run.stats.totalScore.toLocaleString()}</b></div><div><span>최고 핸드</span><b>{run.stats.highestHandScore.toLocaleString()}</b></div><div><span>메이헴 사용</span><b>{run.stats.unoUses}</b></div></div>{notice && <div className="status-strip">{notice}</div>}<div className="result-actions"><button type="button" className="secondary-button" onClick={onLobby}>로비로</button><button type="button" className="secondary-button" onClick={onRestart}>같은 모드 재도전</button><button type="button" className="primary-button" disabled={!signedIn} onClick={onRank}>{signedIn ? "공식 기록 제출" : "로그인 후 기록 제출"}</button></div></section></main>;
 }
 
 function SettingsModal({ user, online, audio, highContrast, reducedMotion, onHighContrast, onReducedMotion, onClose }: { user: InitialUser | null; online: boolean; audio: ReturnType<typeof useGameAudio>; highContrast: boolean; reducedMotion: boolean; onHighContrast: (value: boolean) => void; onReducedMotion: (value: boolean) => void; onClose: () => void }) {
-  return <Modal title="설정과 계정" onClose={onClose}><div className="settings-body"><section><span className="kicker">ACCOUNT</span><div className="account-card"><i>{user?.displayName.slice(0,1) ?? "G"}</i><div><b>{user?.displayName ?? "게스트 플레이어"}</b><small>{user?.email ?? "기기 안에만 진행 상황을 저장합니다."}</small></div><a href={user ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F"}>{user ? "로그아웃" : "로그인"}</a></div><p className="settings-help">{user ? "클라우드 저장이 활성화되어 다른 기기에서 로그인해 이어할 수 있습니다." : "로그인하면 런, 제작 카드, 방명록과 랭킹 기록을 계정에 연결합니다."}</p></section><section><span className="kicker">ACCESSIBILITY</span><div className="setting-row"><span><b>고대비 모드</b><small>패널과 텍스트의 대비를 높입니다.</small></span><button type="button" role="switch" aria-checked={highContrast} aria-label="고대비 모드" className={`toggle${highContrast ? " on" : ""}`} onClick={() => onHighContrast(!highContrast)}><i /></button></div><div className="setting-row"><span><b>모션 줄이기</b><small>점수 팝업과 카드 이동 애니메이션을 줄입니다.</small></span><button type="button" role="switch" aria-checked={reducedMotion} aria-label="모션 줄이기" className={`toggle${reducedMotion ? " on" : ""}`} onClick={() => onReducedMotion(!reducedMotion)}><i /></button></div></section><section><span className="kicker">AUDIO</span><div className="setting-row"><span><b>배경 음악</b><small>런과 보스 장면별 배경음</small></span><button type="button" role="switch" aria-checked={audio.musicEnabled} aria-label="배경 음악" className={`toggle${audio.musicEnabled ? " on" : ""}`} onClick={audio.toggleMusic}><i /></button></div><label className="range-label" htmlFor="music-volume">배경 음악 볼륨</label><input id="music-volume" type="range" min="0" max="1" step="0.05" value={audio.musicVolume} onChange={(event) => audio.setMusicVolume(Number(event.target.value))} /><div className="setting-row"><span><b>효과음</b><small>카드, 점수, 상점 효과</small></span><button type="button" role="switch" aria-checked={audio.effectsEnabled} aria-label="효과음" className={`toggle${audio.effectsEnabled ? " on" : ""}`} onClick={audio.toggleEffects}><i /></button></div><label className="range-label" htmlFor="effects-volume">효과음 볼륨</label><input id="effects-volume" type="range" min="0" max="1" step="0.05" value={audio.effectsVolume} onChange={(event) => audio.setEffectsVolume(Number(event.target.value))} /></section><section><span className="kicker">SYNC</span><div className="setting-row"><span><b>{online ? "온라인 연결됨" : "오프라인 플레이 중"}</b><small>{online ? "대기 중인 작업을 자동으로 전송합니다." : "진행과 제작 카드를 기기에 안전하게 보관합니다."}</small></span><i className={online ? "sync-light on" : "sync-light"} /></div></section></div></Modal>;
+  return <Modal title="설정과 계정" onClose={onClose}><div className="settings-body"><section><span className="kicker">계정</span><div className="account-card"><i>{user?.displayName.slice(0,1) ?? "게"}</i><div><b>{user?.displayName ?? "게스트 플레이어"}</b><small>{user?.email ?? "기기 안에만 진행 상황을 저장합니다."}</small></div><a href={user ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F"}>{user ? "로그아웃" : "로그인"}</a></div><p className="settings-help">{user ? "클라우드 저장이 활성화되어 다른 기기에서 로그인해 이어할 수 있습니다." : "로그인하면 런, 제작 카드, 방명록과 랭킹 기록을 계정에 연결합니다."}</p></section><section><span className="kicker">접근성</span><div className="setting-row"><span><b>고대비 모드</b><small>패널과 텍스트의 대비를 높입니다.</small></span><button type="button" role="switch" aria-checked={highContrast} aria-label="고대비 모드" className={`toggle${highContrast ? " on" : ""}`} onClick={() => onHighContrast(!highContrast)}><i /></button></div><div className="setting-row"><span><b>모션 줄이기</b><small>점수 팝업과 카드 이동 애니메이션을 줄입니다.</small></span><button type="button" role="switch" aria-checked={reducedMotion} aria-label="모션 줄이기" className={`toggle${reducedMotion ? " on" : ""}`} onClick={() => onReducedMotion(!reducedMotion)}><i /></button></div></section><section><span className="kicker">오디오</span><div className="setting-row"><span><b>배경 음악</b><small>런과 보스 장면별 배경음</small></span><button type="button" role="switch" aria-checked={audio.musicEnabled} aria-label="배경 음악" className={`toggle${audio.musicEnabled ? " on" : ""}`} onClick={audio.toggleMusic}><i /></button></div><label className="range-label" htmlFor="music-volume">배경 음악 볼륨</label><input id="music-volume" type="range" min="0" max="1" step="0.05" value={audio.musicVolume} onChange={(event) => audio.setMusicVolume(Number(event.target.value))} /><div className="setting-row"><span><b>효과음</b><small>카드, 점수, 상점 효과</small></span><button type="button" role="switch" aria-checked={audio.effectsEnabled} aria-label="효과음" className={`toggle${audio.effectsEnabled ? " on" : ""}`} onClick={audio.toggleEffects}><i /></button></div><label className="range-label" htmlFor="effects-volume">효과음 볼륨</label><input id="effects-volume" type="range" min="0" max="1" step="0.05" value={audio.effectsVolume} onChange={(event) => audio.setEffectsVolume(Number(event.target.value))} /></section><section><span className="kicker">동기화</span><div className="setting-row"><span><b>{online ? "온라인 연결됨" : "오프라인 플레이 중"}</b><small>{online ? "대기 중인 작업을 자동으로 전송합니다." : "진행과 제작 카드를 기기에 안전하게 보관합니다."}</small></span><i className={online ? "sync-light on" : "sync-light"} /></div></section></div></Modal>;
 }

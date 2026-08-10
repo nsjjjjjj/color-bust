@@ -2,16 +2,25 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import vm from "node:vm";
-import { AUDIO_EFFECTS, AUDIO_TRACKS } from "../app/use-game-audio";
+import {
+  AUDIO_EFFECTS,
+  AUDIO_TRACKS,
+  BGM_CROSSFADE_MS,
+  BgmManager,
+  DEFAULT_SCORE_TICK_VOICE_LIMIT,
+  audioSceneForBossAnte,
+  scoreTickPlaybackRate,
+} from "../app/use-game-audio";
 
 const root = new URL("../", import.meta.url);
 const origin = "https://deck-mayhem.test";
 
 const expectedTracks = {
   menu: "/audio/bgm-menu.m4a",
-  run: null,
+  run: "/audio/bgm-run.m4a",
   shop: "/audio/bgm-shop.mp3",
-  boss: "/audio/bgm-boss.m4a",
+  boss: "/audio/bgm-boss.mp3",
+  "final-boss": "/audio/bgm-final-boss.mp3",
   silent: null,
 } as const;
 
@@ -187,8 +196,8 @@ test("audio hook maps every supplied track and effect to the intended scene", ()
   assert.deepEqual(sources(AUDIO_EFFECTS), expectedEffects);
 });
 
-test("ships seven non-empty audio files with valid container signatures", async () => {
-  assert.equal(expectedAudioPaths.length, 7);
+test("ships nine non-empty audio files with valid container signatures", async () => {
+  assert.equal(expectedAudioPaths.length, 9);
   for (const pathname of expectedAudioPaths) {
     const bytes = await readFile(new URL(`public${pathname}`, root));
     assert.ok(bytes.byteLength > 1_000, `${pathname} is unexpectedly small`);
@@ -197,6 +206,102 @@ test("ships seven non-empty audio files with valid container signatures", async 
     } else {
       assert.ok(isMp3(bytes), `${pathname} is not an MP3 file`);
     }
+  }
+});
+
+test("selects the dedicated final-boss scene only for ante five and later", () => {
+  assert.equal(audioSceneForBossAnte(1), "boss");
+  assert.equal(audioSceneForBossAnte(4), "boss");
+  assert.equal(audioSceneForBossAnte(5), "final-boss");
+  assert.equal(audioSceneForBossAnte(8), "final-boss");
+});
+
+test("score ticks rise in pitch and stay inside a safe playback-rate range", () => {
+  const rates = [0, 1, 2, 3, 4].map((step) => scoreTickPlaybackRate(step));
+  assert.deepEqual(rates, [...rates].sort((left, right) => left - right));
+  assert.ok(rates[4] > rates[0]);
+  assert.equal(scoreTickPlaybackRate(10_000), 1.8);
+  assert.equal(scoreTickPlaybackRate(0, 1.25, -100), 0.65);
+  assert.equal(DEFAULT_SCORE_TICK_VOICE_LIMIT, 3);
+});
+
+test("BGM manager reuses a matching track and crossfades scene changes", async () => {
+  assert.ok(BGM_CROSSFADE_MS >= 300 && BGM_CROSSFADE_MS <= 800);
+
+  const originalAudio = globalThis.Audio;
+  const originalRequestAnimationFrame = globalThis.requestAnimationFrame;
+  const originalCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  const frames = new Map<number, FrameRequestCallback>();
+  let frameId = 0;
+
+  class FakeAudio {
+    static readonly instances: FakeAudio[] = [];
+    readonly src: string;
+    loop = false;
+    preload = "";
+    volume = 1;
+    paused = true;
+    playCalls = 0;
+    released = false;
+
+    constructor(src: string) {
+      this.src = src;
+      FakeAudio.instances.push(this);
+    }
+
+    play(): Promise<void> {
+      this.paused = false;
+      this.playCalls += 1;
+      return Promise.resolve();
+    }
+
+    pause(): void {
+      this.paused = true;
+    }
+
+    removeAttribute(name: string): void {
+      if (name === "src") this.released = true;
+    }
+
+    load(): void {}
+  }
+
+  globalThis.Audio = FakeAudio as unknown as typeof Audio;
+  globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    const id = ++frameId;
+    frames.set(id, callback);
+    return id;
+  }) as typeof requestAnimationFrame;
+  globalThis.cancelAnimationFrame = ((id: number) => {
+    frames.delete(id);
+  }) as typeof cancelAnimationFrame;
+
+  try {
+    const manager = new BgmManager();
+    manager.setScene("run");
+    manager.configure(true, 0.4);
+    assert.equal(FakeAudio.instances.length, 1);
+
+    manager.setScene("run");
+    assert.equal(FakeAudio.instances.length, 1, "same source must not create or restart a track");
+    assert.equal(FakeAudio.instances[0].playCalls, 1);
+
+    manager.setScene("shop");
+    assert.equal(FakeAudio.instances.length, 2);
+    assert.equal(FakeAudio.instances[0].released, false, "outgoing track stays alive during the fade");
+
+    const finishAt = performance.now() + BGM_CROSSFADE_MS + 1;
+    for (const [id, callback] of [...frames]) {
+      frames.delete(id);
+      callback(finishAt);
+    }
+    await Promise.resolve();
+    assert.equal(FakeAudio.instances[0].released, true, "outgoing track is released after the fade");
+    assert.equal(FakeAudio.instances[1].released, false);
+  } finally {
+    globalThis.Audio = originalAudio;
+    globalThis.requestAnimationFrame = originalRequestAnimationFrame;
+    globalThis.cancelAnimationFrame = originalCancelAnimationFrame;
   }
 });
 

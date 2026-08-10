@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deck-mayhem-v2";
+const CACHE_VERSION = "deck-mayhem-v3";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -11,8 +11,10 @@ const APP_SHELL = [
 ];
 const AUDIO_ASSETS = [
   "/audio/bgm-menu.m4a",
-  "/audio/bgm-boss.m4a",
+  "/audio/bgm-run.m4a",
   "/audio/bgm-shop.mp3",
+  "/audio/bgm-boss.mp3",
+  "/audio/bgm-final-boss.mp3",
   "/audio/card-draw.mp3",
   "/audio/card-play.mp3",
   "/audio/deck-setup.mp3",

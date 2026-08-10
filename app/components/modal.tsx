@@ -55,7 +55,7 @@ export function Modal({
         aria-labelledby={titleId}
       >
         <header>
-          <div><span className="kicker">SYSTEM WINDOW</span><h2 id={titleId}>{title}</h2></div>
+          <div><span className="kicker">게임 창</span><h2 id={titleId}>{title}</h2></div>
           <button ref={closeRef} type="button" className="icon-button" aria-label="닫기" onClick={onClose}>×</button>
         </header>
         {children}

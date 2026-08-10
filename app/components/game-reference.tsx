@@ -74,10 +74,10 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
             <thead>
               <tr>
                 <th scope="col" style={headerCellStyle}>족보</th>
-                <th scope="col" style={headerCellStyle}>기본 CHIPS</th>
-                <th scope="col" style={headerCellStyle}>기본 MULT</th>
+                <th scope="col" style={headerCellStyle}>기본 칩</th>
+                <th scope="col" style={headerCellStyle}>기본 배수</th>
                 <th scope="col" style={headerCellStyle}>현재 레벨</th>
-                <th scope="col" style={headerCellStyle}>현재 CHIPS × MULT</th>
+                <th scope="col" style={headerCellStyle}>현재 칩 × 배수</th>
               </tr>
             </thead>
             <tbody>
@@ -93,7 +93,7 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
                     <th scope="row" style={{ ...cellStyle, fontWeight: 800 }}>{rule.name}</th>
                     <td style={{ ...cellStyle, ...numberStyle, color: "var(--blue)" }}>{rule.baseChips}</td>
                     <td style={{ ...cellStyle, ...numberStyle, color: "var(--red)" }}>×{rule.baseMultiplier}</td>
-                    <td style={{ ...cellStyle, ...numberStyle }}>Lv.{level}</td>
+                    <td style={{ ...cellStyle, ...numberStyle }}>레벨 {level}</td>
                     <td style={{ ...cellStyle, ...numberStyle }}>
                       <span style={{ color: "var(--blue)" }}>{currentChips}</span>
                       {" × "}
@@ -169,7 +169,7 @@ export function DeckInspector({ drawPile, discardPile, hand, onClose }: DeckInsp
         </section>
 
         <section className="deck-inspector-ranks" aria-labelledby="deck-inspector-ranks-title">
-          <header><span id="deck-inspector-ranks-title">숫자별 전체 구성</span><small>0은 10 Chips</small></header>
+          <header><span id="deck-inspector-ranks-title">숫자별 전체 구성</span><small>0은 10칩</small></header>
           <div className="deck-inspector-rank-grid">
             {ranks.map((rank) => <span key={rank}><b>{rank}</b><small>×{totalSummary.byRank[rank]}</small></span>)}
           </div>
@@ -209,8 +209,7 @@ export const DEFAULT_SHORTCUTS: readonly ShortcutDefinition[] = [
   { keys: ["1–8"], description: "해당 위치의 손패를 선택하거나 해제" },
   { keys: ["Enter"], description: "선택한 카드로 핸드 제출" },
   { keys: ["D"], description: "선택한 카드 버리기" },
-  { keys: ["A"], description: "현재 효과를 반영한 최고 점수 패 자동 선택" },
-  { keys: ["S"], description: "받은 순서, 숫자순, 색상순 정렬 전환" },
+  { keys: ["S"], description: "숫자순과 색상순 정렬 전환" },
   { keys: ["U"], description: "커뮤니티 메이헴 카드 선택 또는 해제" },
   { keys: ["H"], description: "족보 가이드 열기" },
   { keys: ["K"], description: "덱 인스펙터 열기" },

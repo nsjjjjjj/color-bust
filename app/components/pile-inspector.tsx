@@ -14,7 +14,13 @@ export interface PileInspectorProps {
   readonly onOpenDetails: () => void;
   readonly className?: string;
   readonly disabled?: boolean;
-  /** Full run deck size, used for the compact remaining/total counter. */
+  /**
+   * The real run deck used as the draw-preview baseline. Pass draw + discard +
+   * hand so each color/rank slot can show current/total counts. Ignored by the
+   * discard preview.
+   */
+  readonly referenceCards?: readonly GameCard[];
+  /** Full run deck size, retained as a compact-counter fallback. */
   readonly totalCards?: number;
   /** Optional visible/accessible pile name override. */
   readonly label?: string;
@@ -37,15 +43,36 @@ export interface PileSummary {
   readonly topCard?: GameCard;
 }
 
-interface PilePreviewCard {
+export type PileCardAvailability = "available" | "partial" | "depleted" | "absent";
+
+export interface PileCardComparison {
   readonly color: CardColor;
   readonly rank: CardRank;
-  readonly count: number;
+  readonly current: number;
+  readonly total: number;
+  readonly missing: number;
+  readonly availability: PileCardAvailability;
 }
 
-interface PilePreviewGroup {
+export interface PileColorComparison extends PileColorSummary {
+  readonly current: number;
+  readonly total: number;
+  readonly missing: number;
+}
+
+export interface PilePreviewGroup {
   readonly color: CardColor;
-  readonly cards: readonly PilePreviewCard[];
+  readonly cards: readonly PileCardComparison[];
+}
+
+export interface PileComparison {
+  readonly current: number;
+  readonly total: number;
+  readonly missing: number;
+  readonly colors: readonly PileColorComparison[];
+  readonly groups: readonly PilePreviewGroup[];
+  /** Always 40 color/rank cells, independently of duplicate counts. */
+  readonly slots: readonly PileCardComparison[];
 }
 
 export const PILE_COLOR_ACCESSIBILITY: Readonly<
@@ -117,26 +144,78 @@ export function summarizePile(cards: readonly GameCard[]): PileSummary {
   };
 }
 
-/**
- * Groups identical cards into at most 40 color/rank cells. This keeps the
- * hover preview exact even when a run contains duplicate cards without
- * creating an unbounded tooltip DOM.
- */
-function groupPilePreviewCards(cards: readonly GameCard[]): readonly PilePreviewGroup[] {
+function cardCountKey(color: CardColor, rank: CardRank): string {
+  return `${color}:${rank}`;
+}
+
+function countCards(cards: readonly GameCard[]): ReadonlyMap<string, number> {
   const counts = new Map<string, number>();
 
   for (const card of cards) {
-    const key = `${card.color}:${card.rank}`;
+    const key = cardCountKey(card.color, card.rank);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  return COLOR_ORDER.map((color) => ({
-    color,
-    cards: RANK_ORDER.flatMap((rank) => {
-      const count = counts.get(`${color}:${rank}`) ?? 0;
-      return count > 0 ? [{ color, rank, count }] : [];
+  return counts;
+}
+
+/**
+ * Compares a live pile with the real run deck in a bounded 4 × 10 matrix.
+ * Duplicate cards are represented by counts rather than duplicate DOM nodes.
+ */
+export function comparePileToReference(
+  currentCards: readonly GameCard[],
+  referenceCards: readonly GameCard[] = currentCards,
+): PileComparison {
+  const currentCounts = countCards(currentCards);
+  const referenceCounts = countCards(referenceCards);
+  const slots = COLOR_ORDER.flatMap((color) =>
+    RANK_ORDER.map((rank): PileCardComparison => {
+      const current = currentCounts.get(cardCountKey(color, rank)) ?? 0;
+      // A stale/incomplete reference must never claim fewer cards than the live pile.
+      const total = Math.max(
+        current,
+        referenceCounts.get(cardCountKey(color, rank)) ?? 0,
+      );
+      const missing = Math.max(0, total - current);
+      const availability: PileCardAvailability = total === 0
+        ? "absent"
+        : current === 0
+          ? "depleted"
+          : current < total
+            ? "partial"
+            : "available";
+
+      return { color, rank, current, total, missing, availability };
     }),
-  })).filter((group) => group.cards.length > 0);
+  );
+  const groups = COLOR_ORDER.map((color) => ({
+    color,
+    cards: slots.filter((slot) => slot.color === color),
+  }));
+  const colors = groups.map((group): PileColorComparison => {
+    const current = group.cards.reduce((sum, card) => sum + card.current, 0);
+    const total = group.cards.reduce((sum, card) => sum + card.total, 0);
+    return {
+      color: group.color,
+      count: current,
+      current,
+      total,
+      missing: Math.max(0, total - current),
+      ...PILE_COLOR_ACCESSIBILITY[group.color],
+    };
+  });
+  const current = colors.reduce((sum, color) => sum + color.current, 0);
+  const total = colors.reduce((sum, color) => sum + color.total, 0);
+
+  return {
+    current,
+    total,
+    missing: Math.max(0, total - current),
+    colors,
+    groups,
+    slots,
+  };
 }
 
 function pileName(variant: PileInspectorVariant): string {
@@ -147,19 +226,192 @@ function buildAccessibleDescription(
   label: string,
   summary: PileSummary,
   variant: PileInspectorVariant,
+  comparison: PileComparison,
+  fallbackTotal?: number,
 ): string {
+  if (variant === "draw") {
+    const total = fallbackTotal ?? comparison.total;
+    const colors = comparison.colors
+      .map((item) => `${item.koreanLabel} ${item.colorLabel} ${item.current}/${item.total}장`)
+      .join(", ");
+    return `${label}, ${comparison.current}/${total}장 남음. ${colors}. 탭하거나 클릭하면 전체 덱 정보를 엽니다.`;
+  }
+
   const colors = summary.colors
     .map(
       (item) =>
         `${item.koreanLabel} ${item.colorLabel} ${item.count}장`,
     )
     .join(", ");
-  const topCard =
-    variant === "discard" && summary.topCard
-      ? `. 맨 위 카드는 ${PILE_COLOR_ACCESSIBILITY[summary.topCard.color].koreanLabel} ${PILE_COLOR_ACCESSIBILITY[summary.topCard.color].colorLabel} ${summary.topCard.rank}`
-      : "";
+  const topCard = summary.topCard
+    ? `. 맨 위 카드는 ${PILE_COLOR_ACCESSIBILITY[summary.topCard.color].koreanLabel} ${PILE_COLOR_ACCESSIBILITY[summary.topCard.color].colorLabel} ${summary.topCard.rank}`
+    : "";
 
   return `${label}, 총 ${summary.total}장. ${colors}${topCard}. 탭하거나 클릭하면 상세 덱 정보를 엽니다.`;
+}
+
+function DrawPilePreview({
+  comparison,
+  hasReferenceCards,
+  popoverId,
+  fallbackTotal,
+}: {
+  comparison: PileComparison;
+  hasReferenceCards: boolean;
+  popoverId: string;
+  fallbackTotal?: number;
+}) {
+  const displayedTotal = fallbackTotal ?? comparison.total;
+
+  return (
+    <div className={`deck-pile-draw-preview${hasReferenceCards ? " has-reference-deck" : " is-current-only"}`}>
+      <aside className="deck-pile-draw-summary" aria-label="덱 남은 수 요약">
+        <div className="deck-pile-overall">
+          <span>전체 남음</span>
+          <strong>
+            <b>{comparison.current}</b>
+            <i aria-hidden="true">/</i>
+            <small>{displayedTotal}</small>
+          </strong>
+          <em>
+            {!hasReferenceCards
+              ? "현재 더미 기준"
+              : comparison.missing > 0
+                ? `${comparison.missing}장 더미 밖`
+                : "전체 대기 중"}
+          </em>
+        </div>
+
+        <div className="deck-pile-color-counts deck-pile-color-comparison" aria-label="색상별 남은 카드 수">
+          {comparison.colors.map((item) => (
+            <div
+              className={`deck-pile-color deck-pile-color-${item.color}${item.current === 0 ? " is-depleted" : ""}`}
+              key={item.color}
+              title={`${item.symbolName} · ${item.koreanLabel} ${item.colorLabel} ${item.current}/${item.total}장 남음`}
+            >
+              <span className="deck-pile-color-symbol" aria-hidden="true">{item.symbol}</span>
+              <span className="deck-pile-color-copy">
+                <b>{item.koreanLabel}</b>
+                <small>{item.colorLabel} · {item.symbolName}</small>
+              </span>
+              <strong className="deck-pile-color-count">
+                <b>{item.current}</b><small>/{item.total}</small>
+              </strong>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <section className="deck-pile-card-matrix" aria-label="색상과 숫자별 덱 현황">
+        <header className="deck-pile-mini-header">
+          <span>카드별 현황</span>
+          <small>남은 수 / 전체 수</small>
+        </header>
+
+        <div className="deck-pile-mini-groups">
+          {comparison.groups.map((group) => {
+            const colorInfo = PILE_COLOR_ACCESSIBILITY[group.color];
+            const groupLabelId = `${popoverId}-${group.color}-cards`;
+            const colorSummary = comparison.colors.find((item) => item.color === group.color);
+
+            return (
+              <div
+                className={`deck-pile-mini-group deck-pile-mini-group-${group.color}`}
+                key={group.color}
+                role="group"
+                aria-labelledby={groupLabelId}
+              >
+                <span className="deck-pile-mini-group-label" id={groupLabelId}>
+                  <i aria-hidden="true">{colorInfo.symbol}</i>
+                  <b>{colorInfo.koreanLabel}</b>
+                  <small>{colorSummary?.current ?? 0}/{colorSummary?.total ?? 0}</small>
+                </span>
+                <div className="deck-pile-mini-grid" role="list">
+                  {group.cards.map((card) => (
+                    <span
+                      className={`deck-pile-mini-card deck-pile-mini-card-${card.color} is-${card.availability}`}
+                      data-availability={card.availability}
+                      data-color={card.color}
+                      data-current={card.current}
+                      data-rank={card.rank}
+                      data-total={card.total}
+                      key={`${card.color}-${card.rank}`}
+                      role="listitem"
+                      aria-label={`${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}, ${card.current}/${card.total}장 남음${card.availability === "partial" ? ", 일부가 뽑기 더미 밖에 있음" : card.availability === "depleted" ? ", 현재 뽑기 더미에 없음" : card.availability === "absent" ? ", 현재 덱에 없음" : ""}`}
+                      title={`${colorInfo.symbolName} · ${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank} · ${card.current}/${card.total}`}
+                    >
+                      <b>{card.rank}</b>
+                      <i aria-hidden="true">{colorInfo.symbol}</i>
+                      <small className="deck-pile-mini-card-ratio" aria-hidden="true">
+                        <b>{card.current}</b>/<span>{card.total}</span>
+                      </small>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="deck-pile-reference-note">
+          {hasReferenceCards
+            ? "색상 카드 = 남음 · 회색 카드 = 뽑기 더미 밖"
+            : "전체 런 덱 기준 정보가 연결되면 빠진 카드도 표시됩니다."}
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function DiscardPilePreview({ summary }: { summary: PileSummary }) {
+  const topCard = summary.topCard;
+
+  return (
+    <div className="deck-pile-discard-preview">
+      <div className="deck-pile-color-counts" aria-label="색상별 버린 카드 수">
+        {summary.colors.map((item) => (
+          <div
+            className={`deck-pile-color deck-pile-color-${item.color}`}
+            key={item.color}
+            title={`${item.symbolName} · ${item.koreanLabel} ${item.colorLabel} ${item.count}장`}
+          >
+            <span className="deck-pile-color-symbol" aria-hidden="true">{item.symbol}</span>
+            <span className="deck-pile-color-copy">
+              <b>{item.koreanLabel}</b>
+              <small>{item.colorLabel} · {item.symbolName}</small>
+            </span>
+            <strong className="deck-pile-color-count">{item.count}</strong>
+          </div>
+        ))}
+      </div>
+
+      <div className="deck-pile-rank-section">
+        <span className="deck-pile-rank-heading">숫자별 버린 카드</span>
+        <div className="deck-pile-rank-counts" aria-label="숫자별 버린 카드 수">
+          {RANK_ORDER.map((rank) => (
+            <span
+              className={`deck-pile-rank${summary.byRank[rank] === 0 ? " deck-pile-rank-zero" : ""}`}
+              key={rank}
+              title={`숫자 ${rank}, ${summary.byRank[rank]}장`}
+            >
+              <b>{rank}</b>
+              <small>{summary.byRank[rank]}</small>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {topCard && (
+        <footer className="deck-pile-top-card">
+          <span>맨 위 카드</span>
+          <strong>
+            <i aria-hidden="true">{PILE_COLOR_ACCESSIBILITY[topCard.color].symbol}</i>
+            {PILE_COLOR_ACCESSIBILITY[topCard.color].koreanLabel} {PILE_COLOR_ACCESSIBILITY[topCard.color].colorLabel} {topCard.rank}
+          </strong>
+        </footer>
+      )}
+    </div>
+  );
 }
 
 export function PileInspector({
@@ -168,14 +420,25 @@ export function PileInspector({
   onOpenDetails,
   className,
   disabled = false,
+  referenceCards,
   totalCards,
   label = pileName(variant),
 }: PileInspectorProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const popoverId = useId();
   const summary = useMemo(() => summarizePile(cards), [cards]);
-  const previewGroups = useMemo(() => groupPilePreviewCards(cards), [cards]);
-  const description = buildAccessibleDescription(label, summary, variant);
+  const comparison = useMemo(
+    () => comparePileToReference(cards, referenceCards ?? cards),
+    [cards, referenceCards],
+  );
+  const fallbackTotal = referenceCards ? comparison.total : totalCards;
+  const description = buildAccessibleDescription(
+    label,
+    summary,
+    variant,
+    comparison,
+    fallbackTotal,
+  );
   const topCard = variant === "discard" ? summary.topCard : undefined;
 
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
@@ -198,6 +461,7 @@ export function PileInspector({
         className="deck-pile-button"
         aria-label={description}
         aria-describedby={popoverId}
+        aria-controls={popoverId}
         aria-expanded={previewOpen}
         aria-haspopup="dialog"
         disabled={disabled}
@@ -222,7 +486,7 @@ export function PileInspector({
           )}
         </span>
         <strong className="deck-pile-count">
-          {variant === "draw" && totalCards ? `${summary.total}/${totalCards}` : summary.total}
+          {variant === "draw" && fallbackTotal !== undefined ? `${summary.total}/${fallbackTotal}` : summary.total}
         </strong>
         <span className="deck-pile-open-hint">상세 보기</span>
       </button>
@@ -236,106 +500,18 @@ export function PileInspector({
       >
         <header className="deck-pile-popover-header">
           <span>{variant === "draw" ? "남은 덱" : "버린 카드"}</span>
-          <strong>{summary.total}장</strong>
+          <strong>{variant === "draw" && fallbackTotal !== undefined ? `${summary.total}/${fallbackTotal}장` : `${summary.total}장`}</strong>
         </header>
 
-        <div className="deck-pile-color-counts" aria-label="색상별 카드 수">
-          {summary.colors.map((item) => (
-            <div
-              className={`deck-pile-color deck-pile-color-${item.color}`}
-              key={item.color}
-              title={`${item.symbolName} · ${item.koreanLabel} ${item.colorLabel} ${item.count}장`}
-            >
-              <span className="deck-pile-color-symbol" aria-hidden="true">{item.symbol}</span>
-              <span className="deck-pile-color-copy">
-                <b>{item.koreanLabel}</b>
-                <small>{item.colorLabel} · {item.symbolName}</small>
-              </span>
-              <strong className="deck-pile-color-count">{item.count}</strong>
-            </div>
-          ))}
-        </div>
-
-        {variant === "draw" && (
-          <section className="deck-pile-mini-section" aria-label="실제 남은 카드 목록">
-            <header className="deck-pile-mini-header">
-              <span>남은 카드</span>
-              <small>색 · 숫자 순</small>
-            </header>
-
-            {previewGroups.length > 0 ? (
-              <div className="deck-pile-mini-groups">
-                {previewGroups.map((group) => {
-                  const colorInfo = PILE_COLOR_ACCESSIBILITY[group.color];
-                  const groupLabelId = `${popoverId}-${group.color}-cards`;
-
-                  return (
-                    <div
-                      className={`deck-pile-mini-group deck-pile-mini-group-${group.color}`}
-                      key={group.color}
-                      role="group"
-                      aria-labelledby={groupLabelId}
-                    >
-                      <span className="deck-pile-mini-group-label" id={groupLabelId}>
-                        <i aria-hidden="true">{colorInfo.symbol}</i>
-                        {colorInfo.koreanLabel} {colorInfo.colorLabel}
-                      </span>
-                      <div className="deck-pile-mini-grid" role="list">
-                        {group.cards.map((card) => (
-                          <span
-                            className={`deck-pile-mini-card deck-pile-mini-card-${card.color}`}
-                            data-color={card.color}
-                            data-count={card.count}
-                            data-rank={card.rank}
-                            key={`${card.color}-${card.rank}`}
-                            role="listitem"
-                            aria-label={`${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}, ${card.count}장`}
-                            title={`${colorInfo.symbolName} · ${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}${card.count > 1 ? ` × ${card.count}` : ""}`}
-                          >
-                            <b>{card.rank}</b>
-                            <i aria-hidden="true">{colorInfo.symbol}</i>
-                            {card.count > 1 && (
-                              <small className="deck-pile-mini-card-count" aria-hidden="true">
-                                ×{card.count}
-                              </small>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="deck-pile-mini-empty">남은 카드가 없습니다.</p>
-            )}
-          </section>
-        )}
-
-        <div className="deck-pile-rank-section">
-          <span className="deck-pile-rank-heading">숫자별 카드 수</span>
-          <div className="deck-pile-rank-counts" aria-label="숫자별 카드 수">
-            {RANK_ORDER.map((rank) => (
-              <span
-                className={`deck-pile-rank${summary.byRank[rank] === 0 ? " deck-pile-rank-zero" : ""}`}
-                key={rank}
-                title={`숫자 ${rank}, ${summary.byRank[rank]}장`}
-              >
-                <b>{rank}</b>
-                <small>{summary.byRank[rank]}</small>
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {variant === "discard" && topCard && (
-          <footer className="deck-pile-top-card">
-            <span>맨 위 카드</span>
-            <strong>
-              <i aria-hidden="true">{PILE_COLOR_ACCESSIBILITY[topCard.color].symbol}</i>
-              {PILE_COLOR_ACCESSIBILITY[topCard.color].koreanLabel} {PILE_COLOR_ACCESSIBILITY[topCard.color].colorLabel} {topCard.rank}
-            </strong>
-          </footer>
+        {variant === "draw" ? (
+          <DrawPilePreview
+            comparison={comparison}
+            fallbackTotal={fallbackTotal}
+            hasReferenceCards={referenceCards !== undefined}
+            popoverId={popoverId}
+          />
+        ) : (
+          <DiscardPilePreview summary={summary} />
         )}
 
         <p className="deck-pile-popover-hint">탭하거나 클릭하면 전체 덱 정보를 엽니다.</p>

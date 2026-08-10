@@ -58,6 +58,19 @@ test("builds hand, base, scoring-card, and final events in play order", () => {
     events.filter(({ type }) => type === "card-score").map(({ sourceCardId }) => sourceCardId),
     ["pair-red", "pair-blue"],
   );
+  assert.deepEqual(
+    events
+      .filter(({ type }) => type === "card-score")
+      .map(({ currentChips, currentMultiplier, currentTotal }) => ({
+        currentChips,
+        currentMultiplier,
+        currentTotal,
+      })),
+    [
+      { currentChips: 15, currentMultiplier: 2, currentTotal: 30 },
+      { currentChips: 20, currentMultiplier: 2, currentTotal: 40 },
+    ],
+  );
   assert.equal(events.at(-1)?.type, "final-score");
   assert.equal(events.at(-1)?.currentTotal, breakdown.total);
   assert.equal(events.at(-1)?.currentChips, breakdown.chipsBeforeUno);

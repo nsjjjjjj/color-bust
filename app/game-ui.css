@@ -669,7 +669,7 @@
 }
 
 .deck-game-view .number-card.is-kicker::before {
-  content: "SIDE";
+  content: "비득점";
   border-radius: 0;
 }
 
@@ -3125,4 +3125,418 @@
   .deck-resolve-idle { display: none; }
   .deck-hand-stage { grid-template-rows: 24px 140px 70px !important; }
   .deck-hand-stage .table-action-dock { margin-top: 6px; }
+}
+
+/* Full deck comparison: live cards remain saturated while cards that already
+   left the draw pile stay in their original slots as muted silhouettes. */
+.deck-pile-draw-preview {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(112px, .42fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+}
+
+.deck-pile-draw-summary,
+.deck-pile-card-matrix,
+.deck-pile-discard-preview {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.deck-pile-overall {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 2px solid var(--dm-line-soft);
+  background: #070d10;
+}
+
+.deck-pile-overall > span,
+.deck-pile-overall > em,
+.deck-pile-reference-note {
+  color: var(--dm-muted);
+  font-size: 8px;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.deck-pile-overall > strong {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--dm-score);
+  font-size: 15px;
+}
+
+.deck-pile-overall > strong i { color: var(--dm-muted); font-size: 9px; font-style: normal; }
+.deck-pile-overall > strong small { color: var(--dm-muted); font-size: 10px; }
+.deck-pile-color-comparison { grid-template-columns: 1fr; }
+.deck-pile-color-comparison .deck-pile-color-count { display: flex; align-items: baseline; gap: 1px; }
+.deck-pile-color-comparison .deck-pile-color-count small { color: var(--dm-muted); font-size: .65em; }
+.deck-pile-color.is-depleted { opacity: .42; filter: grayscale(1); }
+
+.deck-pile-card-matrix {
+  padding-left: 10px;
+  border-left: 2px solid var(--dm-line-soft);
+}
+
+.deck-pile-card-matrix .deck-pile-mini-grid {
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+}
+
+.deck-pile-mini-group-label small {
+  margin-left: auto;
+  color: var(--dm-muted);
+  font-size: .78em;
+}
+
+.deck-pile-mini-card {
+  isolation: isolate;
+  overflow: hidden;
+  transition: filter 120ms linear, opacity 120ms linear, transform 120ms ease;
+}
+
+.deck-pile-mini-card > b { align-self: start; justify-self: start; padding: 2px; }
+.deck-pile-mini-card-ratio {
+  position: absolute;
+  z-index: 2;
+  left: 2px;
+  bottom: 1px;
+  color: #fff;
+  font-size: 5px;
+  line-height: 1;
+  text-shadow: 1px 1px #000;
+}
+.deck-pile-mini-card-ratio b { color: inherit; font-size: inherit; }
+.deck-pile-mini-card-ratio span { color: rgba(255,255,255,.7); }
+.deck-pile-mini-card-yellow .deck-pile-mini-card-ratio { color: #17130b; text-shadow: none; }
+
+.deck-pile-mini-card.is-partial {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(0,0,0,.2) 5px 9px);
+}
+
+.deck-pile-mini-card.is-depleted,
+.deck-pile-mini-card.is-absent {
+  color: #a4acaa;
+  background: #22292b;
+  box-shadow: none;
+  filter: grayscale(1);
+}
+
+.deck-pile-mini-card.is-depleted { opacity: .42; }
+.deck-pile-mini-card.is-absent { opacity: .16; border-style: dashed; }
+.deck-pile-mini-card.is-depleted::after {
+  content: "";
+  position: absolute;
+  inset: 48% -12%;
+  z-index: 3;
+  height: 2px;
+  background: #d3d9d5;
+  transform: rotate(-34deg);
+}
+.deck-pile-reference-note { margin: 0; overflow-wrap: anywhere; }
+
+@media (orientation: landscape) and (min-width: 1367px) and (min-height: 760px) {
+  .deck-pile-draw-preview { grid-template-columns: 150px minmax(0, 1fr); gap: 16px; }
+  .deck-pile-overall { gap: 6px; padding: 12px; }
+  .deck-pile-overall > span,
+  .deck-pile-overall > em { font-size: 12px; }
+  .deck-pile-overall > strong { font-size: 23px; }
+  .deck-pile-overall > strong i { font-size: 13px; }
+  .deck-pile-overall > strong small { font-size: 15px; }
+  .deck-pile-card-matrix { padding-left: 14px; }
+  .deck-pile-card-matrix .deck-pile-mini-group { grid-template-columns: 70px minmax(0,1fr); }
+  .deck-pile-mini-card-ratio { left: 3px; bottom: 2px; font-size: 8px; }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-width: 1366px) {
+  .deck-pile-draw-preview { grid-template-columns: 112px minmax(0, 1fr); gap: 9px; }
+  .deck-pile-overall > span,
+  .deck-pile-overall > em { font-size: 9px; }
+  .deck-pile-overall > strong { font-size: 17px; }
+  .deck-pile-card-matrix .deck-pile-mini-group { grid-template-columns: 46px minmax(0,1fr); gap: 4px; }
+  .deck-pile-card-matrix .deck-pile-mini-group-label b { font-size: 8px; }
+  .deck-pile-card-matrix .deck-pile-mini-group-label small { display: none; }
+  .deck-pile-mini-card-ratio { font-size: 6px; }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px),
+       (orientation: portrait) and (max-width: 1100px) {
+  .deck-pile-draw-preview { grid-template-columns: 1fr; gap: 7px; }
+  .deck-pile-draw-summary { grid-template-columns: 82px minmax(0,1fr); }
+  .deck-pile-color-comparison { grid-template-columns: 1fr 1fr; }
+  .deck-pile-card-matrix { padding: 7px 0 0; border-top: 1px solid var(--dm-line-soft); border-left: 0; }
+  .deck-pile-mini-group { grid-template-columns: 42px minmax(0,1fr); }
+  .deck-pile-mini-grid { grid-template-columns: repeat(10, minmax(0,1fr)); }
+  .deck-pile-mini-card-ratio { display: none; }
+}
+
+/* Submission sequence: selected cards travel to the resolve zone, score one
+   at a time, leave for the discard pile, then only newly mounted hand cards
+   deal in. Selection itself stays limited to lift, light and border. */
+.deck-hand-card {
+  animation: dm-hand-deal-in 260ms cubic-bezier(.2,.72,.22,1) both;
+  animation-delay: calc(var(--hand-card-index) * 18ms);
+}
+
+.deck-played-layout[data-score-phase="moving"] .deck-played-card {
+  animation: dm-submit-to-table 200ms cubic-bezier(.16,.74,.24,1) both;
+  animation-delay: calc(var(--hand-card-index) * 12ms);
+}
+
+.deck-played-card[data-card-score-state="pending"] .number-card {
+  filter: brightness(.82) saturate(.76);
+}
+
+.deck-played-card[data-card-score-state="scored"] .number-card {
+  box-shadow: 0 0 0 3px rgba(230,189,69,.68), 6px 8px var(--dm-shadow);
+  filter: brightness(1.08);
+}
+
+.deck-played-card[data-card-score-state="kicker"] .number-card {
+  opacity: .48;
+  filter: grayscale(.72) brightness(.72);
+}
+
+.deck-played-layout[data-score-phase="discarding"] .deck-played-card {
+  animation: dm-submit-to-discard 410ms cubic-bezier(.45,.06,.72,.26) both;
+  animation-delay: calc(var(--hand-card-index) * 28ms);
+}
+
+.deck-hand-card[data-discarding="true"] {
+  --hand-card-active-z: 130;
+  pointer-events: none;
+  animation: dm-hand-direct-discard 240ms cubic-bezier(.42,.08,.74,.28) both;
+  animation-delay: 0ms;
+}
+
+.deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
+.deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+.deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
+  pointer-events: none;
+}
+
+@keyframes dm-submit-to-table {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + min(22vh, 180px)), 0)
+      rotate(0deg)
+      scale(.84);
+  }
+  72% { opacity: 1; }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+}
+
+@keyframes dm-submit-to-discard {
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+  55% { opacity: .92; }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(calc(var(--hand-card-x) + min(42vw, 660px)), calc(var(--hand-card-y) + 9vh), 0)
+      rotate(17deg)
+      scale(.46);
+  }
+}
+
+@keyframes dm-hand-deal-in {
+  0% {
+    opacity: 0;
+    transform:
+      translate3d(calc(var(--hand-card-x) + min(24vw, 320px)), calc(var(--hand-card-y) + 60px), 0)
+      rotate(10deg)
+      scale(.72);
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+}
+
+@keyframes dm-hand-direct-discard {
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-selected-lift, -35px)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(var(--hand-selected-scale, 1.025));
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(calc(var(--hand-card-x) + min(55vw, 860px)), calc(var(--hand-card-y) - 54px), 0)
+      rotate(18deg)
+      scale(.42);
+  }
+}
+
+.reduced-motion .deck-hand-card,
+.reduced-motion .deck-played-layout[data-score-phase] .deck-played-card {
+  animation: none !important;
+}
+
+/* Korean-first overflow guardrails for the gameplay surface. */
+.deck-game-view button,
+.deck-game-view small,
+.deck-game-view strong,
+.deck-game-view p,
+.deck-game-view span,
+.deck-game-view b {
+  min-width: 0;
+}
+
+.deck-stage-header p,
+.mobile-run-rail-round-effect p,
+.modifier-rail-tooltip-description,
+.modifier-rail-module span,
+.modifier-rail-summary-empty,
+.deck-score-event small,
+.deck-pile-reference-note {
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+
+.modifier-rail-tooltip-description,
+.modifier-rail-module span,
+.modifier-rail-summary-empty,
+.deck-score-event small,
+.deck-pile-popover-hint {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  font-weight: 500;
+  line-height: 1.5;
+  font-synthesis: none;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) {
+  .modifier-rail-tooltip-description,
+  .modifier-rail-module span,
+  .modifier-rail-summary-empty,
+  .deck-score-event small,
+  .deck-pile-popover-hint { font-size: 11px; }
+}
+
+/* Pile frames size from the visible card, label and count instead of a magic
+   height. This keeps both stacks centered when the responsive card size moves. */
+.deck-pile-draw .deck-pile-button {
+  min-height: 0 !important;
+  height: auto;
+  grid-template-rows: auto auto auto;
+  align-content: center;
+}
+
+.deck-pile-draw .deck-pile-count {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  min-width: 0;
+  padding: 3px 5px;
+  border: 2px solid var(--dm-line);
+  transform: none;
+  background: #070b0e;
+  line-height: 1;
+}
+
+.deck-pile-discard .deck-pile-button {
+  min-height: 0 !important;
+  height: auto;
+  align-content: center;
+}
+
+.deck-pile-button-label,
+.deck-pile-count,
+.deck-pile-open-hint {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+/* The full draw-deck matrix uses the free table width instead of compressing
+   forty cards into the compact pile button. Phone landscape keeps the same
+   readable type and scrolls the panel vertically when the viewport is short. */
+.deck-pile-draw .deck-pile-popover {
+  width: min(620px, calc(100vw - var(--dm-hud-width) - 84px));
+  max-width: calc(100vw - 16px);
+}
+
+.deck-pile-card-matrix .deck-pile-mini-grid {
+  grid-template-columns: repeat(10, minmax(0, 30px));
+  justify-content: space-between;
+}
+
+.deck-pile-card-matrix .deck-pile-mini-card > b { font-size: 10px; }
+.deck-pile-card-matrix .deck-pile-mini-card-ratio { font-size: 8px; }
+.deck-pile-card-matrix .deck-pile-mini-group-label b,
+.deck-pile-color-comparison .deck-pile-color-copy b { font-size: 10px; }
+.deck-pile-color-comparison .deck-pile-color-copy small,
+.deck-pile-mini-header small,
+.deck-pile-reference-note { font-size: 8px; }
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .deck-pile-draw .deck-pile-popover {
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .deck-pile-card-matrix .deck-pile-mini-card > b { font-size: 10px; }
+  .deck-pile-card-matrix .deck-pile-mini-group-label b,
+  .deck-pile-color-comparison .deck-pile-color-copy b { font-size: 9px; }
+  .deck-pile-color-comparison .deck-pile-color-copy small,
+  .deck-pile-mini-header small,
+  .deck-pile-reference-note,
+  .deck-pile-popover-hint {
+    font-size: 8px;
+    line-height: 1.4;
+  }
+
+  .mobile-run-rail-round-effect {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+  }
+
+  .mobile-run-rail-round-effect b,
+  .mobile-run-rail-round-effect strong {
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+
+  .deck-game-view .mobile-run-rail.pixel-panel { overflow-x: hidden; }
+  .mobile-run-rail-lower {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .mobile-run-rail-lower-stats > *,
+  .mobile-run-rail-resources,
+  .mobile-run-rail-run-meta {
+    width: 100%;
+    min-width: 0;
+  }
+  .mobile-run-rail-resources,
+  .mobile-run-rail-run-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .deck-sort-control > span,
+  .deck-sort-control button { font-size: 9px; }
 }

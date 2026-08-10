@@ -16,32 +16,33 @@ const COLOR_LABELS = {
 } as const;
 
 const COLOR_SUITS = {
-  red: { label: "FLAME", korean: "불꽃" },
-  yellow: { label: "SPARK", korean: "불티" },
-  green: { label: "LEAF", korean: "잎사귀" },
-  blue: { label: "DROP", korean: "물방울" },
+  red: { label: "불꽃" },
+  yellow: { label: "불티" },
+  green: { label: "잎사귀" },
+  blue: { label: "물방울" },
 } as const;
 
 export function ColorCard({
   card,
   selected = false,
-  selectionOrder,
   shortcut,
   chipValue,
   scoring,
   resolving = false,
   displayOnly = false,
+  revealScoreDetails,
   disabled = false,
   onClick,
 }: {
   card: DisplayNumberCard;
   selected?: boolean;
-  selectionOrder?: number;
   shortcut?: number;
   chipValue?: number;
   scoring?: boolean;
   resolving?: boolean;
   displayOnly?: boolean;
+  /** Score contribution is hidden in the hand and revealed only after play. */
+  revealScoreDetails?: boolean;
   disabled?: boolean;
   onClick?: () => void;
 }) {
@@ -51,6 +52,7 @@ export function ColorCard({
   const tooltipId = useId();
   const suit = COLOR_SUITS[card.color];
   const resolvedChipValue = chipValue ?? (card.value === 0 ? 10 : card.value + 1);
+  const scoreDetailsVisible = revealScoreDetails ?? displayOnly;
 
   useEffect(() => () => {
     if (longPressTimer.current !== null) {
@@ -77,9 +79,9 @@ export function ColorCard({
   return (
     <button
       type="button"
-      className={`number-card card-${card.color}${selected ? " is-selected" : ""}${scoring === true ? " is-scoring" : ""}${scoring === false ? " is-kicker" : ""}${resolving ? " is-resolving" : ""}${infoOpen ? " is-info-open" : ""}${displayOnly ? " is-display-only" : ""}`}
+      className={`number-card card-${card.color}${selected ? " is-selected" : ""}${scoreDetailsVisible && scoring === true ? " is-scoring" : ""}${scoreDetailsVisible && scoring === false ? " is-kicker" : ""}${resolving ? " is-resolving" : ""}${infoOpen ? " is-info-open" : ""}${displayOnly ? " is-display-only" : ""}`}
       aria-pressed={selected}
-      aria-label={`${suit.korean} ${COLOR_LABELS[card.color]} ${card.value} 카드, ${resolvedChipValue}칩${selected ? `, ${selectionOrder ?? ""}번째로 선택됨` : ""}${scoring === false ? ", 족보 비기여 카드" : ""}`}
+      aria-label={`${suit.label} ${COLOR_LABELS[card.color]} ${card.value} 카드${scoreDetailsVisible ? `, ${resolvedChipValue}칩` : ""}${selected ? ", 선택됨" : ""}${scoreDetailsVisible && scoring === false ? ", 족보 비기여 카드" : ""}`}
       aria-describedby={tooltipId}
       disabled={disabled}
       tabIndex={displayOnly ? -1 : undefined}
@@ -110,16 +112,18 @@ export function ColorCard({
       }}
     >
       {shortcut && <kbd className="card-shortcut" aria-hidden="true">{shortcut}</kbd>}
-      {selectionOrder && <span className="selection-order" aria-hidden="true">{selectionOrder}</span>}
       <span className="card-corner top">{card.value}</span>
       <span className={`card-suit card-suit-${card.color}`} aria-hidden="true" />
       <span className="card-number">{card.value}</span>
       <span className="card-corner bottom">{card.value}</span>
       <span className="card-type-label" aria-hidden="true"><i className={`card-mini-suit card-mini-suit-${card.color}`} />{suit.label}</span>
-      <span className="card-chip-value" aria-hidden="true">{resolvedChipValue}c</span>
+      {scoreDetailsVisible && <span className="card-chip-value" aria-hidden="true">{resolvedChipValue}칩</span>}
       <span id={tooltipId} className="card-hover-info" role="tooltip">
         <b>{card.value} · {suit.label}</b>
-        <small>{suit.korean} {COLOR_LABELS[card.color]} · {resolvedChipValue} Chips</small>
+        <small>
+          {suit.label} {COLOR_LABELS[card.color]}
+          {scoreDetailsVisible ? ` · ${resolvedChipValue}칩` : ""}
+        </small>
       </span>
     </button>
   );

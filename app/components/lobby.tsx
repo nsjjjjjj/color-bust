@@ -46,21 +46,21 @@ export function Lobby({
 
       <p className="mobile-menu-cloud" role="status">
         <span className={signedIn ? "cloud-on" : "cloud-off"} aria-hidden="true" />
-        {signedIn ? "CLOUD SAVE · 다른 기기에서 이어하기 가능" : "GUEST · 로그인하면 클라우드 저장 활성화"}
+        {signedIn ? "클라우드 저장 · 다른 기기에서 이어하기 가능" : "게스트 · 로그인하면 클라우드 저장 활성화"}
       </p>
 
       <button type="button" className="mobile-menu-profile" onClick={onOpenSettings} aria-label="프로필과 계정 설정 열기">
         <span className="mobile-menu-profile-avatar" aria-hidden="true"><i /><i /><i /></span>
-        <span><b>{signedIn ? "PLAYER" : "GUEST"}</b><small>P1</small></span>
+        <span><b>{signedIn ? "플레이어" : "게스트"}</b><small>1P</small></span>
       </button>
 
       <div className="mobile-menu-side-controls" aria-label="빠른 메뉴">
-        <button type="button" onClick={() => onStart("endless")} aria-label="무한 모드 시작"><b>∞</b><small>ENDLESS</small></button>
-        <button type="button" onClick={onOpenSettings} aria-label="언어와 옵션 열기"><b>KR</b><small>OPTIONS</small></button>
+        <button type="button" onClick={() => onStart("endless")} aria-label="무한 모드 시작"><b>∞</b><small>무한</small></button>
+        <button type="button" onClick={onOpenSettings} aria-label="언어와 옵션 열기"><b>KR</b><small>옵션</small></button>
       </div>
 
       <section className="mobile-menu-brand" aria-labelledby="mobile-menu-title">
-        <span className="kicker">A COMMUNITY-BUILT CARD ROGUELIKE</span>
+        <span className="kicker">모두가 함께 만드는 카드 로그라이크</span>
         <div className="deck-mayhem-lockup">
           <div className="deck-mayhem-card-fan" aria-hidden="true">
             <i className="deck-logo-card deck-logo-red" data-rank="7" />
@@ -83,7 +83,7 @@ export function Lobby({
           <span>플레이</span>
           <small>
             {savedRun
-              ? `이어하기 · ANTE ${savedRun.ante} · ${savedRun.roundLabel} · ${savedRun.score.toLocaleString()} / ${savedRun.target.toLocaleString()}`
+              ? `이어하기 · 앤티 ${savedRun.ante} · ${savedRun.roundLabel} · ${savedRun.score.toLocaleString()} / ${savedRun.target.toLocaleString()}`
               : "새 런 시작 · 5앤티 · 약 20분"}
           </small>
         </button>
@@ -96,15 +96,15 @@ export function Lobby({
       </nav>
 
       <nav className="mobile-menu-utility" aria-label="게임 모드와 참고 정보">
-        <button type="button" onClick={() => onStart("standard")}><b>5앤티</b><span>STANDARD</span></button>
-        <button type="button" onClick={() => onStart("endless")}><b>무한</b><span>ENDLESS</span></button>
-        <button type="button" onClick={onOpenGuide}><b>족보</b><span>HAND GUIDE</span></button>
-        <button type="button" onClick={onOpenLeaderboard}><b>랭킹</b><span>RANKING</span></button>
-        <button type="button" onClick={onOpenGuestbook}><b>평가</b><span>GUESTBOOK</span></button>
+        <button type="button" onClick={() => onStart("standard")}><b>5앤티</b><span>기본 모드</span></button>
+        <button type="button" onClick={() => onStart("endless")}><b>무한</b><span>무한 모드</span></button>
+        <button type="button" onClick={onOpenGuide}><b>족보</b><span>족보 안내</span></button>
+        <button type="button" onClick={onOpenLeaderboard}><b>랭킹</b><span>순위표</span></button>
+        <button type="button" onClick={onOpenGuestbook}><b>평가</b><span>평가소</span></button>
       </nav>
 
       <button className="mobile-menu-uno" type="button" onClick={onOpenCommunity}>
-        <span className="kicker">EQUIPPED · MAYHEM CARD</span>
+        <span className="kicker">장착 중 · 메이헴 카드</span>
         {equippedUno ? (
           <>
             <strong>{equippedUno.name}</strong>
@@ -122,18 +122,18 @@ export function Lobby({
 
       <section className="mobile-menu-support" aria-label="게임 도움말과 오늘의 팁">
         <article className="mobile-menu-how">
-          <span className="kicker">HOW TO MAYHEM</span>
+          <span className="kicker">플레이 방법</span>
           <ol>
             <li><b>01</b><span><strong>8장 중 최대 5장 선택</strong><small>숫자와 색으로 족보 완성</small></span></li>
-            <li><b>02</b><span><strong>Chips × Mult</strong><small>0은 특별하게 10 Chips</small></span></li>
+            <li><b>02</b><span><strong>칩 × 배수</strong><small>0은 특별하게 10칩</small></span></li>
             <li><b>03</b><span><strong>상점에서 빌드 완성</strong><small>조커와 메이헴 효과 조합</small></span></li>
           </ol>
         </article>
         <article className="mobile-menu-signal">
-          <span className="kicker">TODAY&apos;S SIGNAL</span>
+          <span className="kicker">오늘의 신호</span>
           <div className="signal-art" aria-hidden="true"><i /><i /><i /><i /></div>
           <strong>“0을 버리지 마.”</strong>
-          <p>0은 10 Chips. 제로 데이와 널 포인터를 만나면 빌드의 중심이 됩니다.</p>
+          <p>0은 10칩. 제로 데이와 널 포인터를 만나면 빌드의 중심이 됩니다.</p>
         </article>
       </section>
     </main>

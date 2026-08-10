@@ -89,22 +89,21 @@ PWA 아이콘은 `public/icons/`, 링크 공유 이미지는 `public/og.png`를 
 
 ## 음악 교체
 
-`public/audio/`에 아래 파일을 넣으면 코드 수정 없이 재생됩니다.
+`public/audio/`의 아래 파일을 같은 이름으로 교체하면 코드 수정 없이 재생됩니다.
 
 ```text
-bgm-menu.mp3
-bgm-run.mp3
+bgm-menu.m4a
+bgm-run.m4a
+bgm-shop.mp3
 bgm-boss.mp3
-card-select.mp3
+bgm-final-boss.mp3
+deck-setup.mp3
+card-draw.mp3
 card-play.mp3
 score.mp3
-buy.mp3
-uno.mp3
-win.mp3
-lose.mp3
 ```
 
-파일이 없을 때는 무음으로 정상 실행됩니다. 게임 설정에서 배경 음악과 효과음 볼륨을 따로 조절할 수 있습니다.
+일반전, 앤티 1~4 보스, 앤티 5 최종 보스는 서로 다른 BGM을 사용하고 장면 전환 시 교차 페이드됩니다. 새 런의 덱 세팅, 카드 보충, 제출·버리기, 카드별 점수 계산에는 각각 효과음이 연결되어 있습니다. 게임 설정에서 배경 음악과 효과음 볼륨을 따로 조절할 수 있습니다. 자세한 매핑과 인코딩 안내는 `public/audio/README.md`를 참고하세요.
 
 ## 로그인과 저장
 

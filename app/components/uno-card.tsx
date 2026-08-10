@@ -34,7 +34,7 @@ export function UnoCard({
         <span>M</span>
       </div>
       <div className="uno-copy">
-        <span className="uno-author">BY {card.creatorName ?? "COMMUNITY"}</span>
+        <span className="uno-author">제작 {card.creatorName ?? "커뮤니티"}</span>
         <h3>{card.name}</h3>
         {card.description && <p className="uno-description">{card.description}</p>}
         <dl>

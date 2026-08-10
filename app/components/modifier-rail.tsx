@@ -57,7 +57,7 @@ const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
 
 export interface ModifierRailProps {
   run: RunState;
-  /** Current preview or the most recently resolved hand. */
+  /** The hand currently resolving, or the most recently resolved hand. */
   breakdown?: ScoreBreakdown | null;
   className?: string;
 }
@@ -92,9 +92,9 @@ function jokerCondition(joker: JokerInstance): string {
 }
 
 function jokerLevel(joker: JokerInstance): string {
-  if (joker.counter !== undefined) return `STACK ${joker.counter}/4`;
-  if (joker.selectedColor) return COLOR_LABELS[joker.selectedColor].toUpperCase();
-  return "PASSIVE";
+  if (joker.counter !== undefined) return `연속 ${joker.counter}/4`;
+  if (joker.selectedColor) return COLOR_LABELS[joker.selectedColor];
+  return "패시브";
 }
 
 function moduleIds(card: CommunityUnoCard): readonly UnoModuleId[] {
@@ -127,14 +127,14 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
       <header className="modifier-rail-header">
         <span className="modifier-rail-header-icon" aria-hidden="true">✦</span>
         <div className="modifier-rail-header-copy">
-          <strong>MODIFIERS</strong>
-          <small>{run.jokers.length + run.communityUno.length} PASSIVE</small>
+          <strong>보유 효과</strong>
+          <small>패시브 {run.jokers.length + run.communityUno.length}개</small>
         </div>
       </header>
 
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-jokers-title`}>
         <header className="modifier-rail-section-header">
-          <h2 id={`${reactId}-jokers-title`}>JOKERS</h2>
+          <h2 id={`${reactId}-jokers-title`}>조커</h2>
           <span>{run.jokers.length}/{JOKER_SLOT_LIMIT}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-joker-slots">
@@ -195,7 +195,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                     <small>{jokerLevel(joker)}</small>
                   </span>
                   <i className="modifier-rail-slot-status" aria-hidden="true">
-                    {isApplied ? "ON" : "—"}
+                    {isApplied ? "적용" : "—"}
                   </i>
                 </button>
 
@@ -248,7 +248,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                 key={`empty-joker-${index}`}
               >
                 <span aria-hidden="true">+</span>
-                <small>EMPTY</small>
+                <small>빈 슬롯</small>
               </div>
             ),
           )}
@@ -257,7 +257,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
 
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-uno-title`}>
         <header className="modifier-rail-section-header">
-          <h2 id={`${reactId}-uno-title`}>MAYHEM CARDS</h2>
+          <h2 id={`${reactId}-uno-title`}>메이헴 카드</h2>
           <span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-uno-slots">
@@ -316,10 +316,10 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                   <span className="modifier-rail-slot-icon" aria-hidden="true">M</span>
                   <span className="modifier-rail-slot-copy">
                     <strong>{card.name}</strong>
-                    <small>V.{card.version} · {points > 0 ? "+" : ""}{points}</small>
+                    <small>버전 {card.version} · {points > 0 ? "+" : ""}{points}</small>
                   </span>
                   <i className="modifier-rail-slot-status" aria-hidden="true">
-                    {isApplied ? "ON" : run.unoUsedThisAnte ? "USED" : "1×"}
+                    {isApplied ? "적용" : run.unoUsedThisAnte ? "사용함" : "1회"}
                   </i>
                 </button>
 
@@ -333,7 +333,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                     <span aria-hidden="true">M</span>
                     <div>
                       <strong>{card.name}</strong>
-                      <small>{card.author} · V.{card.version}</small>
+                      <small>{card.author} · 버전 {card.version}</small>
                     </div>
                   </header>
                   <p className="modifier-rail-tooltip-description">
@@ -380,7 +380,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                 key={`empty-uno-${index}`}
               >
                 <span aria-hidden="true">M</span>
-                <small>EMPTY</small>
+                <small>빈 슬롯</small>
               </div>
             ),
           )}
@@ -389,11 +389,11 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
 
       <section className="modifier-rail-summary" aria-live="polite" aria-label="이번 핸드 적용 효과 요약">
         <header className="modifier-rail-summary-header">
-          <span>THIS HAND</span>
-          <strong>{breakdown ? `${appliedCount} EFFECT${appliedCount === 1 ? "" : "S"}` : "PREVIEW"}</strong>
+          <span>제출 결과</span>
+          <strong>{breakdown ? `효과 ${appliedCount}개` : "비공개"}</strong>
         </header>
         {!breakdown && (
-          <p className="modifier-rail-summary-empty">카드를 선택하면 적용 효과를 표시합니다.</p>
+          <p className="modifier-rail-summary-empty">카드를 내면 적용 결과를 표시합니다.</p>
         )}
         {breakdown && appliedCount === 0 && (
           <p className="modifier-rail-summary-empty">현재 조건을 만족한 효과가 없습니다.</p>

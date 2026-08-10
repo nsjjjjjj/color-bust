@@ -66,13 +66,13 @@ function shortcutFor(index: number): number | undefined {
 export function HandView({
   cards,
   selectedIds,
-  scoringIds,
+  discardingIds = [],
   resolving,
   onToggleCard,
 }: {
   cards: readonly GameCard[];
   selectedIds: readonly string[];
-  scoringIds: ReadonlySet<string>;
+  discardingIds?: readonly string[];
   resolving: boolean;
   onToggleCard: (id: string) => void;
 }) {
@@ -88,9 +88,11 @@ export function HandView({
       ref={elementRef}
       style={style}
       data-card-count={cards.length}
+      data-selection-state={selectedIds.length > 0 ? "selecting" : "idle"}
     >
       {cards.map((card, index) => {
         const selected = selectedIds.includes(card.id);
+        const discarding = discardingIds.includes(card.id);
         const slot = layout.cards[index];
         if (!slot) return null;
         const cardStyle = handLayoutManager.cardVariables(slot) as CSSProperties;
@@ -99,16 +101,14 @@ export function HandView({
           <div
             className="deck-hand-card"
             data-selected={selected || undefined}
+            data-discarding={discarding || undefined}
             key={card.id}
             style={cardStyle}
           >
             <ColorCard
               card={{ ...card, value: card.rank }}
               selected={selected}
-              selectionOrder={selected ? selectedIds.indexOf(card.id) + 1 : undefined}
               shortcut={shortcutFor(index)}
-              chipValue={rankChipValue(card.rank)}
-              scoring={selected ? scoringIds.has(card.id) : undefined}
               disabled={resolving || (!selected && selectedIds.length >= 5)}
               onClick={() => onToggleCard(card.id)}
             />
@@ -127,11 +127,17 @@ function cardFeedback(event: ScoreEvent | null): string | null {
 export function PlayedCardsView({
   cards,
   breakdown,
+  scoreEvents,
   scoreEvent,
+  scoreEventIndex,
+  playbackPhase,
 }: {
   cards: readonly GameCard[];
   breakdown: ScoreBreakdown;
+  scoreEvents: readonly ScoreEvent[];
   scoreEvent: ScoreEvent | null;
+  scoreEventIndex: number;
+  playbackPhase: "moving" | "scoring" | "discarding";
 }) {
   const { elementRef, width } = useMeasuredWidth();
   const { layout, style } = useMemo(
@@ -139,11 +145,40 @@ export function PlayedCardsView({
     [cards.length, width],
   );
   const feedback = cardFeedback(scoreEvent);
+  const cardScorePositions = useMemo(() => {
+    const positions = new Map<string, { eventIndex: number; order: number }>();
+    let order = 0;
+    scoreEvents.forEach((event, eventIndex) => {
+      if (event.type !== "card-score" || !event.sourceCardId) return;
+      positions.set(event.sourceCardId, { eventIndex, order });
+      order += 1;
+    });
+    return positions;
+  }, [scoreEvents]);
 
   return (
-    <div className="deck-resolve-cards deck-played-layout" ref={elementRef} style={style}>
+    <div
+      className="deck-resolve-cards deck-played-layout"
+      ref={elementRef}
+      style={style}
+      data-score-phase={playbackPhase}
+      data-score-event-index={playbackPhase === "moving" ? undefined : scoreEventIndex}
+    >
       {cards.map((card, index) => {
-        const isSource = scoreEvent?.sourceCardId === card.id;
+        const scorePosition = cardScorePositions.get(card.id);
+        const isScoringCard = breakdown.scoringCardIds.includes(card.id);
+        const cardScoreState = playbackPhase === "moving"
+          ? "moving"
+          : playbackPhase === "discarding"
+            ? "discarding"
+            : !isScoringCard
+              ? "kicker"
+              : scoreEvent?.sourceCardId === card.id
+                ? "active"
+                : scorePosition && scorePosition.eventIndex < scoreEventIndex
+                  ? "scored"
+                  : "pending";
+        const isSource = cardScoreState === "active";
         const slot = layout.cards[index];
         if (!slot) return null;
         const presentation = handLayoutManager.presentation(slot, { scoring: isSource });
@@ -156,20 +191,22 @@ export function PlayedCardsView({
           <div
             className={`deck-resolve-card deck-played-card${isSource ? " is-source" : ""}`}
             data-scoring={isSource || undefined}
+            data-card-score-state={cardScoreState}
+            data-score-order={scorePosition ? scorePosition.order + 1 : undefined}
             style={cardStyle}
             key={card.id}
           >
             <ColorCard
               card={{ ...card, value: card.rank }}
               chipValue={rankChipValue(card.rank)}
-              scoring={breakdown.scoringCardIds.includes(card.id)}
+              scoring={isScoringCard}
               resolving={isSource}
               displayOnly
             />
             {isSource && feedback && (
               <output className="deck-card-score-popup" key={scoreEvent.id}>
                 {feedback}
-                <small>CHIPS</small>
+                <small>칩</small>
               </output>
             )}
           </div>

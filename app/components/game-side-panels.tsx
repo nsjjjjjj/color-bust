@@ -7,9 +7,9 @@ import type { ScoreEvent } from "../../lib/game/score-events";
 import type { RunState, ScoreBreakdown } from "../../lib/game/types";
 
 const ROUND_LABELS: Readonly<Record<RunState["round"], string>> = {
-  small: "SMALL BLIND",
-  big: "BIG BLIND",
-  boss: "BOSS BLIND",
+  small: "첫 번째 블라인드",
+  big: "두 번째 블라인드",
+  boss: "보스 라운드",
 };
 
 const ROUND_NAMES: Readonly<Record<RunState["round"], string>> = {
@@ -69,19 +69,23 @@ export function GameLeftRail({
   const visibleRoundScore = displayRoundScore ?? run.score;
   const progress = run.target > 0 ? Math.min(100, (visibleRoundScore / run.target) * 100) : 0;
   const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
-  const previewChips = breakdown
-    ? breakdown.chipsBeforeUno + (breakdown.uno?.chipDelta ?? 0)
+  const canShowResult = isResolving || showingLastHand;
+  const visibleBreakdown = canShowResult ? breakdown : null;
+  const resolvedChips = visibleBreakdown
+    ? visibleBreakdown.chipsBeforeUno + (visibleBreakdown.uno?.chipDelta ?? 0)
     : 0;
-  const previewMultiplier = breakdown
-    ? (breakdown.multiplierBeforeUno + (breakdown.uno?.multiplierDelta ?? 0))
-      * breakdown.jokerXMultiplier
-      * (breakdown.uno?.xMultiplier ?? 1)
+  const resolvedMultiplier = visibleBreakdown
+    ? (visibleBreakdown.multiplierBeforeUno + (visibleBreakdown.uno?.multiplierDelta ?? 0))
+      * visibleBreakdown.jokerXMultiplier
+      * (visibleBreakdown.uno?.xMultiplier ?? 1)
     : 0;
-  const chips = isResolving ? scoreEvent?.currentChips ?? 0 : previewChips;
+  const chips = isResolving ? scoreEvent?.currentChips ?? 0 : resolvedChips;
   const multiplier = isResolving
     ? (scoreEvent?.currentMultiplier ?? 0) * (scoreEvent?.currentXMultiplier ?? 1)
-    : previewMultiplier;
-  const previewScore = isResolving ? scoreEvent?.currentTotal ?? 0 : breakdown?.total ?? 0;
+    : resolvedMultiplier;
+  const visibleHandScore = isResolving
+    ? scoreEvent?.currentTotal ?? 0
+    : visibleBreakdown?.total ?? 0;
 
   return (
     <aside
@@ -133,25 +137,27 @@ export function GameLeftRail({
         </progress>
       </section>
 
-      <section className="mobile-run-rail-preview" aria-label="핸드 점수 미리보기" aria-live="polite">
+      <section className="mobile-run-rail-preview" aria-label="제출한 핸드 결과" aria-live="polite">
         <strong className="mobile-run-rail-hand-name">
-          <small>{showingLastHand ? "지난 핸드" : "현재 핸드"}</small>
-          {breakdown ? `${breakdown.handName} · 레벨 ${breakdown.handLevel}` : "선택된 핸드 없음"}
+          <small>{isResolving ? "현재 계산" : showingLastHand ? "지난 핸드" : "핸드 결과"}</small>
+          {visibleBreakdown
+            ? `${visibleBreakdown.handName} · 레벨 ${visibleBreakdown.handLevel}`
+            : "카드를 내면 공개됩니다"}
         </strong>
         <div className="mobile-run-rail-equation">
           <div className="mobile-run-rail-chips">
             <span>칩</span>
-            <strong key={`${scoreEvent?.id ?? "preview"}-chips`}>{chips.toLocaleString()}</strong>
+            <strong key={`${scoreEvent?.id ?? "result"}-chips`}>{canShowResult ? chips.toLocaleString() : "—"}</strong>
           </div>
           <b className="mobile-run-rail-equation-sign" aria-hidden="true">×</b>
           <div className="mobile-run-rail-mult">
             <span>배수</span>
-            <strong key={`${scoreEvent?.id ?? "preview"}-mult`}>{formatMultiplier(multiplier)}</strong>
+            <strong key={`${scoreEvent?.id ?? "result"}-mult`}>{canShowResult ? formatMultiplier(multiplier) : "—"}</strong>
           </div>
         </div>
         <output className="mobile-run-rail-preview-total">
-          <span>{isResolving ? "계산 중" : showingLastHand ? "지난 점수" : breakdown ? "예상 점수" : "미리보기"}</span>
-          <strong>{previewScore.toLocaleString()}</strong>
+          <span>{isResolving ? "계산 중" : showingLastHand ? "지난 점수" : "제출 후 공개"}</span>
+          <strong>{canShowResult ? visibleHandScore.toLocaleString() : "—"}</strong>
         </output>
         {scoreEvent && (
           <div className={`mobile-run-rail-score-event event-${scoreEvent.emphasis}`} key={scoreEvent.id} aria-live="assertive">
