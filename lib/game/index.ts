@@ -15,12 +15,15 @@ export {
   buyDeckWork,
   buyCardPack,
   choosePackCard,
+  takePackChoices,
   buyShopOffer,
   sellJoker,
   rerollShop,
   setHotSwapColor,
   nextRound,
 } from "./engine";
+
+export { PACK_DEFINITIONS, PackGenerator, RARITY_ORDER } from "./packs";
 
 export { createNumberDeck, drawCards, shuffledDeck } from "./deck";
 export {

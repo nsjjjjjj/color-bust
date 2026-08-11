@@ -218,6 +218,592 @@
 .dm-garage__next { border-color: #347d5a !important; background: #123b2a !important; }
 .dm-garage__next strong { color: var(--dm-green); }
 
+/* --------------------------------------------------------------------------
+ * Garage v2 — card-first showroom
+ * ----------------------------------------------------------------------- */
+
+.dm-garage {
+  --shop-card-w: clamp(146px, 12.2vw, 210px);
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(12px, 1.5vw, 24px);
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 50% 120%, rgba(33, 116, 97, 0.2), transparent 48%),
+    linear-gradient(145deg, #071113 0%, #0b1c1b 50%, #071012 100%);
+}
+
+.dm-garage :is(p, small, span, button, dt) {
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  font-synthesis: none;
+}
+
+.dm-garage :is(h1, h2, h3, strong, b, dd),
+.dm-shop-slot__rarity {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-synthesis: none;
+}
+
+.dm-garage-bar,
+.dm-garage-notice,
+.dm-shop-floor {
+  position: relative;
+  z-index: 2;
+  width: min(1760px, 100%);
+  margin-inline: auto;
+}
+
+.dm-garage-bar {
+  display: grid;
+  min-height: 88px;
+  padding: 12px 14px;
+  border: 2px solid #38585b;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 14px;
+  align-items: stretch;
+  background: rgba(5, 15, 17, 0.96);
+  box-shadow: 5px 5px 0 #020809, inset 0 0 0 2px rgba(255,255,255,.025);
+}
+
+.dm-garage-brand { min-width: 0; }
+.dm-garage-brand > span {
+  color: #55dce8;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.dm-garage-brand h1 {
+  margin: 1px 0 0;
+  color: #f5fbf9;
+  font-size: clamp(28px, 2.7vw, 46px);
+  line-height: 1;
+  text-shadow: 3px 3px 0 #17464b;
+}
+.dm-garage-brand small {
+  display: block;
+  margin-top: 5px;
+  color: #b6c8c4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dm-garage-stats {
+  display: grid;
+  min-width: 310px;
+  margin: 0;
+  border: 1px solid #315054;
+  grid-template-columns: 70px 130px 100px;
+  background: #091719;
+}
+.dm-garage-stats > div {
+  display: flex;
+  padding: 9px 10px;
+  border-right: 1px solid #315054;
+  flex-direction: column;
+  justify-content: center;
+}
+.dm-garage-stats > div:last-child { border-right: 0; }
+.dm-garage-stats dt { color: #90aaa6; font-size: 10px; font-weight: 700; }
+.dm-garage-stats dd { margin: 3px 0 0; color: #effbf8; font-size: 18px; }
+.dm-garage-stats .is-wallet dd { color: #f5cf4b; font-size: 25px; animation: dm-wallet-pulse .35s ease-out; }
+
+@keyframes dm-wallet-pulse {
+  0% { transform: scale(1.18); color: #ff7770; }
+  100% { transform: scale(1); color: #f5cf4b; }
+}
+
+.dm-garage-actions {
+  display: grid;
+  min-width: 360px;
+  grid-template-columns: repeat(3, minmax(108px, 1fr));
+  gap: 8px;
+}
+.dm-garage-actions button,
+.dm-garage-dialog > header button {
+  padding: 9px 10px;
+  border: 2px solid #3a5d61;
+  border-radius: 0;
+  cursor: pointer;
+  color: #ddecE9;
+  background: #102427;
+  box-shadow: 3px 3px 0 #020708;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform .14s ease, filter .14s ease, box-shadow .14s ease;
+}
+.dm-garage-actions button b { display: block; margin-top: 3px; color: #f1cf54; font-size: 13px; }
+.dm-garage-actions button.is-next { border-color: #43815f; background: #153a2a; }
+.dm-garage-actions button.is-next b { color: #79ed9b; }
+.dm-garage-actions button:hover:not(:disabled),
+.dm-garage-dialog > header button:hover { transform: translateY(-2px); filter: brightness(1.15); box-shadow: 3px 5px 0 #020708; }
+.dm-garage-actions button:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #020708; }
+.dm-garage-actions button:disabled { cursor: not-allowed; opacity: .4; }
+
+.dm-garage-notice {
+  min-height: 30px;
+  margin-block: 0;
+  padding: 7px 12px;
+  border-left: 3px solid #43d8e5;
+  color: #bbcac7;
+  background: rgba(8, 23, 25, .88);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.dm-shop-floor {
+  min-height: 0;
+  padding: 12px 14px 18px;
+  border: 2px solid #29484c;
+  background: rgba(7, 18, 20, .9);
+  box-shadow: 6px 6px 0 #020708;
+}
+.dm-shop-floor > header {
+  display: flex;
+  min-height: 48px;
+  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.dm-shop-floor > header span { color: #50d9e5; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.dm-shop-floor > header h2 { margin: 2px 0 0; font-size: 22px; }
+.dm-shop-floor > header p { margin: 0; color: #9db3af; font-size: 11px; font-weight: 700; }
+
+.dm-shop-grid {
+  display: grid;
+  min-height: 405px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(8px, .8vw, 14px);
+  align-items: start;
+  overflow: visible;
+}
+
+.dm-shop-slot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  height: 390px;
+  padding: 7px;
+  border: 2px solid #354f52;
+  grid-template-rows: 1fr 45px;
+  background: #0b181a;
+  box-shadow: 4px 4px 0 #020708;
+  transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, border-color .22s ease;
+  transform-origin: 50% 90%;
+}
+.dm-shop-slot::before,
+.dm-pack-choice__front::before {
+  position: absolute;
+  inset: 3px;
+  border: 1px solid color-mix(in srgb, var(--rarity-color, #6d8688) 65%, transparent);
+  content: "";
+  pointer-events: none;
+}
+.dm-shop-slot[data-rarity="common"] { --rarity-color: #8da3a4; }
+.dm-shop-slot[data-rarity="uncommon"] { --rarity-color: #55d68c; }
+.dm-shop-slot[data-rarity="rare"] { --rarity-color: #56b8ff; }
+.dm-shop-slot[data-rarity="legendary"] { --rarity-color: #d77cff; }
+.dm-shop-slot:hover:not([data-sold]),
+.dm-shop-slot[data-selected] {
+  z-index: 20;
+  border-color: var(--rarity-color);
+  transform: translateY(-12px) scale(1.065);
+  box-shadow: 8px 12px 0 rgba(1, 7, 8, .86), 0 0 22px color-mix(in srgb, var(--rarity-color) 26%, transparent);
+}
+.dm-shop-slot[data-purchasing] { z-index: 30; animation: dm-purchase-punch .42s cubic-bezier(.25,.9,.25,1); }
+@keyframes dm-purchase-punch {
+  0% { transform: translateY(-12px) scale(1.065); }
+  38% { transform: translateY(-20px) scale(1.14) rotate(-1deg); filter: brightness(1.35); }
+  100% { transform: translate(15vw,-28vh) scale(.45); opacity: .15; }
+}
+
+.dm-shop-slot__select {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  padding: 3px 3px 5px;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+}
+.dm-shop-slot__select:disabled { cursor: default; }
+.dm-shop-slot__rarity {
+  position: relative;
+  z-index: 2;
+  display: block;
+  min-height: 20px;
+  color: var(--rarity-color);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-align: center;
+}
+.dm-shop-slot__art {
+  position: relative;
+  display: grid;
+  width: min(100%, 122px);
+  aspect-ratio: .72;
+  margin: 0 auto 7px;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #647477;
+  background:
+    linear-gradient(rgba(1,8,9,.25), rgba(1,8,9,.55)),
+    url("/art/deck-mayhem-card-frame-v1.png") center/cover no-repeat,
+    #132527;
+  box-shadow: 4px 5px 0 #020708;
+}
+.dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art {
+  width: min(100%, 130px);
+  aspect-ratio: .78;
+  border-color: var(--rarity-color);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.18), transparent 22%, rgba(255,255,255,.12) 40%, transparent 48%),
+    repeating-linear-gradient(120deg, #13282b 0 12px, #0a1719 12px 24px);
+}
+.dm-shop-slot__art::after {
+  position: absolute;
+  inset: 7px;
+  border: 2px solid color-mix(in srgb, var(--rarity-color) 70%, #172426);
+  content: "";
+  box-shadow: inset 0 0 18px rgba(0,0,0,.72);
+}
+.dm-shop-slot__art b {
+  position: relative;
+  z-index: 2;
+  color: #fff0c4;
+  font-size: clamp(28px, 3vw, 46px);
+  text-shadow: 3px 3px 0 #071113, 0 0 12px var(--rarity-color);
+}
+.dm-shop-slot__copy { display: block; min-width: 0; text-align: center; }
+.dm-shop-slot__copy > small { display: block; color: #879d9a; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.dm-shop-slot__copy > strong { display: block; margin-top: 2px; color: #f3faf8; font-size: 13px; line-height: 1.2; }
+.dm-shop-slot__copy > span {
+  display: -webkit-box;
+  min-height: 35px;
+  margin-top: 5px;
+  overflow: hidden;
+  color: #c1cfcc;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.dm-shop-slot__detail {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: 4;
+  display: block;
+  padding: 8px;
+  border-top: 1px solid var(--rarity-color);
+  opacity: 0;
+  color: #dce9e6;
+  background: rgba(3, 12, 14, .96);
+  transform: translateY(8px);
+  transition: opacity .18s ease, transform .2s ease;
+  pointer-events: none;
+}
+.dm-shop-slot:hover .dm-shop-slot__detail,
+.dm-shop-slot[data-selected] .dm-shop-slot__detail { opacity: 1; transform: translateY(0); }
+.dm-shop-slot__detail b { display: block; color: var(--rarity-color); font-size: 9px; }
+.dm-shop-slot__detail span { display: block; margin-top: 4px; font-size: 10px; line-height: 1.45; }
+.dm-shop-slot > footer {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.2fr;
+  gap: 5px;
+  align-items: stretch;
+}
+.dm-shop-slot > footer > span {
+  display: grid;
+  padding: 4px;
+  place-items: center;
+  color: #f4cd4c;
+  background: #152225;
+  font-family: "Galmuri11", monospace !important;
+  font-size: 13px;
+}
+.dm-shop-slot > footer > span.is-disabled { color: #9a7270; font-size: 9px; }
+.dm-shop-slot__buy {
+  border: 2px solid #3d8c61;
+  cursor: pointer;
+  color: #dff8e7;
+  background: #17452f;
+  box-shadow: 2px 2px 0 #020708;
+  font-size: 10px;
+  font-weight: 900;
+}
+.dm-shop-slot__buy:disabled { cursor: not-allowed; opacity: .32; filter: saturate(.25); }
+.dm-shop-slot[data-selected] .dm-shop-slot__buy:not(:disabled) { animation: dm-buy-ready 1.1s ease-in-out infinite alternate; }
+@keyframes dm-buy-ready { to { filter: brightness(1.28); box-shadow: 0 0 10px rgba(103,224,138,.5), 2px 2px 0 #020708; } }
+.dm-shop-slot__sold {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  border: 3px solid #9e4f4c;
+  color: #ff8580;
+  background: rgba(5, 10, 11, .78);
+  font-family: "Galmuri11", monospace !important;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-shadow: 3px 3px 0 #301010;
+  transform: rotate(-5deg);
+}
+.dm-shop-slot[data-purchasing] .dm-shop-slot__sold { opacity: 0; }
+
+.dm-garage-overlay,
+.dm-pack-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+  place-items: center;
+  overflow: auto;
+  background: rgba(1, 6, 7, .88);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  animation: dm-overlay-in .2s ease-out;
+}
+@keyframes dm-overlay-in { from { opacity: 0; } }
+.dm-garage-dialog,
+.dm-pack-stage {
+  position: relative;
+  width: min(1240px, 96vw);
+  max-height: min(900px, 94vh);
+  max-height: min(900px, 94dvh);
+  padding: 18px;
+  border: 2px solid #416a6e;
+  overflow: auto;
+  background: #081618;
+  box-shadow: 10px 12px 0 rgba(0,0,0,.7), 0 0 48px rgba(67,216,229,.12);
+}
+.dm-garage-dialog > header,
+.dm-pack-stage > header {
+  display: flex;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #315054;
+  align-items: center;
+  justify-content: space-between;
+}
+.dm-garage-dialog > header span,
+.dm-pack-stage > header > span { color: #54dbe6; font-size: 10px; font-weight: 800; letter-spacing: .11em; }
+.dm-garage-dialog > header h2,
+.dm-pack-stage > header h2 { margin: 3px 0 0; font-size: 28px; }
+.dm-garage-dialog > p { color: #bfd0cc; font-size: 12px; line-height: 1.5; }
+.dm-deck-viewer__summary {
+  display: flex;
+  margin: 12px 0;
+  gap: 8px;
+}
+.dm-deck-viewer__summary b {
+  padding: 7px 10px;
+  border: 1px solid #315054;
+  color: #d8e7e4;
+  background: #102326;
+  font-size: 10px;
+}
+.dm-deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 8px;
+}
+.dm-deck-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  aspect-ratio: .68;
+  padding: 6px;
+  border: 2px solid #718082;
+  cursor: pointer;
+  place-items: center;
+  overflow: hidden;
+  color: #fff4d0;
+  background: #132325;
+  box-shadow: 3px 4px 0 #020708;
+  transition: transform .16s ease, filter .16s ease;
+}
+.dm-deck-card:hover:not(:disabled), .dm-deck-card[data-selected] { z-index: 3; transform: translateY(-6px) scale(1.06); filter: brightness(1.2); }
+.dm-deck-card[data-selected] { border-color: #f6d657; box-shadow: 0 0 14px rgba(246,214,87,.45), 3px 4px 0 #020708; }
+.dm-deck-card:disabled { cursor: not-allowed; opacity: .3; }
+.dm-deck-card__frame { position: absolute; inset: 0; opacity: .52; background: url("/art/deck-mayhem-card-frame-v1.png") center/cover no-repeat; }
+.dm-deck-card__corner { position: absolute; top: 7px; left: 8px; z-index: 2; font-family: "Galmuri11", monospace !important; font-size: 11px; }
+.dm-deck-card > strong { position: relative; z-index: 2; font-size: clamp(22px, 2.8vw, 38px); text-shadow: 2px 2px 0 #05090a; }
+.dm-deck-card > small { position: absolute; right: 3px; bottom: 5px; left: 3px; z-index: 2; overflow: hidden; color: #dbe8e5; font-size: 8px; font-weight: 800; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.dm-deck-card[data-color="red"] { background-color: #581e20; }
+.dm-deck-card[data-color="blue"] { background-color: #143a5c; }
+.dm-deck-card[data-color="green"] { background-color: #1f4a2e; }
+.dm-deck-card[data-color="yellow"] { background-color: #6d5112; }
+.dm-owned-mods { display: grid; margin-top: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.dm-owned-mods article { display: grid; min-width: 0; padding: 9px; border: 1px solid #3d5c60; grid-template-columns: 42px 1fr auto; gap: 8px; align-items: center; background: #0e2022; }
+.dm-owned-mods i { display: grid; width: 40px; aspect-ratio: 1; place-items: center; border: 1px solid #5c777a; color: #ecd4ff; font-family: "Galmuri11", monospace; font-style: normal; }
+.dm-owned-mods div { min-width: 0; }
+.dm-owned-mods strong, .dm-owned-mods small { display: block; }
+.dm-owned-mods strong { font-size: 11px; }
+.dm-owned-mods small { margin-top: 3px; overflow: hidden; color: #aec0bc; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.dm-owned-mods button { padding: 7px; border: 1px solid #8a4f4d; cursor: pointer; color: #ffc0bb; background: #3b1e1e; font-size: 9px; }
+
+.dm-pack-stage { width: min(1320px, 97vw); overflow: visible; text-align: center; }
+.dm-pack-stage > header { display: block; }
+.dm-pack-stage > header p { margin: 5px 0 0; color: #f4d257; font-size: 12px; font-weight: 800; }
+.dm-sealed-pack {
+  position: relative;
+  display: flex;
+  width: min(260px, 62vw);
+  aspect-ratio: .72;
+  margin: 34px auto;
+  border: 4px solid #ad7ae6;
+  cursor: pointer;
+  color: #f8ecff;
+  background:
+    linear-gradient(140deg, rgba(255,255,255,.2), transparent 22%, rgba(255,255,255,.1) 42%, transparent 50%),
+    repeating-linear-gradient(120deg, #281540 0 18px, #101b2f 18px 36px);
+  box-shadow: 10px 13px 0 #020608, 0 0 36px rgba(192,117,255,.35);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform .2s ease, filter .2s ease;
+}
+.dm-sealed-pack:hover { transform: translateY(-10px) scale(1.05) rotate(-1deg); filter: brightness(1.2); }
+.dm-sealed-pack[data-opening] { animation: dm-pack-open .52s cubic-bezier(.2,.85,.2,1); }
+.dm-sealed-pack > span { color: #f7d853; font-family: "Galmuri11", monospace !important; font-size: 52px; }
+.dm-sealed-pack > strong { margin-top: 14px; font-size: 17px; }
+.dm-sealed-pack > small { margin-top: 9px; color: #d4b7ee; font-size: 10px; }
+@keyframes dm-pack-open {
+  0%,100% { transform: scale(1); }
+  22% { transform: translateX(-7px) rotate(-3deg) scale(1.08); }
+  45% { transform: translateX(8px) rotate(4deg) scale(1.1); }
+  72% { transform: translateY(-20px) scale(1.18); filter: brightness(1.8); }
+}
+.dm-pack-choices {
+  display: flex;
+  min-height: 340px;
+  padding: 28px 8px 15px;
+  gap: clamp(10px, 1.5vw, 22px);
+  align-items: center;
+  justify-content: center;
+}
+.dm-pack-choice {
+  --rarity-color: #9cb0b0;
+  position: relative;
+  width: clamp(150px, 14vw, 205px);
+  aspect-ratio: .69;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  perspective: 900px;
+  transition: transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.dm-pack-choice[data-rarity="uncommon"] { --rarity-color: #59da8e; }
+.dm-pack-choice[data-rarity="rare"] { --rarity-color: #55baff; }
+.dm-pack-choice[data-rarity="legendary"] { --rarity-color: #dc79ff; }
+.dm-pack-choice:hover:not(:disabled), .dm-pack-choice[data-selected] { z-index: 8; transform: translateY(-16px) scale(1.075); }
+.dm-pack-choice:disabled { cursor: default; }
+.dm-pack-choice__back,
+.dm-pack-choice__front {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  padding: 12px;
+  border: 3px solid var(--rarity-color);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #0e1b1e;
+  box-shadow: 7px 9px 0 #020708;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform .46s cubic-bezier(.2,.8,.2,1);
+}
+.dm-pack-choice__back { color: #64dce6; background: url("/art/deck-mayhem-card-frame-v1.png") center/cover, #0d2023; transform: rotateY(0); }
+.dm-pack-choice__back b { font-size: 17px; line-height: 1.3; text-shadow: 2px 2px 0 #071012; }
+.dm-pack-choice__front { transform: rotateY(180deg); }
+.dm-pack-choice[data-revealed] .dm-pack-choice__back { transform: rotateY(-180deg); }
+.dm-pack-choice[data-revealed] .dm-pack-choice__front { transform: rotateY(0); }
+.dm-pack-choice[data-selected] .dm-pack-choice__front { box-shadow: 0 0 24px var(--rarity-color), 7px 9px 0 #020708; }
+.dm-pack-choice__front > small { position: absolute; top: 10px; color: var(--rarity-color); font-size: 8px; font-weight: 900; }
+.dm-pack-choice__front > strong { margin-top: 12px; font-size: 13px; }
+.dm-pack-choice__front > span:last-child { margin-top: 6px; color: #c5d2cf; font-size: 10px; line-height: 1.4; }
+.dm-pack-choice__number,
+.dm-pack-choice__icon { position: relative; display: grid; width: 74%; aspect-ratio: .72; place-items: center; border: 2px solid #6d7e80; background: #16383b; overflow: hidden; }
+.dm-pack-choice__number i { position: absolute; inset: 0; opacity: .48; background: url("/art/deck-mayhem-card-frame-v1.png") center/cover; }
+.dm-pack-choice__number b, .dm-pack-choice__icon b { position: relative; z-index: 2; color: #fff0c5; font-size: 42px; text-shadow: 3px 3px 0 #071012; }
+.dm-pack-choice__number[data-color="red"] { background:#5e2023; }
+.dm-pack-choice__number[data-color="blue"] { background:#173d60; }
+.dm-pack-choice__number[data-color="green"] { background:#214e31; }
+.dm-pack-choice__number[data-color="yellow"] { background:#725514; }
+.dm-pack-choice > em { position: absolute; right: -6px; bottom: -7px; z-index: 10; padding: 6px 8px; border: 2px solid #fff0a2; color: #302600; background: #f4d151; font-family: "Galmuri11", monospace !important; font-size: 9px; font-style: normal; }
+.dm-pack-targets { padding: 10px; border: 1px solid #3c5b5e; background: #0b1b1d; }
+.dm-pack-targets > strong { display: block; margin-bottom: 8px; color: #e5d371; font-size: 11px; }
+.dm-pack-targets .dm-deck-grid { max-height: 190px; overflow: auto; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
+.dm-pack-stage > footer { display: flex; min-height: 52px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #315054; align-items: center; justify-content: space-between; gap: 12px; }
+.dm-pack-stage > footer > span { color: #91aaa6; font-size: 9px; text-align: left; }
+.dm-pack-stage > footer > button { min-width: 180px; min-height: 44px; border: 2px solid #43875f; cursor: pointer; color: #e9fff0; background: #185137; box-shadow: 3px 3px 0 #020708; font-family: "Galmuri11", monospace !important; font-size: 13px; }
+.dm-pack-stage > footer > button:disabled { cursor: not-allowed; opacity: .28; }
+
+.number-card.enhancement-overclocked::after { border-color: #dc79ff; box-shadow: inset 0 0 11px rgba(213,89,255,.62); }
+.enhancement-overclocked .card-enhancement-badge { color: #fff; background: #9f43c5; }
+
+@media (max-width: 1320px) {
+  .dm-garage-bar { grid-template-columns: minmax(220px, 1fr) auto; }
+  .dm-garage-actions { grid-column: 1 / -1; min-width: 0; }
+  .dm-shop-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .dm-shop-slot { height: 360px; }
+}
+
+@media (max-width: 760px) {
+  .dm-garage { padding: 8px; }
+  .dm-garage-bar { grid-template-columns: 1fr; gap: 8px; }
+  .dm-garage-brand small { font-size: 11px; }
+  .dm-garage-stats { min-width: 0; grid-template-columns: 60px 1fr 86px; }
+  .dm-garage-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .dm-garage-actions button { min-width: 0; padding: 8px 4px; font-size: 9px; }
+  .dm-garage-actions button b { font-size: 10px; }
+  .dm-shop-floor { padding-inline: 8px; }
+  .dm-shop-grid {
+    display: flex;
+    min-height: 365px;
+    padding: 14px 4px 10px;
+    gap: 10px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+  .dm-shop-slot { width: 168px; min-width: 168px; height: 340px; scroll-snap-align: center; }
+  .dm-shop-slot:hover:not([data-sold]), .dm-shop-slot[data-selected] { transform: translateY(-8px) scale(1.035); }
+  .dm-shop-slot__copy > span, .dm-shop-slot__detail span { font-size: 10px; }
+  .dm-garage-overlay, .dm-pack-overlay { padding: 8px; place-items: start center; }
+  .dm-garage-dialog, .dm-pack-stage { width: 100%; max-height: none; min-height: calc(100dvh - 16px); padding: 12px; }
+  .dm-owned-mods { grid-template-columns: 1fr; }
+  .dm-pack-choices { justify-content: flex-start; overflow-x: auto; }
+  .dm-pack-choice { min-width: 150px; }
+  .dm-pack-stage > footer { align-items: stretch; flex-direction: column; }
+  .dm-pack-stage > footer > button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-shop-slot,
+  .dm-pack-choice,
+  .dm-sealed-pack,
+  .dm-shop-slot__detail,
+  .dm-pack-choice__front,
+  .dm-pack-choice__back { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
 .dm-garage__notice {
   min-height: 38px;
   margin-top: 14px;

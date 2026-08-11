@@ -13,13 +13,13 @@ import {
 } from "./constants";
 import { drawCards, shuffledDeck } from "./deck";
 import {
-  CARD_ENHANCEMENT_CONFIG,
   MINIMUM_RUN_DECK_SIZE,
   RESERVE_BONUS_CAP,
   RESERVE_BONUS_STEP,
   UNUSED_HAND_BONUS_CAP,
 } from "./garage-config";
-import { hashSeed, randomInt, shuffle } from "./rng";
+import { PACK_DEFINITIONS, PackGenerator } from "./packs";
+import { hashSeed, shuffle } from "./rng";
 import { calculateHandScore } from "./scoring";
 import { generateShop } from "./shop";
 import {
@@ -33,6 +33,7 @@ import {
   type JokerInstance,
   type PlayHandOptions,
   type PlayHandResult,
+  type PackChoice,
   type RunActionRecord,
   type RunActionType,
   type RunState,
@@ -426,10 +427,13 @@ function findOffer(state: RunState, offerId: string): ShopOffer {
   if (!offer) {
     throw new GameRuleError("OFFER_NOT_FOUND", "상점 상품을 찾을 수 없습니다.");
   }
+  if (state.shop?.soldOfferIds?.includes(offerId)) {
+    throw new GameRuleError("OFFER_SOLD", "이미 판매된 상품입니다.");
+  }
   return offer;
 }
 
-function payAndRemoveOffer(
+function payAndMarkSold(
   state: RunState,
   offer: ShopOffer,
 ): Pick<RunState, "coins" | "shop"> {
@@ -441,9 +445,7 @@ function payAndRemoveOffer(
     shop: state.shop
       ? {
           ...state.shop,
-          offers: state.shop.offers.filter(
-            (candidate) => candidate.id !== offer.id,
-          ),
+          soldOfferIds: [...(state.shop.soldOfferIds ?? []), offer.id],
         }
       : null,
   };
@@ -461,7 +463,7 @@ export function buyJoker(state: RunState, offerId: string): RunState {
     throw new GameRuleError("JOKER_ALREADY_OWNED", "이미 보유한 조커입니다.");
   }
 
-  const purchase = payAndRemoveOffer(state, offer);
+  const purchase = payAndMarkSold(state, offer);
   const instance: JokerInstance = {
     instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-${offer.jokerId}`,
     jokerId: offer.jokerId,
@@ -492,7 +494,7 @@ export function buyUnoCard(state: RunState, offerId: string): RunState {
   }
   assertValidCommunityUnoCard(offer.card);
 
-  const purchase = payAndRemoveOffer(state, offer);
+  const purchase = payAndMarkSold(state, offer);
   return addAction(
     {
       ...state,
@@ -513,7 +515,7 @@ export function buyHandUpgrade(state: RunState, offerId: string): RunState {
     );
   }
 
-  const purchase = payAndRemoveOffer(state, offer);
+  const purchase = payAndMarkSold(state, offer);
   return addAction(
     {
       ...state,
@@ -616,7 +618,7 @@ export function buyDeckWork(
     }
   }
 
-  const purchase = payAndRemoveOffer(state, offer);
+  const purchase = payAndMarkSold(state, offer);
   return addAction(
     { ...state, ...purchase, ...changes },
     "buy-deck-work",
@@ -630,48 +632,30 @@ export function buyDeckWork(
   );
 }
 
-function generatePackChoices(
-  state: RunState,
-  offer: Extract<ShopOffer, { kind: "card-pack" }>,
-): { readonly choices: readonly GameCard[]; readonly rngState: number } {
-  let rngState = state.rngState;
-  const choices: GameCard[] = [];
-  const enhancements = Object.keys(CARD_ENHANCEMENT_CONFIG) as NonNullable<
-    GameCard["enhancement"]
-  >[];
-
-  for (let index = 0; index < 3; index += 1) {
-    const colorRoll = randomInt(rngState, 0, CARD_COLORS.length);
-    rngState = colorRoll.nextState;
-    const rankRoll = randomInt(rngState, 0, 10);
-    rngState = rankRoll.nextState;
-    let enhancement: GameCard["enhancement"];
-    if (offer.packKind === "glitch") {
-      const enhancementRoll = randomInt(rngState, 0, 2);
-      rngState = enhancementRoll.nextState;
-      enhancement = enhancementRoll.value === 0 ? "charged" : "amplified";
-    } else {
-      const enhancementRoll = randomInt(rngState, 0, enhancements.length);
-      rngState = enhancementRoll.nextState;
-      enhancement = enhancements[enhancementRoll.value];
-    }
-    choices.push({
-      id: `pack-${state.runId}-${state.actionLog.length + 1}-${offer.packKind}-${index}`,
-      color: CARD_COLORS[colorRoll.value],
-      rank: rankRoll.value as CardRank,
-      ...(enhancement ? { enhancement } : {}),
-    });
-  }
-  return { choices, rngState };
-}
-
 export function buyCardPack(state: RunState, offerId: string): RunState {
   const offer = findOffer(state, offerId);
   if (offer.kind !== "card-pack") {
     throw new GameRuleError("NOT_A_CARD_PACK", "이 상품은 카드 팩이 아닙니다.");
   }
-  const generated = generatePackChoices(state, offer);
-  const purchase = payAndRemoveOffer(state, offer);
+  const definition = PACK_DEFINITIONS[offer.packKind];
+  if (
+    definition.contents === "modifier" &&
+    state.jokers.length + definition.pickCount > JOKER_SLOT_LIMIT
+  ) {
+    throw new GameRuleError("JOKER_SLOTS_FULL", "MOD 팩을 받을 빈 슬롯이 부족합니다.");
+  }
+  if (
+    definition.contents === "upgrade" &&
+    !persistentDeck(state).some((card) => !card.enhancement)
+  ) {
+    throw new GameRuleError("NO_UPGRADE_TARGET", "강화할 수 있는 기본 카드가 없습니다.");
+  }
+  const generated = PackGenerator.generate(
+    offer.packKind,
+    `pack-${state.runId}-${state.actionLog.length + 1}-${offer.packKind}`,
+    state.rngState,
+  );
+  const purchase = payAndMarkSold(state, offer);
   return addAction(
     {
       ...state,
@@ -681,6 +665,7 @@ export function buyCardPack(state: RunState, offerId: string): RunState {
         offerId,
         packKind: offer.packKind,
         choices: generated.choices,
+        pickCount: definition.pickCount,
       },
     },
     "buy-card-pack",
@@ -688,29 +673,128 @@ export function buyCardPack(state: RunState, offerId: string): RunState {
   );
 }
 
-export function choosePackCard(state: RunState, cardId: string): RunState {
+function selectedPackChoices(
+  opening: NonNullable<RunState["packOpening"]>,
+  choiceIds: readonly string[],
+): readonly PackChoice[] {
+  const pickCount = opening.pickCount ?? 1;
+  if (choiceIds.length !== pickCount) {
+    throw new GameRuleError(
+      "PACK_SELECTION_COUNT",
+      `이 팩에서는 정확히 ${pickCount}개를 선택해야 합니다.`,
+    );
+  }
+  if (new Set(choiceIds).size !== choiceIds.length) {
+    throw new GameRuleError("PACK_DUPLICATE_SELECTION", "같은 선택지를 두 번 고를 수 없습니다.");
+  }
+  return choiceIds.map((choiceId) => {
+    const rawChoice = opening.choices.find((candidate) => {
+      const legacyCard = candidate as unknown as GameCard;
+      return candidate.id === choiceId || legacyCard.id === choiceId;
+    });
+    if (!rawChoice) {
+      throw new GameRuleError("PACK_CHOICE_NOT_FOUND", "팩에서 선택한 항목을 찾을 수 없습니다.");
+    }
+    if ("kind" in rawChoice) return rawChoice;
+    const legacyCard = rawChoice as unknown as GameCard;
+    return {
+      id: legacyCard.id,
+      kind: "card",
+      rarity: legacyCard.rarity ?? (legacyCard.enhancement ? "uncommon" : "common"),
+      card: legacyCard,
+    };
+  });
+}
+
+export function takePackChoices(
+  state: RunState,
+  choiceIds: readonly string[],
+  targetCardId?: string,
+): RunState {
   ensurePhase(state, "shop");
   const opening = state.packOpening;
   if (!opening) {
     throw new GameRuleError("PACK_NOT_OPEN", "선택할 카드 팩이 없습니다.");
   }
-  const card = opening.choices.find((candidate) => candidate.id === cardId);
-  if (!card) {
-    throw new GameRuleError("PACK_CARD_NOT_FOUND", "팩에서 선택한 카드를 찾을 수 없습니다.");
-  }
+  const choices = selectedPackChoices(opening, choiceIds);
   const deck = persistentDeck(state);
-  if (deck.some((candidate) => candidate.id === card.id)) {
-    throw new GameRuleError("DUPLICATE_CARD_ID", "이미 런 덱에 있는 카드입니다.");
+  let nextDeck = deck;
+  let nextHand = state.hand;
+  let nextDrawPile = state.drawPile;
+  let nextDiscardPile = state.discardPile;
+  let nextJokers = state.jokers;
+
+  if (choices.every((choice) => choice.kind === "card")) {
+    const cards = choices.map((choice) => choice.card);
+    const existingIds = new Set(deck.map((card) => card.id));
+    if (cards.some((card) => existingIds.has(card.id))) {
+      throw new GameRuleError("DUPLICATE_CARD_ID", "이미 런 덱에 있는 카드입니다.");
+    }
+    nextDeck = [...deck, ...cards];
+  } else if (choices.every((choice) => choice.kind === "modifier")) {
+    if (state.jokers.length + choices.length > JOKER_SLOT_LIMIT) {
+      throw new GameRuleError("JOKER_SLOTS_FULL", "MOD 슬롯이 부족합니다.");
+    }
+    const newJokers: JokerInstance[] = choices.map((choice, index) => ({
+      instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.jokerId}`,
+      jokerId: choice.jokerId,
+      acquiredRound: state.roundNumber,
+      ...(choice.jokerId === "combo-compiler" ? { counter: 0 } : {}),
+    }));
+    nextJokers = [...state.jokers, ...newJokers];
+  } else if (choices.every((choice) => choice.kind === "upgrade")) {
+    if (!targetCardId) {
+      throw new GameRuleError("UPGRADE_TARGET_REQUIRED", "강화할 덱 카드를 선택해야 합니다.");
+    }
+    const target = deckCardOrThrow(state, targetCardId);
+    if (target.enhancement) {
+      throw new GameRuleError("CARD_ALREADY_ENHANCED", "이미 개조 효과가 있는 카드입니다.");
+    }
+    const change = updateCardEverywhere(state, targetCardId, (card) => ({
+      ...card,
+      enhancement: choices[0].enhancement,
+      rarity: choices[0].rarity,
+    }));
+    nextDeck = change.deck ?? deck;
+    nextHand = change.hand;
+    nextDrawPile = change.drawPile;
+    nextDiscardPile = change.discardPile;
+  } else {
+    throw new GameRuleError("MIXED_PACK_CONTENT", "팩 선택지 종류가 올바르지 않습니다.");
   }
+
   return addAction(
     {
       ...state,
-      deck: [...deck, card],
+      deck: nextDeck,
+      hand: nextHand,
+      drawPile: nextDrawPile,
+      discardPile: nextDiscardPile,
+      jokers: nextJokers,
       packOpening: null,
     },
-    "choose-pack-card",
-    { cardId, packKind: opening.packKind },
+    "take-pack-choices",
+    {
+      choiceIds: [...choiceIds],
+      packKind: opening.packKind,
+      ...(targetCardId ? { targetCardId } : {}),
+    },
   );
+}
+
+/** Backward-compatible one-card helper used by old saved UI clients. */
+export function choosePackCard(state: RunState, cardId: string): RunState {
+  const opening = state.packOpening;
+  if (!opening) {
+    throw new GameRuleError("PACK_NOT_OPEN", "선택할 카드 팩이 없습니다.");
+  }
+  const choice = opening.choices.find(
+    (candidate) => candidate.id === cardId || ("kind" in candidate && candidate.kind === "card" && candidate.card.id === cardId),
+  );
+  if (!choice) {
+    throw new GameRuleError("PACK_CARD_NOT_FOUND", "팩에서 선택한 카드를 찾을 수 없습니다.");
+  }
+  return takePackChoices(state, [choice.id]);
 }
 
 export function buyShopOffer(

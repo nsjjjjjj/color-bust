@@ -27,6 +27,31 @@ const RARITY_WEIGHT: Readonly<Record<JokerRarity, number>> = {
   rare: 7,
 };
 
+const PACK_KIND_WEIGHTS: readonly {
+  readonly kind: Exclude<CardPackKind, "supply" | "glitch">;
+  readonly weight: number;
+}[] = [
+  { kind: "standard", weight: 38 },
+  { kind: "large", weight: 20 },
+  { kind: "premium", weight: 14 },
+  { kind: "modifier", weight: 16 },
+  { kind: "upgrade", weight: 12 },
+];
+
+function choosePackKind(
+  candidates: typeof PACK_KIND_WEIGHTS,
+  rngState: number,
+): { readonly kind: Exclude<CardPackKind, "supply" | "glitch">; readonly rngState: number } {
+  const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+  const roll = nextRandom(rngState);
+  let cursor = roll.value * total;
+  for (const candidate of candidates) {
+    cursor -= candidate.weight;
+    if (cursor <= 0) return { kind: candidate.kind, rngState: roll.nextState };
+  }
+  return { kind: candidates[candidates.length - 1].kind, rngState: roll.nextState };
+}
+
 function chooseWeightedJoker(
   candidates: readonly JokerId[],
   rngState: number,
@@ -140,20 +165,31 @@ export function generateShop(
     });
   }
 
-  const packRoll = randomInt(rngState, 0, 100);
-  rngState = packRoll.nextState;
-  const packKind: CardPackKind = packRoll.value < 70 ? "supply" : "glitch";
-  offers.push({
-    id: `shop-${state.roundNumber}-${rerolls}-pack-${packKind}`,
-    kind: "card-pack",
-    price: CARD_PACK_CONFIG[packKind].price,
-    packKind,
-  });
+  const availablePacks = [...PACK_KIND_WEIGHTS];
+  for (
+    let index = 0;
+    index < GARAGE_OFFER_COUNTS.packs && availablePacks.length > 0;
+    index += 1
+  ) {
+    const selected = choosePackKind(availablePacks, rngState);
+    rngState = selected.rngState;
+    availablePacks.splice(
+      availablePacks.findIndex((candidate) => candidate.kind === selected.kind),
+      1,
+    );
+    offers.push({
+      id: `shop-${state.roundNumber}-${rerolls}-pack-${index}-${selected.kind}`,
+      kind: "card-pack",
+      price: CARD_PACK_CONFIG[selected.kind].price,
+      packKind: selected.kind,
+    });
+  }
 
   return {
     shop: {
       id: `shop-${state.runId}-${state.roundNumber}-${rerolls}`,
       offers,
+      soldOfferIds: [],
       rerollCost: 2 + rerolls,
       rerolls,
     },

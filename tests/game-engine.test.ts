@@ -6,6 +6,7 @@ import {
   UNO_MODULE_CATALOG,
   buyCardPack,
   buyDeckWork,
+  buyHandUpgrade,
   choosePackCard,
   claimRoundReward,
   createRun,
@@ -14,6 +15,10 @@ import {
   nextRound,
   playHand,
   previewHand,
+  rerollShop,
+  takePackChoices,
+  PackGenerator,
+  PACK_DEFINITIONS,
   validateCommunityUnoCard,
   type GameCard,
   type RunState,
@@ -134,6 +139,9 @@ test("persists deck surgery and enhanced pack cards across rounds", () => {
   };
   shop = buyDeckWork(shop, "charge-offer", target.id);
   assert.equal(shop.deck?.find((item) => item.id === target.id)?.enhancement, "charged");
+  assert.ok(shop.shop?.soldOfferIds?.includes("charge-offer"));
+  assert.ok(shop.shop?.offers.some((offer) => offer.id === "charge-offer"));
+  assert.throws(() => buyDeckWork(shop, "charge-offer", target.id), /판매된/);
 
   shop = {
     ...shop,
@@ -142,20 +150,108 @@ test("persists deck surgery and enhanced pack cards across rounds", () => {
       rerollCost: 2,
       rerolls: 0,
       offers: [
-        { id: "glitch-pack", kind: "card-pack", packKind: "glitch", price: 0 },
+        { id: "standard-pack", kind: "card-pack", packKind: "standard", price: 0 },
       ],
     },
   };
   const beforePackSize = shop.deck?.length ?? 0;
-  shop = buyCardPack(shop, "glitch-pack");
+  shop = buyCardPack(shop, "standard-pack");
   assert.equal(shop.packOpening?.choices.length, 3);
   const chosen = shop.packOpening?.choices[0];
-  assert.ok(chosen?.enhancement);
-  shop = choosePackCard(shop, chosen.id);
+  assert.equal(chosen?.kind, "card");
+  assert.ok(chosen && chosen.kind === "card");
+  shop = choosePackCard(shop, chosen.card.id);
   assert.equal(shop.deck?.length, beforePackSize + 1);
 
   const next = nextRound(shop);
   assert.equal(next.deck?.length, beforePackSize + 1);
   assert.equal(next.deck?.find((item) => item.id === target.id)?.enhancement, "charged");
-  assert.ok(next.deck?.some((item) => item.id === chosen.id));
+  assert.ok(next.deck?.some((item) => item.id === chosen.card.id));
+});
+
+test("generates weighted pack candidates without duplicates and enforces pick counts", () => {
+  const kinds = ["standard", "large", "premium", "modifier", "upgrade"] as const;
+  for (const kind of kinds) {
+    const generated = PackGenerator.generate(kind, `test-${kind}`, 90210);
+    assert.equal(generated.choices.length, PACK_DEFINITIONS[kind].revealCount);
+    assert.equal(new Set(generated.choices.map((choice) => choice.id)).size, generated.choices.length);
+    assert.ok(generated.choices.every((choice) => choice.kind === PACK_DEFINITIONS[kind].contents));
+  }
+
+  const initial = createRun({ seed: "large-pack-count", startingCoins: 99 });
+  const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
+  let shop = claimRoundReward(reward);
+  shop = {
+    ...shop,
+    shop: {
+      id: "large-pack-shop",
+      rerollCost: 2,
+      rerolls: 0,
+      soldOfferIds: [],
+      offers: [{ id: "large-pack", kind: "card-pack", packKind: "large", price: 0 }],
+    },
+  };
+  shop = buyCardPack(shop, "large-pack");
+  assert.equal(shop.packOpening?.pickCount, 2);
+  assert.throws(() => takePackChoices(shop, [shop.packOpening!.choices[0].id]), /정확히 2개/);
+  const picked = shop.packOpening!.choices.slice(0, 2);
+  const before = shop.deck!.length;
+  shop = takePackChoices(shop, picked.map((choice) => choice.id));
+  assert.equal(shop.deck!.length, before + 2);
+});
+
+test("keeps SOLD slots until reroll and raises the reroll price", () => {
+  const initial = createRun({ seed: "sold-reroll", startingCoins: 99 });
+  const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
+  let shop = claimRoundReward(reward);
+  const offer = shop.shop!.offers.find((candidate) => candidate.kind === "hand-upgrade");
+  assert.ok(offer);
+  shop = buyHandUpgrade(shop, offer.id);
+  assert.ok(shop.shop!.soldOfferIds?.includes(offer.id));
+  assert.ok(shop.shop!.offers.some((candidate) => candidate.id === offer.id));
+  const coinsBefore = shop.coins;
+  shop = rerollShop(shop);
+  assert.equal(shop.coins, coinsBefore - 2);
+  assert.equal(shop.shop!.rerollCost, 3);
+  assert.deepEqual(shop.shop!.soldOfferIds, []);
+});
+
+test("takes modifier and upgrade pack rewards through their own acquisition paths", () => {
+  const initial = createRun({ seed: "special-pack-paths", startingCoins: 99 });
+  const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
+  let shop = claimRoundReward(reward);
+  shop = {
+    ...shop,
+    shop: {
+      id: "modifier-shop",
+      rerollCost: 2,
+      rerolls: 0,
+      soldOfferIds: [],
+      offers: [{ id: "modifier-pack", kind: "card-pack", packKind: "modifier", price: 0 }],
+    },
+  };
+  shop = buyCardPack(shop, "modifier-pack");
+  const modifier = shop.packOpening!.choices[0];
+  assert.equal(modifier.kind, "modifier");
+  const modCount = shop.jokers.length;
+  shop = takePackChoices(shop, [modifier.id]);
+  assert.equal(shop.jokers.length, modCount + 1);
+
+  shop = {
+    ...shop,
+    shop: {
+      id: "upgrade-shop",
+      rerollCost: 2,
+      rerolls: 0,
+      soldOfferIds: [],
+      offers: [{ id: "upgrade-pack", kind: "card-pack", packKind: "upgrade", price: 0 }],
+    },
+  };
+  shop = buyCardPack(shop, "upgrade-pack");
+  const upgrade = shop.packOpening!.choices[0];
+  assert.equal(upgrade.kind, "upgrade");
+  const target = shop.deck!.find((card) => !card.enhancement);
+  assert.ok(target);
+  shop = takePackChoices(shop, [upgrade.id], target.id);
+  assert.ok(shop.deck!.find((card) => card.id === target.id)?.enhancement);
 });

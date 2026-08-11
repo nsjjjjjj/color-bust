@@ -6,7 +6,7 @@ export type DisplayNumberCard = {
   id: string;
   color: "red" | "blue" | "green" | "yellow";
   value: number;
-  enhancement?: "charged" | "amplified" | "minted";
+  enhancement?: "charged" | "amplified" | "minted" | "overclocked";
 };
 
 const COLOR_LABELS = {
@@ -27,6 +27,7 @@ const ENHANCEMENT_LABELS = {
   charged: "충전 · 득점 시 +18 POWER",
   amplified: "증폭 · 득점 시 +2 HYPE",
   minted: "민트 · 득점 시 +1¢",
+  overclocked: "오버클럭 · 득점 시 +30 POWER, +3 HYPE",
 } as const;
 
 export function ColorCard({
@@ -129,7 +130,7 @@ export function ColorCard({
       <span className="card-corner bottom">{card.value}</span>
       {card.enhancement && (
         <span className="card-enhancement-badge" aria-hidden="true">
-          {card.enhancement === "charged" ? "P+" : card.enhancement === "amplified" ? "H+" : "¢"}
+          {card.enhancement === "charged" ? "P+" : card.enhancement === "amplified" ? "H+" : card.enhancement === "minted" ? "¢" : "OC"}
         </span>
       )}
       <span className="card-type-label" aria-hidden="true"><i className={`card-mini-suit card-mini-suit-${card.color}`} />{suit.label}</span>

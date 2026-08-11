@@ -9,9 +9,12 @@ export interface GameCard {
   readonly rank: CardRank;
   /** Optional in-run tuning applied by Garage work or card packs. */
   readonly enhancement?: CardEnhancement;
+  /** Pack provenance only; normal deck cards may omit it. */
+  readonly rarity?: CardRarity;
 }
 
-export type CardEnhancement = "charged" | "amplified" | "minted";
+export type CardEnhancement = "charged" | "amplified" | "minted" | "overclocked";
+export type CardRarity = "common" | "uncommon" | "rare" | "legendary";
 
 export const HAND_TYPES = [
   "high-card",
@@ -220,7 +223,15 @@ export interface DeckWorkShopOffer {
   readonly targetColor?: CardColor;
 }
 
-export type CardPackKind = "supply" | "glitch";
+export type CardPackKind =
+  | "standard"
+  | "large"
+  | "premium"
+  | "modifier"
+  | "upgrade"
+  /** Legacy save aliases. New shops never generate these values. */
+  | "supply"
+  | "glitch";
 
 export interface CardPackShopOffer {
   readonly id: string;
@@ -239,14 +250,43 @@ export type ShopOffer =
 export interface ShopState {
   readonly id: string;
   readonly offers: readonly ShopOffer[];
+  /** Purchased slots stay visible until the player rerolls or leaves. */
+  readonly soldOfferIds?: readonly string[];
   readonly rerollCost: number;
   readonly rerolls: number;
 }
 
+export interface CardPackChoice {
+  readonly id: string;
+  readonly kind: "card";
+  readonly rarity: CardRarity;
+  readonly card: GameCard;
+}
+
+export interface ModifierPackChoice {
+  readonly id: string;
+  readonly kind: "modifier";
+  readonly rarity: CardRarity;
+  readonly jokerId: JokerId;
+}
+
+export interface UpgradePackChoice {
+  readonly id: string;
+  readonly kind: "upgrade";
+  readonly rarity: CardRarity;
+  readonly enhancement: CardEnhancement;
+}
+
+export type PackChoice =
+  | CardPackChoice
+  | ModifierPackChoice
+  | UpgradePackChoice;
+
 export interface PackOpening {
   readonly offerId: string;
   readonly packKind: CardPackKind;
-  readonly choices: readonly GameCard[];
+  readonly choices: readonly PackChoice[];
+  readonly pickCount: number;
 }
 
 export interface RoundReward {
@@ -275,6 +315,7 @@ export type RunActionType =
   | "buy-deck-work"
   | "buy-card-pack"
   | "choose-pack-card"
+  | "take-pack-choices"
   | "upgrade-hand"
   | "sell-joker"
   | "reroll-shop"

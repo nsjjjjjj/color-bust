@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import {
   buyDeckWork,
   buyShopOffer,
-  choosePackCard,
   claimRoundReward,
   createRun,
   discardCards,
@@ -13,6 +12,7 @@ import {
   rerollShop,
   sellJoker,
   setHotSwapColor,
+  takePackChoices,
 } from "../lib/game/engine";
 import { evaluateHand } from "../lib/game/hands";
 import {
@@ -825,8 +825,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onSelectDeckTarget={(offer, card) => {
             if (updateRun(() => buyDeckWork(run, offer.id, card.id))) audio.playEffect("buy");
           }}
-          onChoosePack={(_opening, card) => {
-            if (updateRun(() => choosePackCard(run, card.id))) audio.playEffect("card-draw");
+          onTakePack={(_opening, choiceIds, targetCardId) => {
+            if (updateRun(() => takePackChoices(run, choiceIds, targetCardId))) audio.playEffect("card-draw");
           }}
           onNext={() => {
             if (updateRun(() => nextRound(run))) audio.playEffect("card-draw");

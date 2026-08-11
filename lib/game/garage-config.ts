@@ -6,10 +6,10 @@ import type {
 
 export const GARAGE_OFFER_COUNTS = {
   mods: 2,
-  deckWork: 2,
+  deckWork: 1,
   pattern: 1,
   mayhem: 1,
-  packs: 1,
+  packs: 2,
 } as const;
 
 export const DECK_WORK_CONFIG: Readonly<
@@ -94,6 +94,12 @@ export const CARD_ENHANCEMENT_CONFIG: Readonly<
     description: "득점 시 +1¢",
     coins: 1,
   },
+  overclocked: {
+    name: "오버클럭",
+    description: "득점 시 +30 POWER, +3 HYPE",
+    power: 30,
+    hype: 3,
+  },
 };
 
 export const CARD_PACK_CONFIG: Readonly<
@@ -107,17 +113,47 @@ export const CARD_PACK_CONFIG: Readonly<
     }
   >
 > = {
-  supply: {
-    name: "CIRCUIT PACK",
-    description: "개조 숫자 카드 3장을 열고 1장을 런 덱에 연결합니다.",
+  standard: {
+    name: "STANDARD PACK",
+    description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
     price: 4,
-    symbol: "CP",
+    symbol: "ST",
+  },
+  large: {
+    name: "LARGE PACK",
+    description: "숫자 카드 5장을 공개하고 2장을 선택합니다.",
+    price: 7,
+    symbol: "LG",
+  },
+  premium: {
+    name: "PREMIUM PACK",
+    description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
+    price: 9,
+    symbol: "PR",
+  },
+  modifier: {
+    name: "MODIFIER PACK",
+    description: "MOD 3개를 공개하고 1개를 장착합니다.",
+    price: 7,
+    symbol: "MD",
+  },
+  upgrade: {
+    name: "UPGRADE PACK",
+    description: "강화 효과 3개 중 1개를 골라 덱 카드에 부여합니다.",
+    price: 6,
+    symbol: "UP",
+  },
+  supply: {
+    name: "STANDARD PACK",
+    description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
+    price: 4,
+    symbol: "ST",
   },
   glitch: {
-    name: "GLITCH PACK",
-    description: "강한 POWER/HYPE 개조 카드 3장 중 1장을 연결합니다.",
-    price: 6,
-    symbol: "GP",
+    name: "PREMIUM PACK",
+    description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
+    price: 9,
+    symbol: "PR",
   },
 };
 
