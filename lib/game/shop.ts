@@ -1,5 +1,7 @@
 import {
   HAND_TYPES,
+  type CardPackKind,
+  type DeckWorkKind,
   type HandType,
   type JokerId,
   type JokerRarity,
@@ -8,12 +10,15 @@ import {
   type ShopState,
 } from "./types";
 import {
+  CARD_COLORS,
   JOKER_CATALOG,
   JOKER_IDS,
-  SHOP_HAND_UPGRADE_OFFERS,
-  SHOP_JOKER_OFFERS,
-  SHOP_UNO_OFFERS,
 } from "./constants";
+import {
+  CARD_PACK_CONFIG,
+  DECK_WORK_CONFIG,
+  GARAGE_OFFER_COUNTS,
+} from "./garage-config";
 import { nextRandom, randomInt } from "./rng";
 
 const RARITY_WEIGHT: Readonly<Record<JokerRarity, number>> = {
@@ -57,7 +62,7 @@ export function generateShop(
 
   for (
     let index = 0;
-    index < SHOP_JOKER_OFFERS && availableJokers.length > 0;
+    index < GARAGE_OFFER_COUNTS.mods && availableJokers.length > 0;
     index += 1
   ) {
     const selected = chooseWeightedJoker(availableJokers, rngState);
@@ -73,10 +78,34 @@ export function generateShop(
     });
   }
 
+  const availableDeckWork = Object.keys(DECK_WORK_CONFIG) as DeckWorkKind[];
+  for (
+    let index = 0;
+    index < GARAGE_OFFER_COUNTS.deckWork && availableDeckWork.length > 0;
+    index += 1
+  ) {
+    const selected = randomInt(rngState, 0, availableDeckWork.length);
+    rngState = selected.nextState;
+    const [work] = availableDeckWork.splice(selected.value, 1);
+    let targetColor;
+    if (work === "recolor") {
+      const colorRoll = randomInt(rngState, 0, CARD_COLORS.length);
+      rngState = colorRoll.nextState;
+      targetColor = CARD_COLORS[colorRoll.value];
+    }
+    offers.push({
+      id: `shop-${state.roundNumber}-${rerolls}-deck-${index}-${work}`,
+      kind: "deck-work",
+      price: DECK_WORK_CONFIG[work].price,
+      work,
+      ...(targetColor ? { targetColor } : {}),
+    });
+  }
+
   const handCandidates: HandType[] = [...HAND_TYPES];
   for (
     let index = 0;
-    index < SHOP_HAND_UPGRADE_OFFERS && handCandidates.length > 0;
+    index < GARAGE_OFFER_COUNTS.pattern && handCandidates.length > 0;
     index += 1
   ) {
     const selected = randomInt(rngState, 0, handCandidates.length);
@@ -97,7 +126,7 @@ export function generateShop(
   );
   for (
     let index = 0;
-    index < SHOP_UNO_OFFERS && availableUno.length > 0;
+    index < GARAGE_OFFER_COUNTS.mayhem && availableUno.length > 0;
     index += 1
   ) {
     const selected = randomInt(rngState, 0, availableUno.length);
@@ -110,6 +139,16 @@ export function generateShop(
       card,
     });
   }
+
+  const packRoll = randomInt(rngState, 0, 100);
+  rngState = packRoll.nextState;
+  const packKind: CardPackKind = packRoll.value < 70 ? "supply" : "glitch";
+  offers.push({
+    id: `shop-${state.roundNumber}-${rerolls}-pack-${packKind}`,
+    kind: "card-pack",
+    price: CARD_PACK_CONFIG[packKind].price,
+    packKind,
+  });
 
   return {
     shop: {

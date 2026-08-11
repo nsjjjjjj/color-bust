@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  buyDeckWork,
   buyShopOffer,
+  choosePackCard,
+  claimRoundReward,
   createRun,
   discardCards,
   nextRound,
@@ -16,10 +19,7 @@ import {
   CARD_COLORS,
   DEFAULT_COMMUNITY_UNO_CARDS,
   HAND_RULES,
-  JOKER_SLOT_LIMIT,
   JOKER_CATALOG,
-  ROUND_ORDER,
-  UNO_SLOT_LIMIT,
   UNO_MODULE_CATALOG,
 } from "../lib/game/constants";
 import { buildScoreEvents, type ScoreEvent } from "../lib/game/score-events";
@@ -30,7 +30,6 @@ import type {
   GameCard,
   RunState,
   ScoreBreakdown,
-  ShopOffer,
   UnoModuleId,
   UnoNegativeModuleId,
   UnoPositiveModuleId,
@@ -56,12 +55,14 @@ import {
 } from "../lib/ui/hand-order";
 import { CommunityHub } from "./components/community-hub";
 import { DeckInspector, HandGuide, ShortcutGuide } from "./components/game-reference";
+import { GarageView } from "./components/garage-view";
 import { GameLeftRail } from "./components/game-side-panels";
 import { HandView, PlayedCardsView } from "./components/hand-view";
 import { Lobby, type RunSummary } from "./components/lobby";
 import { Modal } from "./components/modal";
 import { ModifierRail } from "./components/modifier-rail";
 import { PileInspector } from "./components/pile-inspector";
+import { RoundRewardView } from "./components/round-reward-view";
 import { GuestbookView, LeaderboardView } from "./components/social-views";
 import { audioSceneForBossAnte, useGameAudio, type AudioScene } from "./use-game-audio";
 
@@ -100,9 +101,9 @@ const BASE_HAND_LEVELS = Object.fromEntries(
 ) as RunState["handLevels"];
 
 const ROUND_LABEL: Record<RunState["round"], string> = {
-  small: "스몰 블라인드",
-  big: "빅 블라인드",
-  boss: "보스 블라인드",
+  small: "WARM-UP",
+  big: "BREAKPOINT",
+  boss: "MAYHEM ROUND",
 };
 
 function isRunState(value: unknown): value is RunState {
@@ -148,16 +149,16 @@ function formatScoreEventValue(event: ScoreEvent | null): string {
   if (!event) return "";
   if (event.type === "final-score") return event.currentTotal.toLocaleString();
   if (event.multiplierMode === "base") {
-    return `${event.value?.toLocaleString() ?? 0}칩 × ${event.multiplier ?? 0}배수`;
+    return `${event.value?.toLocaleString() ?? 0} POWER × ${event.multiplier ?? 0} HYPE`;
   }
 
   const parts: string[] = [];
   if (event.value !== undefined) {
-    const unit = event.operation === "set-score" ? "점" : "칩";
+    const unit = event.operation === "set-score" ? "점" : "POWER";
     parts.push(`${event.value >= 0 ? "+" : ""}${event.value.toLocaleString()} ${unit}`);
   }
   if (event.multiplierMode === "additive" && event.multiplier !== undefined) {
-    parts.push(`${event.multiplier >= 0 ? "+" : ""}${event.multiplier}배수`);
+    parts.push(`${event.multiplier >= 0 ? "+" : ""}${event.multiplier} HYPE`);
   } else if (event.multiplierMode === "multiplicative" && event.multiplier !== undefined) {
     parts.push(`×${event.multiplier.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`);
   }
@@ -263,7 +264,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           : run.round === "boss" ? audioSceneForBossAnte(run.ante) : "run";
   const audio = useGameAudio(audioScene);
   const playEffect = audio.playEffect;
-  const playScoreTick = audio.playScoreTick;
+  const playScoreEvent = audio.playScoreEvent;
+  const prepareScoreSequence = audio.prepareScoreSequence;
   const signedIn = Boolean(initialUser);
   const currentScoreSoundEvent = scorePlayback?.phase === "scoring"
     ? scorePlayback.events[scorePlayback.eventIndex]
@@ -280,7 +282,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     ? Math.max(0, scorePlayback.roundScoreBefore + scorePlayback.breakdown.total - displayRoundScore)
     : undefined;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scoreCountUpFrameRef.current !== null) {
       window.cancelAnimationFrame(scoreCountUpFrameRef.current);
       scoreCountUpFrameRef.current = null;
@@ -458,7 +460,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         () => {
           if (run?.phase === "playing") playEffect("card-draw");
           setNotice(scorePlayback.breakdown.roundReward > 0
-            ? `라운드 클리어 · ${scorePlayback.breakdown.roundReward}코인 획득`
+            ? `TARGET CLEAR · ${scorePlayback.breakdown.roundReward}¢ 정산 준비`
             : `${scorePlayback.breakdown.handName} ${scorePlayback.breakdown.total.toLocaleString()}점`);
           setScorePlayback(null);
         },
@@ -512,14 +514,19 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     if (lastScoreSoundEventRef.current === soundEventKey) return;
     lastScoreSoundEventRef.current = soundEventKey;
 
-    if (currentScoreSoundEvent.type !== "card-score") return;
-    const cardScoreEvents = scorePlayback.events.filter((event) => event.type === "card-score");
-    const cardStep = cardScoreEvents.findIndex((event) => event.id === currentScoreSoundEvent.id);
-    if (cardStep < 0) return;
-    playScoreTick(cardStep, {
-      gain: cardStep === cardScoreEvents.length - 1 ? 1.18 : 1,
+    if (!currentScoreSoundEvent.sourceCardId) return;
+    const anchoredEvents = scorePlayback.events.filter((event) => event.sourceCardId);
+    const eventStep = anchoredEvents.findIndex((event) => event.id === currentScoreSoundEvent.id);
+    if (eventStep < 0) return;
+    const gain = currentScoreSoundEvent.type === "card-score"
+      ? 1
+      : currentScoreSoundEvent.type === "card-effect"
+        ? 0.82
+        : 0.72;
+    playScoreEvent(soundEventKey, eventStep, {
+      gain: eventStep === anchoredEvents.length - 1 ? gain * 1.14 : gain,
     });
-  }, [currentScoreSoundEvent, playScoreTick, scorePlayback]);
+  }, [currentScoreSoundEvent, playScoreEvent, scorePlayback]);
 
   function updateRun(action: () => RunState): boolean {
     try {
@@ -583,7 +590,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     });
     setView("game");
     audio.playEffect("deck-setup");
-    setNotice(mode === "standard" ? "5 앤티 런을 시작합니다." : "끝없는 신호에 접속했습니다.");
+    setNotice(mode === "standard" ? "5 STAGE 런을 시작합니다." : "끝없는 신호에 접속했습니다.");
   }
 
   function requestStartRun(mode: "standard" | "endless") {
@@ -596,6 +603,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
 
   function handlePlay() {
     if (!run || selectedIds.length === 0 || scorePlayback || discardPlayback) return;
+    prepareScoreSequence();
     try {
       const playedCards = selectedIds
         .map((id) => run.hand.find((card) => card.id === id))
@@ -739,7 +747,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     { id: "guestbook", label: "평가", icon: "★" },
   ];
   const immersiveView = view === "lobby"
-    || (view === "game" && (!run || run.phase === "playing" || run.phase === "shop" || Boolean(scorePlayback)));
+    || (view === "game" && (!run || run.phase === "playing" || run.phase === "reward" || run.phase === "shop" || Boolean(scorePlayback)));
 
   return (
     <div className={`app-shell${immersiveView ? " is-immersive" : ""}${highContrast ? " high-contrast" : ""}${reducedMotion ? " reduced-motion" : ""}`}>
@@ -794,7 +802,39 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           }}
         />
       )}
-      {view === "game" && run?.phase === "shop" && !scorePlayback && <ShopView run={run} notice={notice} onBuy={(offer) => { if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy"); }} onReroll={() => updateRun(() => rerollShop(run))} onSell={setPendingSellId} onNext={() => { if (updateRun(() => nextRound(run))) audio.playEffect("card-draw"); setLastBreakdown(null); setSelectedIds([]); }} onOpenLobby={() => setView("lobby")} onOpenSettings={() => setSettingsOpen(true)} />}
+      {view === "game" && run?.phase === "reward" && !scorePlayback && (
+        <RoundRewardView
+          run={run}
+          notice={notice}
+          onClaim={() => {
+            if (updateRun(() => claimRoundReward(run))) audio.playEffect("buy");
+          }}
+        />
+      )}
+      {view === "game" && run?.phase === "shop" && !scorePlayback && (
+        <GarageView
+          run={run}
+          notice={notice}
+          onBuy={(offer) => {
+            if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy");
+          }}
+          onReroll={() => {
+            if (updateRun(() => rerollShop(run))) audio.playEffect("card-select");
+          }}
+          onSell={setPendingSellId}
+          onSelectDeckTarget={(offer, card) => {
+            if (updateRun(() => buyDeckWork(run, offer.id, card.id))) audio.playEffect("buy");
+          }}
+          onChoosePack={(_opening, card) => {
+            if (updateRun(() => choosePackCard(run, card.id))) audio.playEffect("card-draw");
+          }}
+          onNext={() => {
+            if (updateRun(() => nextRound(run))) audio.playEffect("card-draw");
+            setLastBreakdown(null);
+            setSelectedIds([]);
+          }}
+        />
+      )}
       {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onLobby={() => setView("lobby")} />}
 
       <nav className="mobile-nav" aria-label="모바일 메뉴">{navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : ""} onClick={() => item.id !== "game" || run ? setView(item.id) : requestStartRun("standard")}><b>{item.icon}</b>{item.label}</button>)}</nav>
@@ -934,7 +974,7 @@ function GameTable({
             <p role="status" aria-live="polite">{notice || (selectedIds.length ? `${selectedIds.length}/5 카드 선택됨` : "카드를 선택해 조합을 만드세요")}</p>
           </header>
 
-          <ModifierRail run={run} breakdown={shown} className="deck-modifier-rail" />
+          <ModifierRail run={run} breakdown={shown} scoreEvent={currentScoreEvent} className="deck-modifier-rail" />
 
           <section
             className={`deck-resolve-zone${scorePlayback ? " has-played-cards" : ""}${scorePlayback?.phase === "discarding" ? " is-discarding" : ""}`}
@@ -954,7 +994,7 @@ function GameTable({
                 />
                 {currentScoreEvent && (
                   <output className={`deck-score-event deck-score-event-${currentScoreEvent.emphasis}`} key={currentScoreEvent.id}>
-                    <span>{currentScoreEvent.type === "hand-detected" ? "족보 확정" : currentScoreEvent.label}</span>
+                    <span>{currentScoreEvent.type === "hand-detected" ? "패턴 확정" : currentScoreEvent.label}</span>
                     <strong>{formatScoreEventValue(currentScoreEvent)}</strong>
                     <small>{currentScoreEvent.description}</small>
                     <i>{currentScoreEvent.currentTotal.toLocaleString()}</i>
@@ -1027,51 +1067,6 @@ function ColorPicker({ value, disabled = false, onChange }: { value: CardColor; 
     yellow: { name: "노랑", short: "Y" },
   };
   return <div className="color-call" role="group" aria-label="호출할 색">{CARD_COLORS.map((color) => <button type="button" key={color} disabled={disabled} className={`${color}${value === color ? " active" : ""}`} aria-label={`${labels[color].name} 선택`} aria-pressed={value === color} onClick={() => onChange(color)}><span>{labels[color].short}</span></button>)}</div>;
-}
-
-function JokerRack({ run, onSell }: { run: RunState; onSell?: (id: string) => void }) {
-  return <div className="joker-rack"><div className="joker-rack-label"><b>조커</b><small>{run.jokers.length} / 4</small></div>{run.jokers.map((joker) => { const definition = JOKER_CATALOG[joker.jokerId]; const refund = Math.max(1, Math.floor(definition.price / 2)); return <article className={`joker-slot joker-${definition.rarity}`} key={joker.instanceId} title={definition.description}><span className="joker-slot-art" aria-hidden="true"><i>{definition.name.slice(0,1)}</i></span><div><b>{definition.name}</b><small>{definition.description}</small></div>{onSell && <button type="button" className="joker-sell" aria-label={`${definition.name} 판매`} onClick={() => onSell(joker.instanceId)}>판매 {refund}¢</button>}</article>; })}{Array.from({ length: Math.max(0, 4-run.jokers.length) }, (_, index) => <div className="joker-slot empty" aria-label={`빈 조커 슬롯 ${index + 1}`} key={`empty-${index}`}>+</div>)}</div>;
-}
-
-function ShopView({ run, notice, onBuy, onReroll, onSell, onNext, onOpenLobby, onOpenSettings }: { run: RunState; notice: string; onBuy: (offer: ShopOffer) => void; onReroll: () => void; onSell: (id: string) => void; onNext: () => void; onOpenLobby: () => void; onOpenSettings: () => void }) {
-  const offerCount = run.shop?.offers.length ?? 0;
-  const nextLabel = run.round === "boss" ? `앤티 ${run.ante + 1}` : ROUND_LABEL[ROUND_ORDER[ROUND_ORDER.indexOf(run.round) + 1]];
-  return <main className="shop-view balatro-mobile-shop">
-    <div className="rotate-hint" role="note"><span aria-hidden="true">↻</span> 가로 화면에서 상점 전체를 한눈에 볼 수 있어요.</div>
-    <div className="mobile-shop-shell">
-      <aside className="shop-mobile-rail" aria-label="상점 정보와 행동">
-        <header className="shop-pixel-sign"><span>★</span><strong>상점</strong><small>런을 강화하세요</small></header>
-        <section className="shop-rail-score"><span>라운드 점수</span><b>{run.score.toLocaleString()}</b><small>앤티 {run.ante} · {ROUND_LABEL[run.round]}</small></section>
-        <section className="shop-rail-wallet"><span>보유 금액</span><strong>{run.coins}¢</strong></section>
-        <dl className="shop-rail-slots"><div><dt>조커</dt><dd>{run.jokers.length}/{JOKER_SLOT_LIMIT}</dd></div><div><dt>메이헴</dt><dd>{run.communityUno.length}/{UNO_SLOT_LIMIT}</dd></div><div><dt>상품</dt><dd>{offerCount}</dd></div></dl>
-        <nav className="shop-rail-tools" aria-label="상점 메뉴"><button type="button" onClick={onOpenLobby}>⌂ <span>로비</span></button><button type="button" onClick={onOpenSettings}>⚙ <span>옵션</span></button></nav>
-        <div className="shop-rail-actions"><button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost} onClick={onReroll}>리롤 <b>{run.shop?.rerollCost ?? 0}¢</b></button><button type="button" onClick={onNext}>다음 <b>{nextLabel}</b></button></div>
-      </aside>
-
-      <section className="felt-table shop-felt" aria-label="컬러 마켓 진열대">
-        <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
-        <section className="shop-owned-tray" aria-labelledby="shop-owned-title"><header><h2 id="shop-owned-title">보유 조커</h2><span>탭해서 판매</span></header><JokerRack run={run} onSell={onSell} /></section>
-        <section className="shop-window" aria-labelledby="shop-window-title">
-          <header><div><span>라운드 클리어</span><h1 id="shop-window-title">컬러 마켓</h1></div><p role="status" aria-live="polite">{notice || "다음 라운드를 위한 빌드를 완성하세요."}</p></header>
-          <div className="shop-shelf">{run.shop?.offers.map((offer) => <ShopOfferCard key={offer.id} offer={offer} run={run} onBuy={() => onBuy(offer)} />)}</div>
-          {offerCount === 0 && <div className="shop-empty"><b>품절</b><span>리롤하거나 다음 라운드로 이동하세요.</span></div>}
-        </section>
-        <div className="shop-table-deck" aria-hidden="true"><div className="pile-card back"><i>◇</i></div><strong>{run.drawPile.length || 40}</strong></div>
-      </section>
-    </div>
-  </main>;
-}
-
-function ShopOfferCard({ offer, run, onBuy }: { offer: ShopOffer; run: RunState; onBuy: () => void }) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  let eyebrow = "조커"; let name = ""; let description = ""; let symbol = "?";
-  let disabledReason = run.coins < offer.price ? `${offer.price - run.coins}¢ 부족` : "";
-  if (offer.kind === "joker") { const definition = JOKER_CATALOG[offer.jokerId]; const rarity = { common: "일반", uncommon: "고급", rare: "희귀" } as const; eyebrow = `${rarity[definition.rarity]} 조커`; name = definition.name; description = definition.description; symbol = name.slice(0,1); if (run.jokers.some((joker) => joker.jokerId === offer.jokerId)) disabledReason = "이미 보유 중"; else if (run.jokers.length >= JOKER_SLOT_LIMIT) disabledReason = "조커 슬롯 가득 참"; }
-  if (offer.kind === "hand-upgrade") { const rule = HAND_RULES[offer.handType]; const level = run.handLevels[offer.handType]; eyebrow = "족보 강화"; name = `${rule.name} 레벨 ${level} → ${level + 1}`; description = `기본 칩 +${rule.chipsPerLevel}, 배수 +${rule.multiplierPerLevel}`; symbol = "↑"; }
-  if (offer.kind === "community-uno") { eyebrow = "메이헴 카드"; name = offer.card.name; description = `${offer.card.author} 제작 · 앤티당 한 번 사용할 수 있습니다.`; symbol = "M"; }
-  if (offer.kind === "community-uno") { if (run.communityUno.some((card) => card.id === offer.card.id)) disabledReason = "이미 보유 중"; else if (run.communityUno.length >= UNO_SLOT_LIMIT) disabledReason = "효과 카드 슬롯 가득 참"; }
-  const moduleIds = offer.kind === "community-uno" ? [...offer.card.positiveModules, ...offer.card.negativeModules] : [];
-  return <article className={`shop-card shop-${offer.kind}${disabledReason ? " unavailable" : ""}${detailsOpen ? " is-details-open" : ""}`}><div><span className="kicker">{eyebrow}</span><button type="button" className="shop-info-button" aria-label={`${name} 상세 정보 ${detailsOpen ? "닫기" : "보기"}`} aria-expanded={detailsOpen} onBlur={() => setDetailsOpen(false)} onClick={(event) => { const nextOpen = !detailsOpen; setDetailsOpen(nextOpen); if (!nextOpen) event.currentTarget.blur(); }}>i</button><div className="shop-type-art">{symbol}</div><h3>{name}</h3><p className="shop-card-summary">{description}</p><div className="shop-card-tooltip" role="tooltip"><strong>{name}</strong><p>{description}</p>{disabledReason && <small>{disabledReason}</small>}{moduleIds.length > 0 && <ul>{moduleIds.map((id) => <li key={id} className={UNO_MODULE_CATALOG[id].kind}>{UNO_MODULE_CATALOG[id].points > 0 ? "+" : ""}{UNO_MODULE_CATALOG[id].points} · {UNO_MODULE_CATALOG[id].name}<br />{UNO_MODULE_CATALOG[id].description.replace(/UNO/g, "메이헴")}</li>)}</ul>}</div></div><footer><b>{offer.price} ¢</b><button type="button" className="small-action" disabled={Boolean(disabledReason)} onClick={onBuy}>{disabledReason || "구매"}</button></footer></article>;
 }
 
 function ResultView({ run, notice, signedIn, onRank, onRestart, onLobby }: { run: RunState; notice: string; signedIn: boolean; onRank: () => void; onRestart: () => void; onLobby: () => void }) {

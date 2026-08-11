@@ -18,6 +18,7 @@ import type {
   ScoreBreakdown,
   UnoModuleId,
 } from "../../lib/game/types";
+import type { ScoreEvent } from "../../lib/game/score-events";
 
 const JOKER_ICONS: Readonly<Record<JokerId, string>> = {
   "zero-day": "0",
@@ -43,9 +44,9 @@ const JOKER_ICONS: Readonly<Record<JokerId, string>> = {
 };
 
 const RARITY_LABELS = {
-  common: "일반",
-  uncommon: "고급",
-  rare: "희귀",
+  common: "STANDARD",
+  uncommon: "UNCOMMON",
+  rare: "RARE",
 } as const;
 
 const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
@@ -59,6 +60,7 @@ export interface ModifierRailProps {
   run: RunState;
   /** The hand currently resolving, or the most recently resolved hand. */
   breakdown?: ScoreBreakdown | null;
+  scoreEvent?: ScoreEvent | null;
   className?: string;
 }
 
@@ -72,8 +74,8 @@ function signed(value: number): string {
 
 function effectValue(effect: AppliedEffect): string {
   const values: string[] = [];
-  if (effect.chips) values.push(`${signed(effect.chips)} 칩`);
-  if (effect.multiplier) values.push(`${signed(effect.multiplier)} 배수`);
+  if (effect.chips) values.push(`${signed(effect.chips)} POWER`);
+  if (effect.multiplier) values.push(`${signed(effect.multiplier)} HYPE`);
   if (effect.xMultiplier && effect.xMultiplier !== 1) {
     values.push(`×${effect.xMultiplier.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`);
   }
@@ -108,7 +110,7 @@ function unoPointTotal(card: CommunityUnoCard): number {
   );
 }
 
-export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
+export function ModifierRail({ run, breakdown, scoreEvent, className }: ModifierRailProps) {
   const reactId = safeId(useId());
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
   const pointerOpenedTooltip = useRef<string | null>(null);
@@ -128,13 +130,13 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
         <span className="modifier-rail-header-icon" aria-hidden="true">✦</span>
         <div className="modifier-rail-header-copy">
           <strong>보유 효과</strong>
-          <small>패시브 {run.jokers.length + run.communityUno.length}개</small>
+          <small>MOD {run.jokers.length} · MAYHEM {run.communityUno.length}</small>
         </div>
       </header>
 
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-jokers-title`}>
         <header className="modifier-rail-section-header">
-          <h2 id={`${reactId}-jokers-title`}>조커</h2>
+          <h2 id={`${reactId}-jokers-title`}>MOD</h2>
           <span>{run.jokers.length}/{JOKER_SLOT_LIMIT}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-joker-slots">
@@ -145,13 +147,15 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
             const effects = appliedJokerEffects.filter(
               (effect) => effect.sourceId === joker.jokerId,
             );
-            const isApplied = effects.length > 0;
+            const isCurrent = scoreEvent?.sourceKind === "mod"
+              && scoreEvent.sourceEffectId === joker.jokerId;
+            const isApplied = scoreEvent ? isCurrent : effects.length > 0;
             const isOpen = openTooltip === key;
             const statusLabel = isApplied ? "이번 핸드 적용됨" : "이번 핸드 미적용";
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
+                className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={joker.instanceId}
                 onMouseEnter={() => showTooltip(key)}
                 onMouseLeave={(event) => {
@@ -209,7 +213,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
                     <span aria-hidden="true">{JOKER_ICONS[joker.jokerId]}</span>
                     <div>
                       <strong>{definition.name}</strong>
-                      <small>{RARITY_LABELS[definition.rarity]} 조커</small>
+                      <small>{RARITY_LABELS[definition.rarity]} MOD</small>
                     </div>
                   </header>
                   <p className="modifier-rail-tooltip-description">{definition.description}</p>
@@ -244,7 +248,7 @@ export function ModifierRail({ run, breakdown, className }: ModifierRailProps) {
               <div
                 className="modifier-rail-slot modifier-rail-empty-slot"
                 role="img"
-                aria-label={`빈 조커 슬롯 ${run.jokers.length + index + 1}`}
+                aria-label={`빈 MOD 슬롯 ${run.jokers.length + index + 1}`}
                 key={`empty-joker-${index}`}
               >
                 <span aria-hidden="true">+</span>

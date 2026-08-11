@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 import "./game-ui.css";
+import "./garage-ui.css";
 import { PwaRegister } from "./pwa-register";
 
 const description =

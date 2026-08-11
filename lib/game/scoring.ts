@@ -1,4 +1,5 @@
 import { HAND_RULES } from "./constants";
+import { CARD_ENHANCEMENT_CONFIG } from "./garage-config";
 import { evaluateHand } from "./hands";
 import { applyJokers } from "./jokers";
 import type {
@@ -55,9 +56,31 @@ export function calculateHandScore(
     discardsLeft: state.discardsLeft,
   });
 
+  let cardChipBonus = 0;
+  let cardMultiplierBonus = 0;
+  let cardCoinGain = 0;
+  const appliedCardEffects = scoringCards.flatMap((card) => {
+    if (!card.enhancement) return [];
+    const enhancement = CARD_ENHANCEMENT_CONFIG[card.enhancement];
+    cardChipBonus += enhancement.power ?? 0;
+    cardMultiplierBonus += enhancement.hype ?? 0;
+    cardCoinGain += enhancement.coins ?? 0;
+    return [{
+      sourceId: `enhancement-${card.enhancement}`,
+      sourceName: enhancement.name,
+      description: enhancement.description,
+      ...(enhancement.power ? { chips: enhancement.power } : {}),
+      ...(enhancement.hype ? { multiplier: enhancement.hype } : {}),
+      ...(enhancement.coins ? { coins: enhancement.coins } : {}),
+      sourceCardId: card.id,
+      sourceKind: "card" as const,
+    }];
+  });
+
   const chipsBeforeUno =
-    baseChips + jokerResult.numericChips + jokerResult.jokerChipBonus;
-  const multiplierBeforeUno = baseMultiplier + jokerResult.multiplierBonus;
+    baseChips + jokerResult.numericChips + cardChipBonus + jokerResult.jokerChipBonus;
+  const multiplierBeforeUno =
+    baseMultiplier + cardMultiplierBonus + jokerResult.multiplierBonus;
   const scoreBeforeUno = Math.floor(
     chipsBeforeUno * multiplierBeforeUno * jokerResult.xMultiplier,
   );
@@ -118,9 +141,10 @@ export function calculateHandScore(
       scoreBeforeUno,
       uno,
       total,
-      coinGain: jokerResult.coinGain,
+      coinGain: jokerResult.coinGain + cardCoinGain,
       roundReward: 0,
       appliedJokers: jokerResult.appliedEffects,
+      appliedCardEffects,
     },
     updatedJokers: jokerResult.updatedJokers,
     usedUnoCardId,

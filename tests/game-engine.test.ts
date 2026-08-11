@@ -4,7 +4,12 @@ import {
   DEFAULT_COMMUNITY_UNO_CARDS,
   JOKER_IDS,
   UNO_MODULE_CATALOG,
+  buyCardPack,
+  buyDeckWork,
+  choosePackCard,
+  claimRoundReward,
   createRun,
+  drawCards,
   evaluateHand,
   nextRound,
   playHand,
@@ -66,6 +71,8 @@ test("finishes standard after 15 cleared rounds and continues endless to ante 6"
   let standard = createRun({ seed: "standard-15", mode: "standard" });
   for (let index = 0; index < 15; index += 1) {
     standard = clearOne(standard);
+    assert.equal(standard.phase, "reward");
+    standard = claimRoundReward(standard);
     if (standard.phase === "shop") standard = nextRound(standard);
   }
   assert.equal(standard.phase, "won");
@@ -74,10 +81,81 @@ test("finishes standard after 15 cleared rounds and continues endless to ante 6"
   let endless = createRun({ seed: "endless-15", mode: "endless" });
   for (let index = 0; index < 15; index += 1) {
     endless = clearOne(endless);
+    assert.equal(endless.phase, "reward");
+    endless = claimRoundReward(endless);
     assert.equal(endless.phase, "shop");
     endless = nextRound(endless);
   }
   assert.equal(endless.phase, "playing");
   assert.equal(endless.ante, 6);
   assert.equal(endless.round, "small");
+});
+
+test("keeps discarded cards out of the draw pile until the next round", () => {
+  const top = card("top", 3, "red");
+  const discarded = card("discarded", 8, "blue");
+  const result = drawCards([top], [discarded], 2, 123);
+  assert.deepEqual(result.drawn.map((item) => item.id), ["top"]);
+  assert.deepEqual(result.discardPile.map((item) => item.id), ["discarded"]);
+  assert.equal(result.drawPile.length, 0);
+});
+
+test("shows a receipt and pays a cleared-round reward exactly once", () => {
+  const run = createRun({ seed: "reward-receipt", startingCoins: 10 });
+  const cleared = playHand({ ...run, target: 1 }, [run.hand[0].id]).state;
+  assert.equal(cleared.phase, "reward");
+  assert.equal(cleared.coins, 10);
+  assert.ok(cleared.pendingReward);
+
+  const paid = claimRoundReward(cleared);
+  assert.equal(paid.phase, "shop");
+  assert.equal(paid.coins, 10 + cleared.pendingReward.total);
+  assert.equal(paid.pendingReward, null);
+  assert.throws(() => claimRoundReward(paid), /reward 단계/);
+});
+
+test("persists deck surgery and enhanced pack cards across rounds", () => {
+  const initial = createRun({ seed: "persistent-deck", startingCoins: 99 });
+  const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
+  let shop = claimRoundReward(reward);
+  const target = shop.deck?.[0];
+  assert.ok(target);
+
+  shop = {
+    ...shop,
+    shop: {
+      id: "test-garage",
+      rerollCost: 2,
+      rerolls: 0,
+      offers: [
+        { id: "charge-offer", kind: "deck-work", work: "charge", price: 0 },
+      ],
+    },
+  };
+  shop = buyDeckWork(shop, "charge-offer", target.id);
+  assert.equal(shop.deck?.find((item) => item.id === target.id)?.enhancement, "charged");
+
+  shop = {
+    ...shop,
+    shop: {
+      id: "test-pack-rack",
+      rerollCost: 2,
+      rerolls: 0,
+      offers: [
+        { id: "glitch-pack", kind: "card-pack", packKind: "glitch", price: 0 },
+      ],
+    },
+  };
+  const beforePackSize = shop.deck?.length ?? 0;
+  shop = buyCardPack(shop, "glitch-pack");
+  assert.equal(shop.packOpening?.choices.length, 3);
+  const chosen = shop.packOpening?.choices[0];
+  assert.ok(chosen?.enhancement);
+  shop = choosePackCard(shop, chosen.id);
+  assert.equal(shop.deck?.length, beforePackSize + 1);
+
+  const next = nextRound(shop);
+  assert.equal(next.deck?.length, beforePackSize + 1);
+  assert.equal(next.deck?.find((item) => item.id === target.id)?.enhancement, "charged");
+  assert.ok(next.deck?.some((item) => item.id === chosen.id));
 });

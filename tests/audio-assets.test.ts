@@ -8,6 +8,10 @@ import {
   BGM_CROSSFADE_MS,
   BgmManager,
   DEFAULT_SCORE_TICK_VOICE_LIMIT,
+  SCORE_EFFECT_FADE_DURATION_MS,
+  SCORE_EFFECT_MAX_DURATION_MS,
+  SCORE_EFFECT_START_OFFSET_SECONDS,
+  ScoreEffectPool,
   audioSceneForBossAnte,
   scoreTickPlaybackRate,
 } from "../app/use-game-audio";
@@ -223,6 +227,78 @@ test("score ticks rise in pitch and stay inside a safe playback-rate range", () 
   assert.equal(scoreTickPlaybackRate(10_000), 1.8);
   assert.equal(scoreTickPlaybackRate(0, 1.25, -100), 0.65);
   assert.equal(DEFAULT_SCORE_TICK_VOICE_LIMIT, 3);
+});
+
+test("score effect pool preloads voices, deduplicates event tokens, and trims each hit", () => {
+  const originalAudio = globalThis.Audio;
+
+  class FakeScoreAudio {
+    static readonly instances: FakeScoreAudio[] = [];
+    readonly src: string;
+    preload = "";
+    volume = 1;
+    playbackRate = 1;
+    currentTime = 0;
+    paused = true;
+    ended = false;
+    playCalls = 0;
+    pauseCalls = 0;
+    loadCalls = 0;
+    released = false;
+
+    constructor(src: string) {
+      this.src = src;
+      FakeScoreAudio.instances.push(this);
+    }
+
+    play(): Promise<void> {
+      this.paused = false;
+      this.ended = false;
+      this.playCalls += 1;
+      return Promise.resolve();
+    }
+
+    pause(): void {
+      this.paused = true;
+      this.pauseCalls += 1;
+    }
+
+    load(): void {
+      this.loadCalls += 1;
+    }
+
+    removeAttribute(name: string): void {
+      if (name === "src") this.released = true;
+    }
+  }
+
+  globalThis.Audio = FakeScoreAudio as unknown as typeof Audio;
+  const pool = new ScoreEffectPool({
+    src: "/audio/score.mp3",
+    gain: 0.58,
+    voiceLimit: 3,
+  });
+
+  try {
+    pool.configure(true, 0.65);
+    assert.equal(pool.preparedVoiceCount, 3);
+    assert.equal(FakeScoreAudio.instances.length, 3);
+    assert.ok(FakeScoreAudio.instances.every(({ loadCalls }) => loadCalls === 1));
+
+    assert.equal(pool.play("hand-1:card-1", { playbackRate: 1, gain: 1 }), true);
+    assert.equal(pool.play("hand-1:card-1", { playbackRate: 1.2, gain: 1 }), false);
+    assert.equal(pool.play("hand-1:card-2", { playbackRate: 1.2, gain: 0.9 }), true);
+    assert.equal(FakeScoreAudio.instances.length, 3, "score playback must reuse the pool");
+    assert.equal(FakeScoreAudio.instances[0].playCalls, 1);
+    assert.equal(FakeScoreAudio.instances[0].currentTime, SCORE_EFFECT_START_OFFSET_SECONDS);
+    assert.equal(FakeScoreAudio.instances[1].playCalls, 1);
+    assert.equal(FakeScoreAudio.instances[1].playbackRate, 1.2);
+    assert.ok(SCORE_EFFECT_MAX_DURATION_MS < 240);
+    assert.ok(SCORE_EFFECT_FADE_DURATION_MS > 0);
+  } finally {
+    pool.dispose();
+    globalThis.Audio = originalAudio;
+  }
 });
 
 test("BGM manager reuses a matching track and crossfades scene changes", async () => {

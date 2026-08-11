@@ -5,6 +5,7 @@ export type ScoreEventType =
   | "hand-detected"
   | "base-score"
   | "card-score"
+  | "card-effect"
   | "joker-effect"
   | "aggregate-adjustment"
   | "uno-effect"
@@ -40,6 +41,8 @@ export interface ScoreEvent {
   readonly operation: ScoreEventOperation;
   readonly sourceCardId?: string;
   readonly sourceEffectId?: string;
+  /** Presentation ownership. Anchored card/MOD events stay on the same card beat. */
+  readonly sourceKind?: "pattern" | "card" | "mod" | "mayhem";
   /** Non-score rewards such as coins are exposed without changing currentTotal. */
   readonly reward?: number;
   readonly emphasis: ScoreEventEmphasis;
@@ -163,6 +166,7 @@ export function buildScoreEvents(
     label: breakdown.handName,
     description: `레벨 ${breakdown.handLevel} 조합 판정`,
     operation: "announce",
+    sourceKind: "pattern",
     emphasis: "strong",
     currentTotal: 0,
   });
@@ -179,59 +183,110 @@ export function buildScoreEvents(
     multiplier: breakdown.baseMultiplier,
     multiplierMode: "base",
     operation: "set-base",
+    sourceKind: "pattern",
     emphasis: "normal",
     currentTotal: scoreFor(running),
   });
 
   const scoringIds = new Set(breakdown.scoringCardIds);
-  const scoringCards = selectedCards.filter((card) => scoringIds.has(card.id));
 
-  for (const card of scoringCards) {
-    const chips = rankChipValue(card.rank);
-    running.chips += chips;
-    push({
-      idHint: `card-${card.id}`,
-      type: "card-score",
-      label: `${COLOR_NAMES[card.color]} ${card.rank}`,
-      description:
-        card.rank === 0
-          ? "0 카드 특성으로 10칩 획득"
-          : `숫자 카드 ${card.rank}에서 ${chips}칩 획득`,
-      value: chips,
-      operation: "add-chips",
-      sourceCardId: card.id,
-      emphasis: card.rank === 0 ? "strong" : "normal",
-      currentTotal: scoreFor(running),
-    });
-  }
+  type IndexedEffect = {
+    readonly effect: AppliedEffect;
+    readonly index: number;
+  };
+  const indexedCardEffects: readonly IndexedEffect[] = (
+    breakdown.appliedCardEffects ?? []
+  ).map((effect, index) => ({ effect, index }));
+  const indexedJokerEffects: readonly IndexedEffect[] = breakdown.appliedJokers.map(
+    (effect, index) => ({ effect, index }),
+  );
+  const anchoredEffectCardIds = new Set([
+    ...indexedCardEffects.map(({ effect }) => effect.sourceCardId),
+    ...indexedJokerEffects.map(({ effect }) => effect.sourceCardId),
+  ].filter((cardId): cardId is string => Boolean(cardId)));
+  const contributingCards = selectedCards.filter(
+    (card) => scoringIds.has(card.id) || anchoredEffectCardIds.has(card.id),
+  );
+  const consumedCardEffects = new Set<number>();
+  const consumedJokerEffects = new Set<number>();
 
   const applyEffect = (
     effect: AppliedEffect,
     index: number,
-    phase: "joker" | "uno",
+    phase: "card" | "joker" | "uno",
   ): void => {
     running.chips += effect.chips ?? 0;
     running.multiplier += effect.multiplier ?? 0;
     running.xMultiplier *= effect.xMultiplier ?? 1;
 
+    const sourceKind = effect.sourceKind ?? (
+      phase === "card" ? "card" : phase === "joker" ? "mod" : "mayhem"
+    );
     push({
       idHint: `${phase}-${index}-${effect.sourceId}`,
-      type: phase === "joker" ? "joker-effect" : "uno-effect",
+      type: phase === "card"
+        ? "card-effect"
+        : phase === "joker" ? "joker-effect" : "uno-effect",
       label: effect.sourceName,
       description: effect.description,
       value: effect.chips,
       ...multiplierForEffect(effect),
       operation: operationForEffect(effect),
+      sourceCardId: effect.sourceCardId,
       sourceEffectId: effect.sourceId,
+      sourceKind,
       reward: effect.coins,
       emphasis: effectEmphasis(effect),
       currentTotal: scoreFor(running),
     });
   };
 
-  breakdown.appliedJokers.forEach((effect, index) => {
+  for (const card of contributingCards) {
+    if (scoringIds.has(card.id)) {
+      const chips = rankChipValue(card.rank);
+      running.chips += chips;
+      push({
+        idHint: `card-${card.id}`,
+        type: "card-score",
+        label: `${COLOR_NAMES[card.color]} ${card.rank}`,
+        description:
+          card.rank === 0
+            ? "0 카드 특성으로 10칩 획득"
+            : `숫자 카드 ${card.rank}에서 ${chips}칩 획득`,
+        value: chips,
+        operation: "add-chips",
+        sourceCardId: card.id,
+        sourceEffectId: card.id,
+        sourceKind: "card",
+        emphasis: card.rank === 0 ? "strong" : "normal",
+        currentTotal: scoreFor(running),
+      });
+    }
+
+    // A card's own enhancement resolves before every MOD triggered by that
+    // card. This keeps the active card raised until its complete chain ends.
+    for (const { effect, index } of indexedCardEffects) {
+      if (effect.sourceCardId !== card.id) continue;
+      consumedCardEffects.add(index);
+      applyEffect(effect, index, "card");
+    }
+    for (const { effect, index } of indexedJokerEffects) {
+      if (effect.sourceCardId !== card.id) continue;
+      consumedJokerEffects.add(index);
+      applyEffect(effect, index, "joker");
+    }
+  }
+
+  // Defensive fallbacks preserve authoritative totals if an effect refers to
+  // a card that is no longer in the submitted presentation payload.
+  for (const { effect, index } of indexedCardEffects) {
+    if (consumedCardEffects.has(index)) continue;
+    applyEffect(effect, index, "card");
+  }
+  for (const { effect, index } of indexedJokerEffects) {
+    if (consumedJokerEffects.has(index)) continue;
     applyEffect(effect, index, "joker");
-  });
+  }
 
   const reconcileChips = (
     target: number,
@@ -249,6 +304,7 @@ export function buildScoreEvents(
       value: difference,
       operation: "add-chips",
       sourceEffectId: idHint,
+      sourceKind: "pattern",
       emphasis: "subtle",
       currentTotal: scoreFor(running),
     });
@@ -271,6 +327,7 @@ export function buildScoreEvents(
       multiplierMode: "additive",
       operation: "add-multiplier",
       sourceEffectId: idHint,
+      sourceKind: "pattern",
       emphasis: "subtle",
       currentTotal: scoreFor(running),
     });
@@ -296,6 +353,7 @@ export function buildScoreEvents(
       multiplierMode: "multiplicative",
       operation: "multiply-score",
       sourceEffectId: idHint,
+      sourceKind: "pattern",
       emphasis: "subtle",
       currentTotal: scoreFor(running),
     });
@@ -316,6 +374,7 @@ export function buildScoreEvents(
       value: target - visibleTotal,
       operation: "set-score",
       sourceEffectId: idHint,
+      sourceKind: "pattern",
       emphasis: "subtle",
       currentTotal: target,
     });
@@ -383,6 +442,7 @@ export function buildScoreEvents(
       value: uno.scoreAfterUno - uno.scoreBeforeUno,
       operation: "set-score",
       sourceEffectId: uno.cardId,
+      sourceKind: "mayhem",
       emphasis: "strong",
       currentTotal: uno.scoreAfterUno,
     });
@@ -397,6 +457,7 @@ export function buildScoreEvents(
       value: breakdown.total - visibleTotal,
       operation: "set-score",
       sourceEffectId: "authoritative-total",
+      sourceKind: "pattern",
       emphasis: "subtle",
       currentTotal: breakdown.total,
     });
@@ -409,6 +470,7 @@ export function buildScoreEvents(
     description: `${breakdown.handName} 계산 완료`,
     value: breakdown.total,
     operation: "set-score",
+    sourceKind: "pattern",
     emphasis: "final",
     currentTotal: breakdown.total,
     total: breakdown.total,

@@ -7,7 +7,11 @@ export interface GameCard {
   readonly id: string;
   readonly color: CardColor;
   readonly rank: CardRank;
+  /** Optional in-run tuning applied by Garage work or card packs. */
+  readonly enhancement?: CardEnhancement;
 }
+
+export type CardEnhancement = "charged" | "amplified" | "minted";
 
 export const HAND_TYPES = [
   "high-card",
@@ -23,7 +27,7 @@ export const HAND_TYPES = [
 
 export type HandType = (typeof HAND_TYPES)[number];
 export type RunMode = "standard" | "endless";
-export type RunPhase = "playing" | "shop" | "won" | "lost";
+export type RunPhase = "playing" | "reward" | "shop" | "won" | "lost";
 export type RoundType = "small" | "big" | "boss";
 export type JokerRarity = "common" | "uncommon" | "rare";
 
@@ -135,6 +139,9 @@ export interface AppliedEffect {
   readonly multiplier?: number;
   readonly xMultiplier?: number;
   readonly coins?: number;
+  /** Lets the presentation resolve a card and its MOD triggers as one beat. */
+  readonly sourceCardId?: string;
+  readonly sourceKind?: "card" | "mod" | "mayhem";
 }
 
 export interface UnoScoreBreakdown {
@@ -172,6 +179,7 @@ export interface ScoreBreakdown {
   readonly coinGain: number;
   readonly roundReward: number;
   readonly appliedJokers: readonly AppliedEffect[];
+  readonly appliedCardEffects?: readonly AppliedEffect[];
 }
 
 export interface JokerShopOffer {
@@ -195,13 +203,59 @@ export interface UnoShopOffer {
   readonly card: CommunityUnoCard;
 }
 
-export type ShopOffer = JokerShopOffer | HandUpgradeShopOffer | UnoShopOffer;
+export type DeckWorkKind =
+  | "remove"
+  | "clone"
+  | "recolor"
+  | "shift-up"
+  | "shift-down"
+  | "charge"
+  | "amplify";
+
+export interface DeckWorkShopOffer {
+  readonly id: string;
+  readonly kind: "deck-work";
+  readonly price: number;
+  readonly work: DeckWorkKind;
+  readonly targetColor?: CardColor;
+}
+
+export type CardPackKind = "supply" | "glitch";
+
+export interface CardPackShopOffer {
+  readonly id: string;
+  readonly kind: "card-pack";
+  readonly price: number;
+  readonly packKind: CardPackKind;
+}
+
+export type ShopOffer =
+  | JokerShopOffer
+  | HandUpgradeShopOffer
+  | UnoShopOffer
+  | DeckWorkShopOffer
+  | CardPackShopOffer;
 
 export interface ShopState {
   readonly id: string;
   readonly offers: readonly ShopOffer[];
   readonly rerollCost: number;
   readonly rerolls: number;
+}
+
+export interface PackOpening {
+  readonly offerId: string;
+  readonly packKind: CardPackKind;
+  readonly choices: readonly GameCard[];
+}
+
+export interface RoundReward {
+  readonly baseCoins: number;
+  readonly handBonus: number;
+  readonly reserveBonus: number;
+  readonly modIncome: number;
+  readonly total: number;
+  readonly nextPhase: "shop" | "won";
 }
 
 export interface RunStats {
@@ -218,9 +272,13 @@ export type RunActionType =
   | "discard"
   | "buy-joker"
   | "buy-uno"
+  | "buy-deck-work"
+  | "buy-card-pack"
+  | "choose-pack-card"
   | "upgrade-hand"
   | "sell-joker"
   | "reroll-shop"
+  | "claim-reward"
   | "set-hot-swap"
   | "next-round";
 
@@ -244,11 +302,15 @@ export interface RunState {
   readonly hand: readonly GameCard[];
   readonly drawPile: readonly GameCard[];
   readonly discardPile: readonly GameCard[];
+  /** Persistent run deck. Old v1 saves omit it and are normalized from zones. */
+  readonly deck?: readonly GameCard[];
   readonly score: number;
   readonly target: number;
   readonly handsLeft: number;
   readonly discardsLeft: number;
   readonly coins: number;
+  /** Economy effects earned during this round and paid on reward claim. */
+  readonly roundIncome?: number;
   readonly jokers: readonly JokerInstance[];
   readonly communityUno: readonly CommunityUnoCard[];
   readonly communityUnoPool: readonly CommunityUnoCard[];
@@ -256,6 +318,8 @@ export interface RunState {
   readonly handLevels: Readonly<Record<HandType, number>>;
   readonly handHistory: readonly HandType[];
   readonly shop: ShopState | null;
+  readonly packOpening?: PackOpening | null;
+  readonly pendingReward?: RoundReward | null;
   readonly stats: RunStats;
   readonly actionLog: readonly RunActionRecord[];
 }

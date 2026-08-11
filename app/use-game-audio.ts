@@ -50,6 +50,11 @@ export const BGM_CROSSFADE_MS = 550;
 export const DEFAULT_EFFECT_VOICE_LIMIT = 4;
 export const DEFAULT_SCORE_TICK_VOICE_LIMIT = 3;
 export const DEFAULT_SCORE_TICK_SEMITONES = 1.25;
+/** `score.mp3` has a short encoded lead-in; skip it for a tighter card hit. */
+export const SCORE_EFFECT_START_OFFSET_SECONDS = 0.028;
+/** Normal score beats are 240ms, so the tick must release before the next hit. */
+export const SCORE_EFFECT_MAX_DURATION_MS = 220;
+export const SCORE_EFFECT_FADE_DURATION_MS = 36;
 
 export const AUDIO_TRACKS = {
   menu: { src: "/audio/bgm-menu.m4a", gain: 0.82 },
@@ -102,6 +107,171 @@ function releaseAudio(audio: HTMLAudioElement): void {
   audio.pause();
   audio.removeAttribute("src");
   audio.load();
+}
+
+type ScorePoolVoice = {
+  readonly audio: HTMLAudioElement;
+  readonly timers: Set<ReturnType<typeof setTimeout>>;
+  callGain: number;
+};
+
+export interface ScoreEffectPoolOptions {
+  readonly src: string;
+  readonly gain: number;
+  readonly voiceLimit?: number;
+  readonly startOffsetSeconds?: number;
+  readonly maxDurationMs?: number;
+  readonly fadeDurationMs?: number;
+}
+
+/**
+ * A small, eagerly loaded voice pool for score hits. Reusing decoded media
+ * elements avoids the per-card construction/decode latency of `new Audio()`.
+ * Event tokens make playback idempotent across React re-renders.
+ */
+export class ScoreEffectPool {
+  private readonly voices: ScorePoolVoice[] = [];
+  private readonly playedTokens = new Set<string>();
+  private readonly tokenOrder: string[] = [];
+  private cursor = 0;
+  private enabled = false;
+  private masterVolume = 0.65;
+
+  constructor(private readonly options: ScoreEffectPoolOptions) {}
+
+  get preparedVoiceCount(): number {
+    return this.voices.length;
+  }
+
+  prepare(): void {
+    if (this.voices.length > 0 || typeof Audio === "undefined") return;
+    const voiceLimit = clampVoiceLimit(
+      this.options.voiceLimit,
+      DEFAULT_SCORE_TICK_VOICE_LIMIT,
+    );
+    for (let index = 0; index < voiceLimit; index += 1) {
+      const audio = new Audio(this.options.src);
+      audio.preload = "auto";
+      audio.volume = 0;
+      audio.load();
+      this.voices.push({ audio, timers: new Set(), callGain: 1 });
+    }
+  }
+
+  configure(enabled: boolean, masterVolume: number): void {
+    this.enabled = enabled;
+    this.masterVolume = clampVolume(masterVolume);
+    if (!enabled) {
+      this.stop();
+      return;
+    }
+    this.prepare();
+    for (const voice of this.voices) {
+      if (!voice.audio.paused && !voice.audio.ended) {
+        voice.audio.volume = this.voiceVolume(voice);
+      }
+    }
+  }
+
+  play(
+    eventToken: string,
+    options: { readonly playbackRate: number; readonly gain?: number },
+  ): boolean {
+    if (this.playedTokens.has(eventToken)) return false;
+    this.rememberToken(eventToken);
+    if (!this.enabled) return false;
+    this.prepare();
+    if (this.voices.length === 0) return false;
+
+    const idleIndex = this.voices.findIndex(
+      ({ audio }) => audio.paused || audio.ended,
+    );
+    const voiceIndex = idleIndex >= 0 ? idleIndex : this.cursor % this.voices.length;
+    this.cursor = (voiceIndex + 1) % this.voices.length;
+    const voice = this.voices[voiceIndex];
+    this.clearVoiceTimers(voice);
+    voice.audio.pause();
+    voice.callGain = Number.isFinite(options.gain)
+      ? Math.max(0, options.gain ?? 1)
+      : 1;
+    voice.audio.playbackRate = Math.max(0.5, Math.min(2, options.playbackRate));
+    voice.audio.volume = this.voiceVolume(voice);
+    try {
+      voice.audio.currentTime = this.options.startOffsetSeconds
+        ?? SCORE_EFFECT_START_OFFSET_SECONDS;
+    } catch {
+      // Safari can reject a seek before metadata is ready. The preloaded pool
+      // still removes allocation/decode latency, so starting at zero is safe.
+    }
+    voice.audio.play().catch(() => this.stopVoice(voice));
+    this.scheduleTailRelease(voice);
+    return true;
+  }
+
+  stop(): void {
+    for (const voice of this.voices) this.stopVoice(voice);
+  }
+
+  dispose(): void {
+    this.stop();
+    for (const voice of this.voices) releaseAudio(voice.audio);
+    this.voices.length = 0;
+    this.playedTokens.clear();
+    this.tokenOrder.length = 0;
+  }
+
+  private rememberToken(token: string): void {
+    this.playedTokens.add(token);
+    this.tokenOrder.push(token);
+    while (this.tokenOrder.length > 512) {
+      const oldest = this.tokenOrder.shift();
+      if (oldest !== undefined) this.playedTokens.delete(oldest);
+    }
+  }
+
+  private voiceVolume(voice: ScorePoolVoice): number {
+    return clampVolume(this.masterVolume * this.options.gain * voice.callGain);
+  }
+
+  private scheduleTailRelease(voice: ScorePoolVoice): void {
+    const maxDuration = Math.max(
+      40,
+      this.options.maxDurationMs ?? SCORE_EFFECT_MAX_DURATION_MS,
+    );
+    const fadeDuration = Math.min(
+      maxDuration,
+      Math.max(0, this.options.fadeDurationMs ?? SCORE_EFFECT_FADE_DURATION_MS),
+    );
+    const fadeStart = Math.max(0, maxDuration - fadeDuration);
+    const addTimer = (delay: number, action: () => void) => {
+      const timer = setTimeout(() => {
+        voice.timers.delete(timer);
+        action();
+      }, delay);
+      voice.timers.add(timer);
+    };
+
+    if (fadeDuration > 0) {
+      addTimer(fadeStart, () => {
+        voice.audio.volume = this.voiceVolume(voice) * 0.58;
+      });
+      addTimer(fadeStart + fadeDuration * 0.55, () => {
+        voice.audio.volume = this.voiceVolume(voice) * 0.2;
+      });
+    }
+    addTimer(maxDuration, () => this.stopVoice(voice));
+  }
+
+  private clearVoiceTimers(voice: ScorePoolVoice): void {
+    for (const timer of voice.timers) clearTimeout(timer);
+    voice.timers.clear();
+  }
+
+  private stopVoice(voice: ScorePoolVoice): void {
+    this.clearVoiceTimers(voice);
+    voice.audio.pause();
+    voice.audio.volume = 0;
+  }
 }
 
 type ManagedBgmTrack = {
@@ -269,6 +439,8 @@ export function useGameAudio(scene: AudioScene) {
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const activeEffectsRef = useRef(new Map<SoundEffect, Set<HTMLAudioElement>>());
   const effectGainsRef = useRef(new WeakMap<HTMLAudioElement, number>());
+  const scorePoolRef = useRef<ScoreEffectPool | null>(null);
+  const legacyScoreTokenRef = useRef(0);
   const scoreSequenceRef = useRef({ lastPlayedAt: 0, step: -1 });
   const changesBeforeHydrationRef = useRef(new Set<AudioSetting>());
 
@@ -276,12 +448,24 @@ export function useGameAudio(scene: AudioScene) {
     if (!settingsHydrated) changesBeforeHydrationRef.current.add(setting);
   }, [settingsHydrated]);
 
+  const getScorePool = useCallback((): ScoreEffectPool | null => {
+    if (typeof Audio === "undefined") return null;
+    const definition = AUDIO_EFFECTS.score;
+    scorePoolRef.current ??= new ScoreEffectPool({
+      src: definition.src,
+      gain: definition.gain,
+      voiceLimit: DEFAULT_SCORE_TICK_VOICE_LIMIT,
+    });
+    return scorePoolRef.current;
+  }, []);
+
   const stopEffects = useCallback(() => {
     for (const voices of activeEffectsRef.current.values()) {
       for (const sound of voices) releaseAudio(sound);
     }
     activeEffectsRef.current.clear();
     effectGainsRef.current = new WeakMap<HTMLAudioElement, number>();
+    scorePoolRef.current?.stop();
   }, []);
 
   useEffect(() => {
@@ -344,6 +528,8 @@ export function useGameAudio(scene: AudioScene) {
   }, [effectsVolume, settingsHydrated]);
 
   useEffect(() => {
+    const scorePool = getScorePool();
+    scorePool?.configure(settingsHydrated && effectsEnabled, effectsVolume);
     if (!effectsEnabled) {
       stopEffects();
       return;
@@ -353,7 +539,7 @@ export function useGameAudio(scene: AudioScene) {
         sound.volume = clampVolume(effectsVolume * (effectGainsRef.current.get(sound) ?? 1));
       }
     }
-  }, [effectsEnabled, effectsVolume, stopEffects]);
+  }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated, stopEffects]);
 
   useEffect(() => {
     if (!musicEnabled || !settingsHydrated) return;
@@ -408,6 +594,41 @@ export function useGameAudio(scene: AudioScene) {
     setEffectsVolume(clampVolume(value));
   }, [markChangedBeforeHydration]);
 
+  const playPooledScore = useCallback((
+    eventToken: string,
+    progressionStep: number,
+    options: ScoreTickOptions & Pick<EffectPlaybackOptions, "playbackRate"> = {},
+  ): boolean => {
+    const pool = getScorePool();
+    if (!pool) return false;
+    pool.configure(settingsHydrated && effectsEnabled, effectsVolume);
+    const definition = AUDIO_EFFECTS.score;
+    const playbackRate = options.playbackRate ?? (
+      (definition.playbackRate ?? 1)
+      * scoreTickPlaybackRate(
+        progressionStep,
+        options.semitonesPerStep ?? DEFAULT_SCORE_TICK_SEMITONES,
+        options.semitoneOffset,
+      )
+    );
+    return pool.play(eventToken, {
+      playbackRate,
+      gain: options.gain,
+    });
+  }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated]);
+
+  const prepareScoreSequence = useCallback(() => {
+    const pool = getScorePool();
+    pool?.configure(settingsHydrated && effectsEnabled, effectsVolume);
+    pool?.prepare();
+  }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated]);
+
+  const playScoreEvent = useCallback((
+    eventToken: string,
+    progressionStep: number,
+    options: ScoreTickOptions = {},
+  ): boolean => playPooledScore(eventToken, progressionStep, options), [playPooledScore]);
+
   const playEffect = useCallback((name: SoundEffect, options: EffectPlaybackOptions = {}) => {
     if (!settingsHydrated || !effectsEnabled) return;
     const definition: AudioAsset | null = AUDIO_EFFECTS[name];
@@ -422,10 +643,17 @@ export function useGameAudio(scene: AudioScene) {
       progressionStep = sequence.step;
     }
 
-    const fallbackVoiceLimit = name === "score"
-      ? DEFAULT_SCORE_TICK_VOICE_LIMIT
-      : DEFAULT_EFFECT_VOICE_LIMIT;
-    const voiceLimit = clampVoiceLimit(options.maxVoices, fallbackVoiceLimit);
+    if (name === "score") {
+      legacyScoreTokenRef.current += 1;
+      playPooledScore(
+        `legacy-score-${legacyScoreTokenRef.current}`,
+        progressionStep ?? 0,
+        options,
+      );
+      return;
+    }
+
+    const voiceLimit = clampVoiceLimit(options.maxVoices, DEFAULT_EFFECT_VOICE_LIMIT);
     const voices = activeEffectsRef.current.get(name) ?? new Set<HTMLAudioElement>();
     activeEffectsRef.current.set(name, voices);
     while (voices.size >= voiceLimit) {
@@ -445,7 +673,7 @@ export function useGameAudio(scene: AudioScene) {
       (definition.playbackRate ?? 1)
       * scoreTickPlaybackRate(
         progressionStep ?? 0,
-        options.semitonesPerStep ?? (name === "score" ? DEFAULT_SCORE_TICK_SEMITONES : 0),
+        options.semitonesPerStep ?? 0,
         options.semitoneOffset,
       )
     );
@@ -464,19 +692,22 @@ export function useGameAudio(scene: AudioScene) {
     sound.addEventListener("ended", cleanup, { once: true });
     sound.addEventListener("error", cleanup, { once: true });
     sound.play().catch(cleanup);
-  }, [effectsEnabled, effectsVolume, settingsHydrated]);
+  }, [effectsEnabled, effectsVolume, playPooledScore, settingsHydrated]);
 
   const playScoreTick = useCallback((progressionStep: number, options: ScoreTickOptions = {}) => {
-    playEffect("score", {
+    legacyScoreTokenRef.current += 1;
+    playPooledScore(
+      `score-tick-${legacyScoreTokenRef.current}`,
       progressionStep,
-      semitonesPerStep: options.semitonesPerStep ?? DEFAULT_SCORE_TICK_SEMITONES,
-      semitoneOffset: options.semitoneOffset,
-      gain: options.gain,
-      maxVoices: options.maxVoices ?? DEFAULT_SCORE_TICK_VOICE_LIMIT,
-    });
-  }, [playEffect]);
+      options,
+    );
+  }, [playPooledScore]);
 
-  useEffect(() => stopEffects, [stopEffects]);
+  useEffect(() => () => {
+    stopEffects();
+    scorePoolRef.current?.dispose();
+    scorePoolRef.current = null;
+  }, [stopEffects]);
 
   return {
     musicEnabled,
@@ -489,6 +720,8 @@ export function useGameAudio(scene: AudioScene) {
     toggleEffects,
     playEffect,
     playScoreTick,
+    playScoreEvent,
+    prepareScoreSequence,
     stopEffects,
   };
 }

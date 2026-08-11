@@ -1,15 +1,20 @@
 // Stable public API for the UI, persistence layer, and server-side replay.
 export * from "./types";
 export * from "./constants";
+export * from "./garage-config";
 
 export {
   createRun,
   playHand,
   previewHand,
   discardCards,
+  claimRoundReward,
   buyJoker,
   buyUnoCard,
   buyHandUpgrade,
+  buyDeckWork,
+  buyCardPack,
+  choosePackCard,
   buyShopOffer,
   sellJoker,
   rerollShop,

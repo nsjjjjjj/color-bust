@@ -3127,6 +3127,55 @@
   .deck-hand-stage .table-action-dock { margin-top: 6px; }
 }
 
+/* ── Garage card patches ─────────────────────────────────────────────── */
+.number-card[class*="enhancement-"]::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  border: 2px solid rgba(255,255,255,.52);
+  pointer-events: none;
+  clip-path: polygon(5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px),0 5px);
+}
+.number-card.enhancement-charged::after { border-color: #72e8ff; box-shadow: inset 0 0 9px rgba(55,205,255,.48); }
+.number-card.enhancement-amplified::after { border-color: #ff73df; box-shadow: inset 0 0 9px rgba(255,82,205,.48); }
+.number-card.enhancement-minted::after { border-color: #ffe05d; box-shadow: inset 0 0 9px rgba(255,210,48,.45); }
+.card-enhancement-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 5;
+  min-width: 20px;
+  padding: 3px 4px;
+  border: 2px solid #071014;
+  color: #071014;
+  background: #eef5ea;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.62);
+  font: 700 9px/1 "Galmuri11", monospace;
+  text-align: center;
+}
+.enhancement-charged .card-enhancement-badge { background:#72e8ff; }
+.enhancement-amplified .card-enhancement-badge { background:#ff73df; }
+.enhancement-minted .card-enhancement-badge { background:#ffe05d; }
+
+/* Card-by-card POWER → patch → MOD hit chain. */
+.deck-played-card[data-hit-kind="enhancement"] .number-card {
+  filter: brightness(1.16) drop-shadow(0 0 8px rgba(88,226,255,.62));
+}
+.deck-played-card[data-hit-kind="mod"] .number-card {
+  filter: brightness(1.14) drop-shadow(0 0 10px rgba(185,112,255,.72));
+}
+.deck-played-card[data-hit-kind="mayhem"] .number-card {
+  filter: brightness(1.2) drop-shadow(0 0 12px rgba(255,79,201,.8));
+}
+.deck-card-score-popup-enhancement { color:#7cecff; border-color:#44cbe2; }
+.deck-card-score-popup-mod { color:#d49aff; border-color:#a665e8; }
+.deck-card-score-popup-mayhem { color:#ff8adb; border-color:#f14eb8; }
+.deck-card-score-popup small { font-size:9px; line-height:1.2; letter-spacing:.03em; }
+.deck-resolve-zone[data-score-event="card-score"] > .deck-score-event {
+  visibility: hidden;
+}
+
 /* Full deck comparison: live cards remain saturated while cards that already
    left the draw pile stay in their original slots as muted silhouettes. */
 .deck-pile-draw-preview {
@@ -3741,3 +3790,54 @@
 .reduced-motion .mobile-run-rail-preview-total.is-transferring::before {
   animation: none !important;
 }
+
+/* Original Deck Mayhem card shell. The generated raster supplies only the
+   circuit frame; live HTML keeps every number, badge and tooltip exact. */
+.number-card .card-pixel-frame {
+  position: absolute;
+  z-index: 1;
+  inset: -1px;
+  pointer-events: none;
+  background: center / 100% 100% no-repeat url("/art/deck-mayhem-card-frame-v1.png");
+  image-rendering: pixelated;
+  filter: saturate(1.08) contrast(1.05);
+}
+
+.number-card.card-yellow .card-pixel-frame {
+  filter: hue-rotate(49deg) saturate(1.28) brightness(1.06) contrast(1.05);
+}
+
+.number-card.card-green .card-pixel-frame {
+  filter: hue-rotate(104deg) saturate(1.15) brightness(.92) contrast(1.08);
+}
+
+.number-card.card-blue .card-pixel-frame {
+  filter: hue-rotate(218deg) saturate(1.22) brightness(1.03) contrast(1.06);
+}
+
+.number-card .card-number,
+.number-card .card-corner,
+.number-card .card-shortcut,
+.number-card .card-type-label,
+.number-card .card-chip-value,
+.number-card .card-enhancement-badge,
+.number-card .card-hover-info {
+  z-index: 4;
+}
+
+.number-card .card-number {
+  color: #fff0bf;
+  text-shadow:
+    3px 0 #111416,
+    -3px 0 #111416,
+    0 3px #111416,
+    0 -3px #111416,
+    4px 5px 0 rgba(0, 0, 0, .72);
+}
+
+.number-card .card-corner {
+  color: #fff2c9;
+  text-shadow: 2px 2px 0 #050708;
+}
+
+.number-card .card-suit { opacity: .2; }

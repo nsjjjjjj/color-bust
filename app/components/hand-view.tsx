@@ -119,9 +119,54 @@ export function HandView({
   );
 }
 
-function cardFeedback(event: ScoreEvent | null): string | null {
-  if (!event?.sourceCardId || event.value === undefined) return null;
-  return `${event.value >= 0 ? "+" : ""}${event.value}`;
+type CardFeedback = {
+  readonly value: string;
+  readonly unit: string;
+  readonly kind: "card" | "enhancement" | "mod" | "mayhem";
+};
+
+function signed(value: number): string {
+  return `${value >= 0 ? "+" : ""}${value.toLocaleString()}`;
+}
+
+function compactMultiplier(value: number): string {
+  return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function cardFeedback(event: ScoreEvent | null): CardFeedback | null {
+  if (!event?.sourceCardId) return null;
+
+  const values: string[] = [];
+  const units: string[] = [];
+  if (event.value !== undefined && event.operation !== "set-score") {
+    values.push(signed(event.value));
+    units.push("POWER");
+  }
+  if (event.multiplierMode === "additive" && event.multiplier !== undefined) {
+    values.push(signed(event.multiplier));
+    units.push("HYPE");
+  } else if (
+    event.multiplierMode === "multiplicative"
+    && event.multiplier !== undefined
+  ) {
+    values.push(`×${compactMultiplier(event.multiplier)}`);
+    units.push("MAYHEM");
+  }
+  if (event.reward !== undefined) {
+    values.push(`${signed(event.reward)}¢`);
+    units.push("MONEY");
+  }
+  if (values.length === 0) return null;
+
+  return {
+    value: values.join(" / "),
+    unit: [...new Set(units)].join(" · "),
+    kind: event.sourceKind === "mod"
+      ? "mod"
+      : event.sourceKind === "mayhem"
+        ? "mayhem"
+        : event.type === "card-effect" ? "enhancement" : "card",
+  };
 }
 
 export function PlayedCardsView({
@@ -146,11 +191,27 @@ export function PlayedCardsView({
   );
   const feedback = cardFeedback(scoreEvent);
   const cardScorePositions = useMemo(() => {
-    const positions = new Map<string, { eventIndex: number; order: number }>();
+    const positions = new Map<string, {
+      firstEventIndex: number;
+      lastEventIndex: number;
+      order: number;
+    }>();
     let order = 0;
     scoreEvents.forEach((event, eventIndex) => {
-      if (event.type !== "card-score" || !event.sourceCardId) return;
-      positions.set(event.sourceCardId, { eventIndex, order });
+      if (!event.sourceCardId) return;
+      const existing = positions.get(event.sourceCardId);
+      if (existing) {
+        positions.set(event.sourceCardId, {
+          ...existing,
+          lastEventIndex: eventIndex,
+        });
+        return;
+      }
+      positions.set(event.sourceCardId, {
+        firstEventIndex: eventIndex,
+        lastEventIndex: eventIndex,
+        order,
+      });
       order += 1;
     });
     return positions;
@@ -166,7 +227,8 @@ export function PlayedCardsView({
     >
       {cards.map((card, index) => {
         const scorePosition = cardScorePositions.get(card.id);
-        const isScoringCard = breakdown.scoringCardIds.includes(card.id);
+        const isScoringCard = breakdown.scoringCardIds.includes(card.id)
+          || Boolean(scorePosition);
         const cardScoreState = playbackPhase === "moving"
           ? "moving"
           : playbackPhase === "discarding"
@@ -177,10 +239,11 @@ export function PlayedCardsView({
               ? "kicker"
               : scoreEvent?.sourceCardId === card.id
                 ? "active"
-                : scorePosition && scorePosition.eventIndex < scoreEventIndex
+                : scorePosition && scorePosition.lastEventIndex < scoreEventIndex
                   ? "scored"
                   : "pending";
         const isSource = cardScoreState === "active";
+        const hitKind = isSource ? feedback?.kind : undefined;
         const slot = layout.cards[index];
         if (!slot) return null;
         const presentation = handLayoutManager.presentation(slot, { scoring: isSource });
@@ -194,6 +257,8 @@ export function PlayedCardsView({
             className={`deck-resolve-card deck-played-card${isSource ? " is-source" : ""}`}
             data-scoring={isSource || undefined}
             data-card-score-state={cardScoreState}
+            data-hit-kind={hitKind}
+            data-source-kind={isSource ? scoreEvent?.sourceKind : undefined}
             data-score-order={scorePosition ? scorePosition.order + 1 : undefined}
             style={cardStyle}
             key={card.id}
@@ -206,9 +271,13 @@ export function PlayedCardsView({
               displayOnly
             />
             {isSource && feedback && (
-              <output className="deck-card-score-popup" key={scoreEvent.id}>
-                {feedback}
-                <small>칩</small>
+              <output
+                className={`deck-card-score-popup deck-card-score-popup-${feedback.kind}`}
+                data-feedback-kind={feedback.kind}
+                key={scoreEvent.id}
+              >
+                {feedback.value}
+                <small>{feedback.unit}</small>
               </output>
             )}
           </div>

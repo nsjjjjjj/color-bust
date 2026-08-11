@@ -7,21 +7,21 @@ import type { ScoreEvent } from "../../lib/game/score-events";
 import type { RunState, ScoreBreakdown } from "../../lib/game/types";
 
 const ROUND_LABELS: Readonly<Record<RunState["round"], string>> = {
-  small: "첫 번째 블라인드",
-  big: "두 번째 블라인드",
-  boss: "보스 라운드",
+  small: "첫 번째 TARGET",
+  big: "두 번째 TARGET",
+  boss: "스테이지 최종 TARGET",
 };
 
 const ROUND_NAMES: Readonly<Record<RunState["round"], string>> = {
-  small: "스몰 블라인드",
-  big: "빅 블라인드",
-  boss: "보스 블라인드",
+  small: "WARM-UP",
+  big: "BREAKPOINT",
+  boss: "MAYHEM ROUND",
 };
 
 const ROUND_RULES: Readonly<Record<RunState["round"], string>> = {
   small: "덱의 흐름을 확인하며 목표 점수를 넘기세요.",
   big: "더 높은 목표 점수로 현재 빌드를 검증합니다.",
-  boss: "앤티의 마지막 관문입니다. 강화된 목표를 넘기세요.",
+  boss: "STAGE의 마지막 관문입니다. 강화된 목표를 넘기세요.",
 };
 
 const ROUND_DEBUFFS: Readonly<Record<RunState["round"], string>> = {
@@ -107,7 +107,7 @@ export function GameLeftRail({
       ? 0
       : visibleBreakdown?.total ?? 0;
   const handNameLabel = isSelecting
-    ? "선택한 족보"
+    ? "선택한 패턴"
     : isResolving
       ? "현재 계산"
       : showingLastHand
@@ -117,7 +117,7 @@ export function GameLeftRail({
     ? previewHandName
     : visibleBreakdown
       ? `${visibleBreakdown.handName} · 레벨 ${visibleBreakdown.handLevel}`
-      : "카드를 선택해 족보를 만드세요";
+      : "카드를 선택해 패턴을 만드세요";
   const totalLabel = isSelecting
     ? "점수는 제출 후 공개"
     : isTransferring
@@ -128,7 +128,7 @@ export function GameLeftRail({
           ? "지난 점수"
           : "제출 후 공개";
   const previewAnnouncement = isSelecting
-    ? `선택한 족보는 ${previewHandName}입니다. 점수는 제출 후 공개됩니다.`
+    ? `선택한 패턴은 ${previewHandName}입니다. 점수는 제출 후 공개됩니다.`
     : scorePhase === "transferring"
       ? `${visibleBreakdown?.total.toLocaleString() ?? 0}점을 라운드 점수에 반영합니다.`
       : scorePhase === "discarding"
@@ -195,12 +195,12 @@ export function GameLeftRail({
         </strong>
         <div className="mobile-run-rail-equation">
           <div className="mobile-run-rail-chips">
-            <span>칩</span>
+            <span>POWER</span>
             <strong key={`${scoreEvent?.id ?? "result"}-chips`}>{calculationStarted ? chips.toLocaleString() : "—"}</strong>
           </div>
           <b className="mobile-run-rail-equation-sign" aria-hidden="true">×</b>
           <div className="mobile-run-rail-mult">
-            <span>배수</span>
+            <span>HYPE</span>
             <strong key={`${scoreEvent?.id ?? "result"}-mult`}>{calculationStarted ? formatMultiplier(multiplier) : "—"}</strong>
           </div>
         </div>
@@ -238,8 +238,8 @@ export function GameLeftRail({
             <button type="button" className="rail-tool-mini" onClick={onOpenLobby} aria-label="로비로 이동">
               <span aria-hidden="true">⌂</span><b>로비</b>
             </button>
-            <button type="button" className="rail-tool-mini" onClick={onOpenHandGuide} aria-label="족보 보기">
-              <span aria-hidden="true">♠</span><b>족보</b><kbd>H</kbd>
+            <button type="button" className="rail-tool-mini" onClick={onOpenHandGuide} aria-label="패턴 보기">
+              <span aria-hidden="true">♠</span><b>패턴</b><kbd>H</kbd>
             </button>
             <button type="button" className="rail-tool-mini" onClick={onOpenShortcutGuide} aria-label="단축키 도움말">
               <span aria-hidden="true">?</span><b>도움말</b><kbd>?</kbd>
@@ -266,7 +266,7 @@ export function GameLeftRail({
 
           <dl className="mobile-run-rail-run-meta" aria-label="런 진행도">
             <div>
-              <dt>앤티</dt>
+              <dt>STAGE</dt>
               <dd>{run.ante}{run.mode === "standard" ? "/5" : "/∞"}</dd>
             </div>
             <div>

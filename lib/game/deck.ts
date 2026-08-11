@@ -26,8 +26,9 @@ export interface DrawResult {
 }
 
 /**
- * Draws up to count cards. When needed, the discard pile is deterministically
- * shuffled back into the draw pile.
+ * Draws up to count cards. Discarded and played cards stay out for the entire
+ * round; the full persistent run deck is shuffled only when the next round
+ * starts.
  */
 export function drawCards(
   drawPileInput: readonly GameCard[],
@@ -39,19 +40,13 @@ export function drawCards(
     throw new RangeError("draw count must be a non-negative integer");
   }
 
-  let drawPile = [...drawPileInput];
-  let discardPile = [...discardPileInput];
-  let rngState = rngStateInput;
+  const drawPile = [...drawPileInput];
+  const discardPile = [...discardPileInput];
+  const rngState = rngStateInput;
   const drawn: GameCard[] = [];
 
   while (drawn.length < count) {
-    if (drawPile.length === 0) {
-      if (discardPile.length === 0) break;
-      const reshuffled = shuffle(discardPile, rngState);
-      drawPile = [...reshuffled.values];
-      discardPile = [];
-      rngState = reshuffled.nextState;
-    }
+    if (drawPile.length === 0) break;
 
     const card = drawPile.pop();
     if (card) drawn.push(card);
@@ -64,6 +59,7 @@ export function shuffledDeck(rngState: number): {
   readonly deck: readonly GameCard[];
   readonly rngState: number;
 } {
+  // Kept as the default-deck constructor for fresh runs.
   const result = shuffle(createNumberDeck(), rngState);
   return { deck: result.values, rngState: result.nextState };
 }

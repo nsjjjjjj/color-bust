@@ -6,6 +6,7 @@ export type DisplayNumberCard = {
   id: string;
   color: "red" | "blue" | "green" | "yellow";
   value: number;
+  enhancement?: "charged" | "amplified" | "minted";
 };
 
 const COLOR_LABELS = {
@@ -20,6 +21,12 @@ const COLOR_SUITS = {
   yellow: { label: "불티" },
   green: { label: "잎사귀" },
   blue: { label: "물방울" },
+} as const;
+
+const ENHANCEMENT_LABELS = {
+  charged: "충전 · 득점 시 +18 POWER",
+  amplified: "증폭 · 득점 시 +2 HYPE",
+  minted: "민트 · 득점 시 +1¢",
 } as const;
 
 export function ColorCard({
@@ -53,6 +60,9 @@ export function ColorCard({
   const suit = COLOR_SUITS[card.color];
   const resolvedChipValue = chipValue ?? (card.value === 0 ? 10 : card.value + 1);
   const scoreDetailsVisible = revealScoreDetails ?? displayOnly;
+  const enhancementLabel = card.enhancement
+    ? ENHANCEMENT_LABELS[card.enhancement]
+    : null;
 
   useEffect(() => () => {
     if (longPressTimer.current !== null) {
@@ -79,9 +89,9 @@ export function ColorCard({
   return (
     <button
       type="button"
-      className={`number-card card-${card.color}${selected ? " is-selected" : ""}${scoreDetailsVisible && scoring === true ? " is-scoring" : ""}${scoreDetailsVisible && scoring === false ? " is-kicker" : ""}${resolving ? " is-resolving" : ""}${infoOpen ? " is-info-open" : ""}${displayOnly ? " is-display-only" : ""}`}
+      className={`number-card card-${card.color}${card.enhancement ? ` enhancement-${card.enhancement}` : ""}${selected ? " is-selected" : ""}${scoreDetailsVisible && scoring === true ? " is-scoring" : ""}${scoreDetailsVisible && scoring === false ? " is-kicker" : ""}${resolving ? " is-resolving" : ""}${infoOpen ? " is-info-open" : ""}${displayOnly ? " is-display-only" : ""}`}
       aria-pressed={selected}
-      aria-label={`${suit.label} ${COLOR_LABELS[card.color]} ${card.value} 카드${scoreDetailsVisible ? `, ${resolvedChipValue}칩` : ""}${selected ? ", 선택됨" : ""}${scoreDetailsVisible && scoring === false ? ", 족보 비기여 카드" : ""}`}
+      aria-label={`${suit.label} ${COLOR_LABELS[card.color]} ${card.value} 카드${enhancementLabel ? `, ${enhancementLabel}` : ""}${scoreDetailsVisible ? `, ${resolvedChipValue} 파워` : ""}${selected ? ", 선택됨" : ""}${scoreDetailsVisible && scoring === false ? ", 패턴 비기여 카드" : ""}`}
       aria-describedby={tooltipId}
       disabled={disabled}
       tabIndex={displayOnly ? -1 : undefined}
@@ -111,18 +121,25 @@ export function ColorCard({
         onClick?.();
       }}
     >
+      <span className="card-pixel-frame" aria-hidden="true" />
       {shortcut && <kbd className="card-shortcut" aria-hidden="true">{shortcut}</kbd>}
       <span className="card-corner top">{card.value}</span>
       <span className={`card-suit card-suit-${card.color}`} aria-hidden="true" />
       <span className="card-number">{card.value}</span>
       <span className="card-corner bottom">{card.value}</span>
+      {card.enhancement && (
+        <span className="card-enhancement-badge" aria-hidden="true">
+          {card.enhancement === "charged" ? "P+" : card.enhancement === "amplified" ? "H+" : "¢"}
+        </span>
+      )}
       <span className="card-type-label" aria-hidden="true"><i className={`card-mini-suit card-mini-suit-${card.color}`} />{suit.label}</span>
-      {scoreDetailsVisible && <span className="card-chip-value" aria-hidden="true">{resolvedChipValue}칩</span>}
+      {scoreDetailsVisible && <span className="card-chip-value" aria-hidden="true">{resolvedChipValue}P</span>}
       <span id={tooltipId} className="card-hover-info" role="tooltip">
         <b>{card.value} · {suit.label}</b>
         <small>
           {suit.label} {COLOR_LABELS[card.color]}
-          {scoreDetailsVisible ? ` · ${resolvedChipValue}칩` : ""}
+          {scoreDetailsVisible ? ` · ${resolvedChipValue} POWER` : ""}
+          {enhancementLabel ? ` · ${enhancementLabel}` : ""}
         </small>
       </span>
     </button>
