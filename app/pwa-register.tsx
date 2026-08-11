@@ -13,7 +13,33 @@ export function PwaRegister() {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+      const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+      if (import.meta.env.DEV || localHost) {
+        // A production service worker can outlive an earlier local preview and
+        // cache Vite's CSS/HMR wrappers under the same URL. Remove both the
+        // registration and DECK MAYHEM caches before continuing local work.
+        void (async () => {
+          const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
+          const cacheKeys = "caches" in window ? await caches.keys().catch(() => []) : [];
+          const gameCacheKeys = cacheKeys.filter((key) => key.startsWith("deck-mayhem-"));
+          const hadLocalWorkerState = registrations.length > 0 || gameCacheKeys.length > 0;
+
+          await Promise.all([
+            ...registrations.map((registration) => registration.unregister()),
+            ...gameCacheKeys.map((key) => caches.delete(key)),
+          ]);
+
+          const reloadKey = "deck-mayhem-local-sw-cleaned";
+          if (hadLocalWorkerState && sessionStorage.getItem(reloadKey) !== "1") {
+            sessionStorage.setItem(reloadKey, "1");
+            window.location.reload();
+          } else if (!hadLocalWorkerState) {
+            sessionStorage.removeItem(reloadKey);
+          }
+        })().catch(() => undefined);
+      } else {
+        navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+      }
     }
     const handlePrompt = (event: Event) => {
       event.preventDefault();

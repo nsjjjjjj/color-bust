@@ -28,16 +28,23 @@ test("server-renders the DECK MAYHEM application shell", async () => {
 });
 
 test("ships installable PWA assets and removes the starter preview", async () => {
-  const [manifest, serviceWorker, layout, packageJson] = await Promise.all([
+  const [manifest, serviceWorker, pwaRegister, layout, packageJson] = await Promise.all([
     readFile(new URL("public/manifest.webmanifest", root), "utf8"),
     readFile(new URL("public/sw.js", root), "utf8"),
+    readFile(new URL("app/pwa-register.tsx", root), "utf8"),
     readFile(new URL("app/layout.tsx", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
   assert.match(manifest, /"display": "standalone"/);
   assert.match(manifest, /DECK MAYHEM/);
   assert.match(serviceWorker, /networkFirst/);
+  assert.match(serviceWorker, /networkFirstAsset/);
   assert.match(serviceWorker, /staleWhileRevalidate/);
+  assert.match(serviceWorker, /deck-mayhem-v4/);
+  assert.match(serviceWorker, /localhost/);
+  assert.match(pwaRegister, /getRegistrations/);
+  assert.match(pwaRegister, /registration\.unregister/);
+  assert.match(pwaRegister, /deck-mayhem-/);
   assert.match(layout, /manifest\.webmanifest/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   await assert.rejects(access(new URL("app/_sites-preview/SkeletonPreview.tsx", root)));

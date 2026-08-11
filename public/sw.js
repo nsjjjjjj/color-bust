@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deck-mayhem-v3";
+const CACHE_VERSION = "deck-mayhem-v4";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -61,10 +61,27 @@ async function networkFirst(request) {
   const cache = await caches.open(CACHE_VERSION);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (responseMayBeCached(response)) await cache.put(request, response.clone());
     return response;
   } catch {
     return (await cache.match(request)) || (await cache.match("/"));
+  }
+}
+
+function responseMayBeCached(response) {
+  if (!response.ok) return false;
+  const cacheControl = response.headers.get("Cache-Control") || "";
+  return !/(?:no-store|no-cache)/i.test(cacheControl);
+}
+
+async function networkFirstAsset(request) {
+  const cache = await caches.open(CACHE_VERSION);
+  try {
+    const response = await fetch(request);
+    if (responseMayBeCached(response)) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request)) || Response.error();
   }
 }
 
@@ -176,6 +193,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (["localhost", "127.0.0.1", "::1"].includes(url.hostname)) return;
 
   if (url.pathname.startsWith("/audio/")) {
     event.respondWith(audioResponse(request));
@@ -190,11 +208,15 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(networkFirst(request));
     return;
   }
+  if (["script", "style", "worker", "sharedworker"].includes(request.destination)) {
+    event.respondWith(networkFirstAsset(request));
+    return;
+  }
   event.respondWith(
     caches.match(request).then((cached) =>
       cached ||
       fetch(request).then((response) => {
-        if (response.ok) caches.open(CACHE_VERSION).then((cache) => cache.put(request, response.clone()));
+        if (responseMayBeCached(response)) caches.open(CACHE_VERSION).then((cache) => cache.put(request, response.clone()));
         return response;
       }),
     ),
