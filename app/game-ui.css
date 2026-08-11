@@ -3315,6 +3315,7 @@
 
 .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
 .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+.deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-layout,
 .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
   pointer-events: none;
 }
@@ -3539,4 +3540,204 @@
 
   .deck-sort-control > span,
   .deck-sort-control button { font-size: 9px; }
+}
+
+/* One-shot hand sorting: these are command buttons, not a persistent mode. */
+.deck-sort-control-two-way {
+  min-height: 0 !important;
+  height: max-content;
+  align-self: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto;
+}
+
+.deck-sort-control-two-way > span { grid-column: 1 / -1; }
+
+.deck-sort-control-two-way button:active:not(:disabled) {
+  color: #e9ffff;
+  border-color: var(--dm-info);
+  background: #17343a;
+  transform: translateY(2px);
+}
+
+/* The submitted score is first resolved, then visibly transferred into the
+   frozen round total. The number itself counts down while the target receives it. */
+.mobile-run-rail-score.is-receiving {
+  border-color: var(--dm-score);
+  animation: dm-round-score-receive 720ms ease-out both;
+}
+
+.mobile-run-rail-preview-total.is-transferring {
+  position: relative;
+  border-color: var(--dm-score);
+  animation: dm-hand-score-send 720ms ease-in-out both;
+}
+
+.mobile-run-rail-preview-total.is-transferring::before {
+  content: "↑";
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  color: var(--dm-score);
+  font-size: 14px;
+  text-shadow: 0 0 10px rgba(246, 209, 75, .9);
+  transform: translateX(-50%);
+  animation: dm-score-arrow 420ms ease-in-out infinite alternate;
+}
+
+.mobile-run-rail[data-score-phase="selecting"] .mobile-run-rail-hand-name {
+  color: #9fe8ed;
+}
+
+@keyframes dm-round-score-receive {
+  0% { box-shadow: 0 0 0 rgba(246, 209, 75, 0); }
+  45% { box-shadow: 0 0 22px rgba(246, 209, 75, .62), inset 0 0 16px rgba(246, 209, 75, .14); }
+  100% { box-shadow: 0 0 5px rgba(246, 209, 75, .18); }
+}
+
+@keyframes dm-hand-score-send {
+  0% { filter: brightness(1); transform: translateY(0); }
+  45% { filter: brightness(1.28); transform: translateY(-3px); }
+  100% { filter: brightness(.82); transform: translateY(-1px); }
+}
+
+@keyframes dm-score-arrow {
+  from { opacity: .38; transform: translate(-50%, 4px); }
+  to { opacity: 1; transform: translate(-50%, -3px); }
+}
+
+/* Readable microcopy. Long Korean descriptions use the finer regular face;
+   labels remain pixel-styled but never drop to the former 3–7px sizes. */
+.deck-game-view {
+  font-synthesis: none;
+}
+
+.dm-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.deck-game-view .mobile-run-rail-round-effect p,
+.deck-game-view .deck-stage-header p,
+.deck-game-view .deck-score-event small,
+.deck-game-view .modifier-rail-tooltip-description {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.deck-hand-stage .deck-hand-card .card-type-label,
+.deck-hand-stage .deck-hand-card .card-chip-value {
+  font-size: clamp(8px, .6vw, 10px);
+}
+
+@media (orientation: landscape) and (min-width: 1367px) {
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-round-goal span,
+  .deck-game-view .mobile-run-rail-current span,
+  .deck-game-view .mobile-run-rail-hand-name small,
+  .deck-game-view .mobile-run-rail-equation span,
+  .deck-game-view .mobile-run-rail-preview-total span,
+  .deck-game-view .mobile-run-rail-resources dt,
+  .deck-game-view .mobile-run-rail-wallet span,
+  .deck-game-view .mobile-run-rail-run-meta dt,
+  .deck-game-view .deck-stage-header span,
+  .deck-game-view .modifier-rail-section-header span,
+  .deck-game-view .deck-effect-quickbar header,
+  .deck-game-view .deck-pile-button-label,
+  .deck-game-view .deck-pile-open-hint { font-size: 11px; }
+
+  .deck-game-view .mobile-run-rail-round-effect p,
+  .deck-game-view .deck-stage-header p,
+  .deck-game-view .modifier-rail-slot-copy strong,
+  .deck-game-view .deck-effect-quickbar button b,
+  .deck-game-view .deck-effect-quickbar button small,
+  .deck-game-view .mobile-run-rail-tools button { font-size: 12px; }
+
+  .deck-sort-control-two-way > span { font-size: 12px; }
+  .deck-sort-control-two-way button { min-height: 38px; font-size: 14px; }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-width: 1366px) {
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-round-goal span,
+  .deck-game-view .mobile-run-rail-current span,
+  .deck-game-view .mobile-run-rail-hand-name small,
+  .deck-game-view .mobile-run-rail-equation span,
+  .deck-game-view .mobile-run-rail-preview-total span,
+  .deck-game-view .mobile-run-rail-resources dt,
+  .deck-game-view .mobile-run-rail-wallet span,
+  .deck-game-view .mobile-run-rail-run-meta dt,
+  .deck-game-view .deck-stage-header span,
+  .deck-game-view .modifier-rail-section-header span,
+  .deck-game-view .deck-effect-quickbar header,
+  .deck-game-view .deck-pile-button-label,
+  .deck-game-view .deck-pile-open-hint { font-size: 10px; }
+
+  .deck-game-view .mobile-run-rail-round-effect p,
+  .deck-game-view .deck-stage-header p,
+  .deck-game-view .modifier-rail-slot-copy strong,
+  .deck-game-view .deck-effect-quickbar button b,
+  .deck-game-view .deck-effect-quickbar button small,
+  .deck-game-view .mobile-run-rail-tools button { font-size: 11px; }
+
+  .deck-sort-control-two-way > span { font-size: 10px; }
+  .deck-sort-control-two-way button { min-height: 30px; font-size: 12px; }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-round-goal span,
+  .deck-game-view .mobile-run-rail-current span,
+  .deck-game-view .mobile-run-rail-hand-name small,
+  .deck-game-view .mobile-run-rail-equation span,
+  .deck-game-view .mobile-run-rail-preview-total span,
+  .deck-game-view .mobile-run-rail-resources dt,
+  .deck-game-view .mobile-run-rail-wallet span,
+  .deck-game-view .mobile-run-rail-run-meta dt,
+  .deck-game-view .modifier-rail-section-header span,
+  .deck-game-view .modifier-rail-slot-copy strong,
+  .deck-game-view .deck-effect-quickbar header,
+  .deck-game-view .deck-effect-quickbar button b,
+  .deck-game-view .deck-effect-quickbar button small,
+  .deck-game-view .deck-pile-button-label { font-size: 9px; }
+
+  .deck-game-view .mobile-run-rail-tools button,
+  .deck-game-view .mobile-run-rail-tools button.rail-tool-primary,
+  .deck-game-view .mobile-run-rail-tools button.rail-tool-mini,
+  .deck-game-view .deck-stage-header p,
+  .deck-sort-control-two-way button { font-size: 10px; }
+
+  .deck-game-view .mobile-run-rail-tools button b,
+  .deck-game-view .mobile-run-rail-run-meta small,
+  .deck-game-view .deck-stage-header span,
+  .deck-game-view .deck-resolve-idle strong,
+  .deck-game-view .deck-pile-open-hint,
+  .deck-game-view .deck-effect-quickbar button > span,
+  .deck-game-view .table-hand-tools button span,
+  .deck-game-view .table-hand-tools output { font-size: 9px; }
+
+  .deck-game-view .modifier-rail-header-icon,
+  .deck-game-view .modifier-rail-slot-icon,
+  .deck-game-view .deck-pile-button .pile-card i { font-size: 8px; }
+
+  .deck-game-view .deck-pile-count,
+  .deck-game-view .table-action span { font-size: 10px; }
+
+  .deck-sort-control-two-way > span { font-size: 9px; }
+  .deck-sort-control-two-way button { min-height: 24px; }
+}
+
+.reduced-motion .mobile-run-rail-score.is-receiving,
+.reduced-motion .mobile-run-rail-preview-total.is-transferring,
+.reduced-motion .mobile-run-rail-preview-total.is-transferring::before {
+  animation: none !important;
 }

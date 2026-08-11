@@ -41,7 +41,11 @@ export interface GameLeftRailProps {
   breakdown?: ScoreBreakdown | null;
   scoreEvent?: ScoreEvent | null;
   displayRoundScore?: number;
+  transferRemainingScore?: number;
   isResolving?: boolean;
+  isTransferring?: boolean;
+  scorePhase?: "idle" | "selecting" | "moving" | "scoring" | "transferring" | "discarding" | "direct-discard";
+  previewHandName?: string | null;
   showingLastHand?: boolean;
   onOpenHandGuide: () => void;
   onOpenDeckInspector: () => void;
@@ -57,7 +61,11 @@ export function GameLeftRail({
   breakdown,
   scoreEvent,
   displayRoundScore,
+  transferRemainingScore,
   isResolving = false,
+  isTransferring = false,
+  scorePhase = "idle",
+  previewHandName = null,
   showingLastHand = false,
   onOpenHandGuide,
   onOpenDeckInspector,
@@ -69,7 +77,8 @@ export function GameLeftRail({
   const visibleRoundScore = displayRoundScore ?? run.score;
   const progress = run.target > 0 ? Math.min(100, (visibleRoundScore / run.target) * 100) : 0;
   const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
-  const canShowResult = isResolving || showingLastHand;
+  const isSelecting = Boolean(previewHandName) && !isResolving;
+  const canShowResult = !isSelecting && (isResolving || showingLastHand);
   const visibleBreakdown = canShowResult ? breakdown : null;
   const resolvedChips = visibleBreakdown
     ? visibleBreakdown.chipsBeforeUno + (visibleBreakdown.uno?.chipDelta ?? 0)
@@ -79,17 +88,59 @@ export function GameLeftRail({
       * visibleBreakdown.jokerXMultiplier
       * (visibleBreakdown.uno?.xMultiplier ?? 1)
     : 0;
+  const calculationStarted = isResolving
+    ? Boolean(scoreEvent) && scoreEvent?.type !== "hand-detected"
+    : Boolean(visibleBreakdown);
   const chips = isResolving ? scoreEvent?.currentChips ?? 0 : resolvedChips;
   const multiplier = isResolving
     ? (scoreEvent?.currentMultiplier ?? 0) * (scoreEvent?.currentXMultiplier ?? 1)
     : resolvedMultiplier;
-  const visibleHandScore = isResolving
-    ? scoreEvent?.currentTotal ?? 0
-    : visibleBreakdown?.total ?? 0;
+  const finalScoreRevealed = !isSelecting && (
+    showingLastHand
+    || scoreEvent?.type === "final-score"
+    || scorePhase === "transferring"
+    || scorePhase === "discarding"
+  );
+  const visibleHandScore = isTransferring
+    ? transferRemainingScore ?? visibleBreakdown?.total ?? 0
+    : scorePhase === "discarding"
+      ? 0
+      : visibleBreakdown?.total ?? 0;
+  const handNameLabel = isSelecting
+    ? "선택한 족보"
+    : isResolving
+      ? "현재 계산"
+      : showingLastHand
+        ? "지난 핸드"
+        : "핸드 결과";
+  const handName = isSelecting
+    ? previewHandName
+    : visibleBreakdown
+      ? `${visibleBreakdown.handName} · 레벨 ${visibleBreakdown.handLevel}`
+      : "카드를 선택해 족보를 만드세요";
+  const totalLabel = isSelecting
+    ? "점수는 제출 후 공개"
+    : isTransferring
+      ? "라운드 점수로 이동"
+      : scorePhase === "discarding"
+        ? "반영 완료"
+        : showingLastHand
+          ? "지난 점수"
+          : "제출 후 공개";
+  const previewAnnouncement = isSelecting
+    ? `선택한 족보는 ${previewHandName}입니다. 점수는 제출 후 공개됩니다.`
+    : scorePhase === "transferring"
+      ? `${visibleBreakdown?.total.toLocaleString() ?? 0}점을 라운드 점수에 반영합니다.`
+      : scorePhase === "discarding"
+        ? `${visibleBreakdown?.total.toLocaleString() ?? 0}점 반영을 완료했습니다.`
+        : scoreEvent?.type === "final-score"
+          ? `제출 점수 ${visibleBreakdown?.total.toLocaleString() ?? 0}점이 확정되었습니다.`
+          : "";
 
   return (
     <aside
-      className={`mobile-run-rail game-left-rail pixel-panel${run.round === "boss" ? " is-boss" : ""}${isResolving ? " is-resolving" : ""}`}
+      className={`mobile-run-rail game-left-rail pixel-panel${run.round === "boss" ? " is-boss" : ""}${isResolving ? " is-resolving" : ""}${isTransferring ? " is-transferring" : ""}`}
+      data-score-phase={scorePhase}
       aria-label="현재 라운드 정보와 게임 도구"
     >
       <section className="mobile-run-rail-round" aria-labelledby="mobile-run-rail-title">
@@ -119,10 +170,10 @@ export function GameLeftRail({
         </div>
       </section>
 
-      <section className="mobile-run-rail-score" aria-label="현재 라운드 점수">
+      <section className={`mobile-run-rail-score${isTransferring ? " is-receiving" : ""}`} aria-label="현재 라운드 점수" data-score-receiving={isTransferring || undefined}>
         <div className="mobile-run-rail-current">
           <span>라운드 점수</span>
-          <strong key={`round-score-${visibleRoundScore}`}>{visibleRoundScore.toLocaleString()}</strong>
+          <strong>{visibleRoundScore.toLocaleString()}</strong>
           <small className="mobile-run-rail-score-target">
             목표 {run.target.toLocaleString()}
           </small>
@@ -137,28 +188,27 @@ export function GameLeftRail({
         </progress>
       </section>
 
-      <section className="mobile-run-rail-preview" aria-label="제출한 핸드 결과" aria-live="polite">
+      <section className="mobile-run-rail-preview" aria-label="선택 또는 제출한 핸드 결과" data-score-visibility={isSelecting ? "hand-only" : isTransferring ? "transferring" : finalScoreRevealed ? "settled" : "calculation"}>
         <strong className="mobile-run-rail-hand-name">
-          <small>{isResolving ? "현재 계산" : showingLastHand ? "지난 핸드" : "핸드 결과"}</small>
-          {visibleBreakdown
-            ? `${visibleBreakdown.handName} · 레벨 ${visibleBreakdown.handLevel}`
-            : "카드를 내면 공개됩니다"}
+          <small>{handNameLabel}</small>
+          {handName}
         </strong>
         <div className="mobile-run-rail-equation">
           <div className="mobile-run-rail-chips">
             <span>칩</span>
-            <strong key={`${scoreEvent?.id ?? "result"}-chips`}>{canShowResult ? chips.toLocaleString() : "—"}</strong>
+            <strong key={`${scoreEvent?.id ?? "result"}-chips`}>{calculationStarted ? chips.toLocaleString() : "—"}</strong>
           </div>
           <b className="mobile-run-rail-equation-sign" aria-hidden="true">×</b>
           <div className="mobile-run-rail-mult">
             <span>배수</span>
-            <strong key={`${scoreEvent?.id ?? "result"}-mult`}>{canShowResult ? formatMultiplier(multiplier) : "—"}</strong>
+            <strong key={`${scoreEvent?.id ?? "result"}-mult`}>{calculationStarted ? formatMultiplier(multiplier) : "—"}</strong>
           </div>
         </div>
-        <output className="mobile-run-rail-preview-total">
-          <span>{isResolving ? "계산 중" : showingLastHand ? "지난 점수" : "제출 후 공개"}</span>
-          <strong>{canShowResult ? visibleHandScore.toLocaleString() : "—"}</strong>
+        <output className={`mobile-run-rail-preview-total${isTransferring ? " is-transferring" : ""}`}>
+          <span>{totalLabel}</span>
+          <strong>{finalScoreRevealed ? visibleHandScore.toLocaleString() : "—"}</strong>
         </output>
+        <span className="dm-sr-only" role="status" aria-live="polite">{previewAnnouncement}</span>
         {scoreEvent && (
           <div className={`mobile-run-rail-score-event event-${scoreEvent.emphasis}`} key={scoreEvent.id} aria-live="assertive">
             <span>{scoreEvent.label}</span>

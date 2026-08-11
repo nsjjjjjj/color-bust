@@ -137,7 +137,7 @@ export function PlayedCardsView({
   scoreEvents: readonly ScoreEvent[];
   scoreEvent: ScoreEvent | null;
   scoreEventIndex: number;
-  playbackPhase: "moving" | "scoring" | "discarding";
+  playbackPhase: "moving" | "scoring" | "transferring" | "discarding";
 }) {
   const { elementRef, width } = useMeasuredWidth();
   const { layout, style } = useMemo(
@@ -171,6 +171,8 @@ export function PlayedCardsView({
           ? "moving"
           : playbackPhase === "discarding"
             ? "discarding"
+            : playbackPhase === "transferring"
+              ? isScoringCard ? "scored" : "kicker"
             : !isScoringCard
               ? "kicker"
               : scoreEvent?.sourceCardId === card.id

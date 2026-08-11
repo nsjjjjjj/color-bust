@@ -209,7 +209,7 @@ export const DEFAULT_SHORTCUTS: readonly ShortcutDefinition[] = [
   { keys: ["1–8"], description: "해당 위치의 손패를 선택하거나 해제" },
   { keys: ["Enter"], description: "선택한 카드로 핸드 제출" },
   { keys: ["D"], description: "선택한 카드 버리기" },
-  { keys: ["S"], description: "숫자순과 색상순 정렬 전환" },
+  { keys: ["S"], description: "현재 손패를 숫자순·색상순으로 한 번 정렬" },
   { keys: ["U"], description: "커뮤니티 메이헴 카드 선택 또는 해제" },
   { keys: ["H"], description: "족보 가이드 열기" },
   { keys: ["K"], description: "덱 인스펙터 열기" },

@@ -11,6 +11,7 @@ import {
   sellJoker,
   setHotSwapColor,
 } from "../lib/game/engine";
+import { evaluateHand } from "../lib/game/hands";
 import {
   CARD_COLORS,
   DEFAULT_COMMUNITY_UNO_CARDS,
@@ -48,6 +49,11 @@ import {
   setLocalSetting,
   subscribeConnectivity,
 } from "../lib/offline";
+import {
+  orderHand,
+  sortHandOnce,
+  type HandSort,
+} from "../lib/ui/hand-order";
 import { CommunityHub } from "./components/community-hub";
 import { DeckInspector, HandGuide, ShortcutGuide } from "./components/game-reference";
 import { GameLeftRail } from "./components/game-side-panels";
@@ -61,7 +67,6 @@ import { audioSceneForBossAnte, useGameAudio, type AudioScene } from "./use-game
 
 type View = "lobby" | "game" | "community" | "leaderboard" | "guestbook";
 type UtilityModal = "hands" | "deck" | "shortcuts" | null;
-type CardSort = "rank" | "color";
 type InitialUser = Pick<UserProfile, "displayName" | "email"> & { userId?: string };
 type SyncConflict = {
   local: RunState;
@@ -79,7 +84,7 @@ type ScorePlayback = {
   readonly events: readonly ScoreEvent[];
   readonly roundScoreBefore: number;
   readonly eventIndex: number;
-  readonly phase: "moving" | "scoring" | "discarding";
+  readonly phase: "moving" | "scoring" | "transferring" | "discarding";
 };
 type DiscardPlayback = {
   readonly key: number;
@@ -90,8 +95,6 @@ type DiscardPlayback = {
   readonly nextState: RunState;
 };
 
-const COLOR_ORDER: Record<CardColor, number> = { red: 0, blue: 1, green: 2, yellow: 3 };
-const CARD_SORTS: readonly CardSort[] = ["rank", "color"];
 const BASE_HAND_LEVELS = Object.fromEntries(
   Object.keys(HAND_RULES).map((handType) => [handType, 1]),
 ) as RunState["handLevels"];
@@ -132,15 +135,6 @@ function runStatus(run: RunState): "active" | "won" | "lost" {
   if (run.phase === "won") return "won";
   if (run.phase === "lost") return "lost";
   return "active";
-}
-
-function sortHand(hand: readonly GameCard[], sort: CardSort): GameCard[] {
-  return [...hand].sort((left, right) => {
-    if (sort === "rank") {
-      return left.rank - right.rank || COLOR_ORDER[left.color] - COLOR_ORDER[right.color];
-    }
-    return COLOR_ORDER[left.color] - COLOR_ORDER[right.color] || left.rank - right.rank;
-  });
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -206,6 +200,14 @@ function scoreEventPlaybackDelay(
   return Math.max(hold, scoreCountUpDuration(event, event.currentTotal - previousTotal) + 50);
 }
 
+function scoreTransferDuration(total: number): number {
+  const magnitude = Math.abs(total);
+  if (magnitude <= 250) return 520;
+  if (magnitude <= 1_500) return 650;
+  if (magnitude <= 8_000) return 780;
+  return 900;
+}
+
 export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [view, setView] = useState<View>("lobby");
   const [run, setRun] = useState<RunState | null>(null);
@@ -217,7 +219,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [online, setOnline] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [utilityModal, setUtilityModal] = useState<UtilityModal>(null);
-  const [cardSort, setCardSort] = useState<CardSort>("rank");
+  const [handOrder, setHandOrder] = useState<{ scope: string; ids: readonly string[] }>({ scope: "", ids: [] });
   const [highContrast, setHighContrast] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [pendingSellId, setPendingSellId] = useState<string | null>(null);
@@ -233,6 +235,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const lastScoreSoundEventRef = useRef<string | null>(null);
   const scoreCountUpFrameRef = useRef<number | null>(null);
   const displayRoundScoreRef = useRef(0);
+  const nextShortcutSortRef = useRef<HandSort>("rank");
 
   const replaceRun = useCallback((state: RunState) => {
     setRun(state);
@@ -241,6 +244,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setLastBreakdown(null);
     setScorePlayback(null);
     setDiscardPlayback(null);
+    setHandOrder({
+      scope: `${state.runId}:${state.roundNumber}`,
+      ids: state.hand.map((card) => card.id),
+    });
     displayRoundScoreRef.current = state.score;
     setDisplayRoundScore(state.score);
   }, []);
@@ -263,14 +270,15 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     : null;
   const scoreAnimationTarget = scorePlayback
     ? scorePlayback.roundScoreBefore + (
-      scorePlayback.phase === "moving"
-        ? 0
-        : scorePlayback.phase === "discarding"
-          ? scorePlayback.breakdown.total
-          : currentScoreSoundEvent?.currentTotal ?? 0
+      scorePlayback.phase === "transferring" || scorePlayback.phase === "discarding"
+        ? scorePlayback.breakdown.total
+        : 0
     )
     : run?.score ?? 0;
-  const scoreAnimationActive = scorePlayback?.phase === "scoring" && Boolean(currentScoreSoundEvent);
+  const scoreAnimationActive = scorePlayback?.phase === "transferring";
+  const transferRemainingScore = scorePlayback?.phase === "transferring"
+    ? Math.max(0, scorePlayback.roundScoreBefore + scorePlayback.breakdown.total - displayRoundScore)
+    : undefined;
 
   useEffect(() => {
     if (scoreCountUpFrameRef.current !== null) {
@@ -285,10 +293,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       return;
     }
 
-    const duration = scoreCountUpDuration(
-      currentScoreSoundEvent!,
-      scoreAnimationTarget - startScore,
-    );
+    const duration = scoreTransferDuration(scorePlayback?.breakdown.total ?? 0);
     let startedAt: number | null = null;
     const animate = (now: number) => {
       startedAt ??= now;
@@ -315,7 +320,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         scoreCountUpFrameRef.current = null;
       }
     };
-  }, [currentScoreSoundEvent, reducedMotion, scoreAnimationActive, scoreAnimationTarget]);
+  }, [reducedMotion, scoreAnimationActive, scoreAnimationTarget, scorePlayback?.breakdown.total]);
 
   useEffect(() => {
     latestRunRef.current = run;
@@ -324,16 +329,14 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   useEffect(() => {
     let cancelled = false;
     async function restore() {
-      const [localRuns, savedUno, savedSort, savedContrast, savedMotion] = await Promise.all([
+      const [localRuns, savedUno, savedContrast, savedMotion] = await Promise.all([
         listLocalRuns<RunState>().catch(() => []),
         getLocalSetting<CommunityUnoCard | undefined>("equippedCommunityUno", undefined).catch(() => undefined),
-        getLocalSetting<CardSort>("handSort", "rank").catch(() => "rank" as const),
         getLocalSetting<boolean>("highContrast", false).catch(() => false),
         getLocalSetting<boolean>("reducedMotion", false).catch(() => false),
       ]);
       if (cancelled) return;
       setEquippedUno(savedUno);
-      setCardSort(CARD_SORTS.includes(savedSort) ? savedSort : "rank");
       setHighContrast(savedContrast);
       setReducedMotion(savedMotion);
       const local = localRuns.find((record) => isRunState(record.data) && record.data.phase !== "won" && record.data.phase !== "lost");
@@ -436,6 +439,20 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       );
       return () => window.clearTimeout(movementTimer);
     }
+    if (scorePlayback.phase === "transferring") {
+      const transferTimer = window.setTimeout(
+        () => {
+          setScorePlayback((current) => {
+            if (!current || current.key !== scorePlayback.key || current.phase !== "transferring") {
+              return current;
+            }
+            return { ...current, phase: "discarding" };
+          });
+        },
+        reducedMotion ? 80 : scoreTransferDuration(scorePlayback.breakdown.total) + 80,
+      );
+      return () => window.clearTimeout(transferTimer);
+    }
     if (scorePlayback.phase === "discarding") {
       const discardTimer = window.setTimeout(
         () => {
@@ -461,7 +478,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         if (current.eventIndex < current.events.length - 1) {
           return { ...current, eventIndex: current.eventIndex + 1 };
         }
-        return { ...current, phase: "discarding" };
+        return { ...current, phase: "transferring" };
       });
     }, delay);
     return () => window.clearTimeout(timer);
@@ -530,9 +547,14 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     audio.playEffect("card-select");
   }
 
-  function changeSort(nextSort: CardSort) {
-    setCardSort(nextSort);
-    setLocalSetting("handSort", nextSort).catch(() => undefined);
+  function changeSort(nextSort: HandSort) {
+    if (!run || run.phase !== "playing" || scorePlayback || discardPlayback) return;
+    const scope = `${run.runId}:${run.roundNumber}`;
+    setHandOrder((current) => ({
+      scope,
+      ids: sortHandOnce(run.hand, current.scope === scope ? current.ids : [], nextSort),
+    }));
+    nextShortcutSortRef.current = nextSort === "rank" ? "color" : "rank";
   }
 
 
@@ -555,6 +577,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setScorePlayback(null);
     setDiscardPlayback(null);
     setSelectedUnoId(null);
+    setHandOrder({
+      scope: `${created.runId}:${created.roundNumber}`,
+      ids: created.hand.map((card) => card.id),
+    });
     setView("game");
     audio.playEffect("deck-setup");
     setNotice(mode === "standard" ? "5 앤티 런을 시작합니다." : "끝없는 신호에 접속했습니다.");
@@ -629,7 +655,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         return;
       }
       if (view !== "game" || !run || run.phase !== "playing" || scorePlayback || discardPlayback) return;
-      const displayHand = sortHand(run.hand, cardSort);
+      const activeHandOrder = handOrder.scope === `${run.runId}:${run.roundNumber}`
+        ? handOrder.ids
+        : [];
+      const displayHand = orderHand(run.hand, activeHandOrder);
       if (/^[0-9]$/.test(event.key)) {
         const shortcutIndex = event.key === "0" ? 9 : Number(event.key) - 1;
         const card = displayHand[shortcutIndex];
@@ -649,8 +678,13 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         document.getElementById("discard-button")?.click();
       } else if (key === "s") {
         event.preventDefault();
-        const next = CARD_SORTS[(CARD_SORTS.indexOf(cardSort) + 1) % CARD_SORTS.length];
-        changeSort(next);
+        const next = nextShortcutSortRef.current;
+        const scope = `${run.runId}:${run.roundNumber}`;
+        setHandOrder((current) => ({
+          scope,
+          ids: sortHandOnce(run.hand, current.scope === scope ? current.ids : [], next),
+        }));
+        nextShortcutSortRef.current = next === "rank" ? "color" : "rank";
       } else if (key === "u" && !run.unoUsedThisAnte && run.communityUno.length > 0) {
         event.preventDefault();
         setSelectedUnoId((current) => current ? null : run.communityUno[0].id);
@@ -666,7 +700,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     }
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [cardSort, discardPlayback, pendingSellId, pendingStartMode, run, scorePlayback, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
+  }, [discardPlayback, handOrder, pendingSellId, pendingStartMode, run, scorePlayback, selectedIds.length, settingsOpen, syncConflict, utilityModal, view]);
 
   async function submitRank() {
     if (!run || !signedIn || !navigator.onLine) {
@@ -739,8 +773,9 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           scorePlayback={scorePlayback}
           discardPlayback={discardPlayback}
           displayRoundScore={displayRoundScore}
+          transferRemainingScore={transferRemainingScore}
           notice={notice}
-          cardSort={cardSort}
+          handOrderIds={handOrder.scope === `${run.runId}:${run.roundNumber}` ? handOrder.ids : []}
           onToggleCard={handleToggleCard}
           onSelectUno={setSelectedUnoId}
           onCallColor={setCalledColor}
@@ -791,8 +826,9 @@ function GameTable({
   scorePlayback,
   discardPlayback,
   displayRoundScore,
+  transferRemainingScore,
   notice,
-  cardSort,
+  handOrderIds,
   onToggleCard,
   onSelectUno,
   onCallColor,
@@ -815,12 +851,13 @@ function GameTable({
   scorePlayback: ScorePlayback | null;
   discardPlayback: DiscardPlayback | null;
   displayRoundScore: number;
+  transferRemainingScore?: number;
   notice: string;
-  cardSort: CardSort;
+  handOrderIds: readonly string[];
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
   onCallColor: (color: CardColor) => void;
-  onSort: (sort: CardSort) => void;
+  onSort: (sort: HandSort) => void;
   onClear: () => void;
   onOpenGuide: () => void;
   onOpenDeck: () => void;
@@ -834,17 +871,26 @@ function GameTable({
   const currentScoreEvent = scorePlayback && scorePlayback.phase !== "moving"
     ? scorePlayback.events[scorePlayback.eventIndex] ?? null
     : null;
-  const shown = scorePlayback
-    ? currentScoreEvent ? scorePlayback.breakdown : null
-    : lastBreakdown;
+  const selectedCards = selectedIds
+    .map((id) => run.hand.find((card) => card.id === id))
+    .filter((card): card is GameCard => Boolean(card));
+  const selectedHandName = selectedCards.length > 0
+    ? HAND_RULES[evaluateHand(selectedCards).type].name
+    : null;
+  const shown = selectedHandName
+    ? null
+    : scorePlayback
+      ? currentScoreEvent ? scorePlayback.breakdown : null
+      : lastBreakdown;
   const resolvingScore = Boolean(scorePlayback);
   const inputLocked = resolvingScore || Boolean(discardPlayback);
   const hotSwap = run.jokers.find((joker) => joker.jokerId === "hot-swap");
   const cardsLeftInHand = scorePlayback
     ? scorePlayback.handBefore.filter((card) => !scorePlayback.cards.some((played) => played.id === card.id))
     : run.hand;
-  const displayHand = sortHand(cardsLeftInHand, cardSort);
-  const scorePhase = scorePlayback?.phase ?? (discardPlayback ? "direct-discard" : "idle");
+  const displayHand = orderHand(cardsLeftInHand, handOrderIds);
+  const scorePhase = scorePlayback?.phase
+    ?? (discardPlayback ? "direct-discard" : selectedHandName ? "selecting" : "idle");
   const displayedDrawPile = scorePlayback?.drawPileBefore ?? run.drawPile;
   const displayedDiscardPile = scorePlayback?.discardPileBefore ?? run.discardPile;
   const referenceHand = scorePlayback?.handBefore ?? run.hand;
@@ -865,8 +911,12 @@ function GameTable({
           breakdown={shown}
           scoreEvent={currentScoreEvent}
           displayRoundScore={displayRoundScore}
+          transferRemainingScore={transferRemainingScore}
           isResolving={resolvingScore}
-          showingLastHand={!scorePlayback && Boolean(lastBreakdown)}
+          isTransferring={scorePlayback?.phase === "transferring"}
+          scorePhase={scorePhase}
+          previewHandName={selectedHandName}
+          showingLastHand={!scorePlayback && !selectedHandName && Boolean(lastBreakdown)}
           onOpenHandGuide={onOpenGuide}
           onOpenDeckInspector={onOpenDeck}
           onOpenShortcutGuide={onOpenShortcuts}
@@ -949,7 +999,7 @@ function GameTable({
             <HandView cards={displayHand} selectedIds={selectedIds} discardingIds={discardPlayback?.cardIds ?? []} resolving={inputLocked} onToggleCard={onToggleCard} />
             <div className="table-action-dock">
               <button id="play-hand-button" type="button" className="table-action play-action" disabled={inputLocked || !selectedIds.length} onClick={onPlay}><kbd>↵</kbd><span>{resolvingScore ? "점수 계산" : "내기"}</span></button>
-              <SortControl value={cardSort} disabled={inputLocked} onChange={onSort} />
+              <SortControl disabled={inputLocked} onChange={onSort} />
               <button id="discard-button" type="button" className="table-action discard-action" disabled={inputLocked || !selectedIds.length || run.discardsLeft < 1} onClick={onDiscard}><kbd>D</kbd><span>{discardPlayback ? "버리는 중" : "버리기"}</span></button>
             </div>
           </section>
@@ -959,12 +1009,12 @@ function GameTable({
   );
 }
 
-function SortControl({ value, disabled, onChange }: { value: CardSort; disabled: boolean; onChange: (sort: CardSort) => void }) {
+function SortControl({ disabled, onChange }: { disabled: boolean; onChange: (sort: HandSort) => void }) {
   return (
     <div className="deck-sort-control deck-sort-control-two-way" role="group" aria-label="손패 정렬">
       <span>핸드 정렬</span>
-      <button type="button" disabled={disabled} className={value === "rank" ? "active" : ""} aria-pressed={value === "rank"} onClick={() => onChange("rank")}>숫자</button>
-      <button type="button" disabled={disabled} className={value === "color" ? "active" : ""} aria-pressed={value === "color"} onClick={() => onChange("color")}>색상</button>
+      <button type="button" disabled={disabled} aria-label="현재 손패를 숫자순으로 한 번 정렬" onClick={() => onChange("rank")}>숫자</button>
+      <button type="button" disabled={disabled} aria-label="현재 손패를 색상순으로 한 번 정렬" onClick={() => onChange("color")}>색상</button>
     </div>
   );
 }
