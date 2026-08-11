@@ -13,6 +13,8 @@ export type SoundEffect =
   | "score"
   | "buy"
   | "uno"
+  | "pack-open"
+  | "pack-reveal"
   | "win"
   | "lose";
 
@@ -66,15 +68,17 @@ export const AUDIO_TRACKS = {
 } as const satisfies Readonly<Record<AudioScene, AudioAsset | null>>;
 
 export const AUDIO_EFFECTS = {
-  "card-select": null,
+  "card-select": { src: "/audio/card-select.m4a", gain: 0.48 },
   "card-play": { src: "/audio/card-play.mp3", gain: 0.82 },
   "card-draw": { src: "/audio/card-draw.mp3", gain: 0.68 },
   "deck-setup": { src: "/audio/deck-setup.mp3", gain: 0.82 },
   score: { src: "/audio/score.mp3", gain: 0.58 },
-  buy: null,
-  uno: null,
-  win: null,
-  lose: null,
+  buy: { src: "/audio/buy.m4a", gain: 0.72 },
+  uno: { src: "/audio/uno.m4a", gain: 0.68 },
+  "pack-open": { src: "/audio/pack-open.m4a", gain: 0.82 },
+  "pack-reveal": { src: "/audio/pack-reveal.m4a", gain: 0.6 },
+  win: { src: "/audio/win.m4a", gain: 0.8 },
+  lose: { src: "/audio/lose.m4a", gain: 0.72 },
 } as const satisfies Readonly<Record<SoundEffect, AudioAsset | null>>;
 
 export function audioSceneForBossAnte(ante: number): Extract<AudioScene, "boss" | "final-boss"> {
@@ -438,6 +442,7 @@ export function useGameAudio(scene: AudioScene) {
   const [effectsVolume, setEffectsVolume] = useState(0.65);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
   const activeEffectsRef = useRef(new Map<SoundEffect, Set<HTMLAudioElement>>());
+  const preloadedEffectsRef = useRef<HTMLAudioElement[]>([]);
   const effectGainsRef = useRef(new WeakMap<HTMLAudioElement, number>());
   const scorePoolRef = useRef<ScoreEffectPool | null>(null);
   const legacyScoreTokenRef = useRef(0);
@@ -540,6 +545,27 @@ export function useGameAudio(scene: AudioScene) {
       }
     }
   }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated, stopEffects]);
+
+  useEffect(() => {
+    if (!settingsHydrated || !effectsEnabled || typeof Audio === "undefined") return;
+    if (preloadedEffectsRef.current.length === 0) {
+      const sources = new Set(
+        Object.entries(AUDIO_EFFECTS)
+          .filter(([name, definition]) => name !== "score" && definition !== null)
+          .map(([, definition]) => definition!.src),
+      );
+      preloadedEffectsRef.current = [...sources].map((src) => {
+        const audio = new Audio(src);
+        audio.preload = "auto";
+        audio.load();
+        return audio;
+      });
+    }
+    return () => {
+      preloadedEffectsRef.current.forEach(releaseAudio);
+      preloadedEffectsRef.current = [];
+    };
+  }, [effectsEnabled, settingsHydrated]);
 
   useEffect(() => {
     if (!musicEnabled || !settingsHydrated) return;

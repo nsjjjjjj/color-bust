@@ -234,6 +234,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const cloudRevision = useRef<Record<"standard" | "endless", number>>({ standard: 0, endless: 0 });
   const latestRunRef = useRef<RunState | null>(null);
   const lastScoreSoundEventRef = useRef<string | null>(null);
+  const lastResultSoundRef = useRef<string | null>(null);
   const scoreCountUpFrameRef = useRef<number | null>(null);
   const displayRoundScoreRef = useRef(0);
   const nextShortcutSortRef = useRef<HandSort>("rank");
@@ -281,6 +282,14 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const transferRemainingScore = scorePlayback?.phase === "transferring"
     ? Math.max(0, scorePlayback.roundScoreBefore + scorePlayback.breakdown.total - displayRoundScore)
     : undefined;
+
+  useEffect(() => {
+    if (!run || scorePlayback || (run.phase !== "won" && run.phase !== "lost")) return;
+    const resultKey = `${run.runId}:${run.phase}`;
+    if (lastResultSoundRef.current === resultKey) return;
+    lastResultSoundRef.current = resultKey;
+    playEffect(run.phase === "won" ? "win" : "lose", { maxVoices: 1 });
+  }, [playEffect, run, scorePlayback]);
 
   useLayoutEffect(() => {
     if (scoreCountUpFrameRef.current !== null) {
@@ -625,6 +634,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         phase: "moving",
       });
       setSelectedIds([]);
+      if (selectedUnoId) audio.playEffect("uno", { maxVoices: 1 });
       audio.playEffect("card-play");
       setSelectedUnoId(null);
       setNotice("카드를 제출했습니다. 점수를 계산합니다.");
@@ -828,6 +838,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onTakePack={(_opening, choiceIds, targetCardId) => {
             if (updateRun(() => takePackChoices(run, choiceIds, targetCardId))) audio.playEffect("card-draw");
           }}
+          onPackOpen={() => audio.playEffect("pack-open", { maxVoices: 1 })}
+          onPackReveal={(index) => audio.playEffect("pack-reveal", { progressionStep: index, semitonesPerStep: 0.6, maxVoices: 2 })}
           onNext={() => {
             if (updateRun(() => nextRound(run))) audio.playEffect("card-draw");
             setLastBreakdown(null);

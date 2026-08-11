@@ -29,15 +29,17 @@ const expectedTracks = {
 } as const;
 
 const expectedEffects = {
-  "card-select": null,
+  "card-select": "/audio/card-select.m4a",
   "card-play": "/audio/card-play.mp3",
   "card-draw": "/audio/card-draw.mp3",
   "deck-setup": "/audio/deck-setup.mp3",
   score: "/audio/score.mp3",
-  buy: null,
-  uno: null,
-  win: null,
-  lose: null,
+  buy: "/audio/buy.m4a",
+  uno: "/audio/uno.m4a",
+  "pack-open": "/audio/pack-open.m4a",
+  "pack-reveal": "/audio/pack-reveal.m4a",
+  win: "/audio/win.m4a",
+  lose: "/audio/lose.m4a",
 } as const;
 
 const expectedAudioPaths = [
@@ -200,8 +202,8 @@ test("audio hook maps every supplied track and effect to the intended scene", ()
   assert.deepEqual(sources(AUDIO_EFFECTS), expectedEffects);
 });
 
-test("ships nine non-empty audio files with valid container signatures", async () => {
-  assert.equal(expectedAudioPaths.length, 9);
+test("ships sixteen non-empty audio files with valid container signatures", async () => {
+  assert.equal(expectedAudioPaths.length, 16);
   for (const pathname of expectedAudioPaths) {
     const bytes = await readFile(new URL(`public${pathname}`, root));
     assert.ok(bytes.byteLength > 1_000, `${pathname} is unexpectedly small`);

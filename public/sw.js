@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deck-mayhem-v4";
+const CACHE_VERSION = "deck-mayhem-v5";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -19,6 +19,13 @@ const AUDIO_ASSETS = [
   "/audio/card-play.mp3",
   "/audio/deck-setup.mp3",
   "/audio/score.mp3",
+  "/audio/card-select.m4a",
+  "/audio/buy.m4a",
+  "/audio/uno.m4a",
+  "/audio/pack-open.m4a",
+  "/audio/pack-reveal.m4a",
+  "/audio/win.m4a",
+  "/audio/lose.m4a",
 ];
 const CACHEABLE_API = ["/api/community", "/api/guestbook", "/api/leaderboard"];
 

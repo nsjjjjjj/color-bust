@@ -70,6 +70,8 @@ export interface GarageViewProps {
     choiceIds: readonly string[],
     targetCardId?: string,
   ) => void;
+  readonly onPackOpen: () => void;
+  readonly onPackReveal: (index: number) => void;
 }
 
 function normalizeTerminology(value: string): string {
@@ -488,10 +490,14 @@ function PackOpeningController({
   opening,
   run,
   onTake,
+  onPackOpen,
+  onPackReveal,
 }: {
   readonly opening: PackOpening;
   readonly run: RunState;
   readonly onTake: (choiceIds: readonly string[], targetCardId?: string) => void;
+  readonly onPackOpen: () => void;
+  readonly onPackReveal: (index: number) => void;
 }) {
   const [phase, setPhase] = useState<"sealed" | "opening" | "revealing" | "selecting">("sealed");
   const [revealedCount, setRevealedCount] = useState(0);
@@ -514,12 +520,14 @@ function PackOpeningController({
 
   function openPack() {
     if (phase !== "sealed") return;
+    onPackOpen();
     setPhase("opening");
     timers.current.push(window.setTimeout(() => {
       setPhase("revealing");
       choices.forEach((_, index) => {
         timers.current.push(window.setTimeout(() => {
           setRevealedCount(index + 1);
+          onPackReveal(index);
           if (index === choices.length - 1) setPhase("selecting");
         }, 230 * index));
       });
@@ -597,6 +605,8 @@ export function GarageView({
   onNext,
   onSelectDeckTarget,
   onTakePack,
+  onPackOpen,
+  onPackReveal,
 }: GarageViewProps) {
   const offers = useMemo(() => run.shop?.offers ?? [], [run.shop?.offers]);
   const soldIds = useMemo(() => new Set(run.shop?.soldOfferIds ?? []), [run.shop?.soldOfferIds]);
@@ -702,6 +712,8 @@ export function GarageView({
           key={run.packOpening.offerId}
           opening={run.packOpening}
           run={run}
+          onPackOpen={onPackOpen}
+          onPackReveal={onPackReveal}
           onTake={(choiceIds, targetCardId) => onTakePack(run.packOpening!, choiceIds, targetCardId)}
         />
       )}

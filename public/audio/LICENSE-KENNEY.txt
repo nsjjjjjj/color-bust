@@ -1,0 +1,19 @@
+DECK MAYHEM uses selected audio from these Kenney asset packs:
+
+- UI Audio
+- Casino Audio 1.1
+- Digital Audio
+- Music Jingles
+
+Creator: Kenney Vleugels (Kenney.nl)
+License: Creative Commons Zero (CC0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+The original license permits use in personal and commercial projects.
+Credit is appreciated but not required.
+
+Source pages:
+https://kenney.nl/assets/ui-audio
+https://kenney.nl/assets/casino-audio
+https://kenney.nl/assets/digital-audio
+https://kenney.nl/assets/music-jingles

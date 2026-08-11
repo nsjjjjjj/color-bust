@@ -40,7 +40,7 @@ test("ships installable PWA assets and removes the starter preview", async () =>
   assert.match(serviceWorker, /networkFirst/);
   assert.match(serviceWorker, /networkFirstAsset/);
   assert.match(serviceWorker, /staleWhileRevalidate/);
-  assert.match(serviceWorker, /deck-mayhem-v4/);
+  assert.match(serviceWorker, /deck-mayhem-v5/);
   assert.match(serviceWorker, /localhost/);
   assert.match(pwaRegister, /getRegistrations/);
   assert.match(pwaRegister, /registration\.unregister/);
