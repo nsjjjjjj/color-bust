@@ -485,7 +485,7 @@
 .deck-game-view .number-card,
 .deck-inspector-card {
   position: relative;
-  border: 5px solid #e7dec9;
+  border: 0;
   border-radius: 0;
   color: #fff7e5;
   background-image:
@@ -3801,6 +3801,14 @@
   background: center / 100% 100% no-repeat url("/art/deck-mayhem-card-frame-v1.png");
   image-rendering: pixelated;
   filter: saturate(1.08) contrast(1.05);
+}
+
+/* The raster frame already contains its own dark pixel edge. A CSS border
+   created a second bright ring around every live card. */
+.deck-game-view .number-card,
+.deck-game-view .deck-hand-card > .number-card,
+.deck-inspector-card {
+  border: 0 !important;
 }
 
 .number-card.card-yellow .card-pixel-frame {

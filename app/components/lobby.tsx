@@ -1,6 +1,14 @@
 "use client";
 
 import type { CommunityUnoCard } from "../../lib/server/contracts";
+import { ColorCard, type DisplayNumberCard } from "./color-card";
+
+const LOBBY_LOGO_CARDS: readonly DisplayNumberCard[] = [
+  { id: "lobby-red-7", color: "red", value: 7 },
+  { id: "lobby-yellow-2", color: "yellow", value: 2 },
+  { id: "lobby-green-0", color: "green", value: 0 },
+  { id: "lobby-blue-9", color: "blue", value: 9 },
+];
 
 export type RunSummary = {
   ante: number;
@@ -63,11 +71,19 @@ export function Lobby({
         <span className="kicker">모두가 함께 만드는 카드 로그라이크</span>
         <div className="deck-mayhem-lockup">
           <div className="deck-mayhem-card-fan" aria-hidden="true">
-            <i className="deck-logo-card deck-logo-red" data-rank="7" />
-            <i className="deck-logo-card deck-logo-yellow" data-rank="2" />
-            <i className="deck-logo-card deck-logo-back" />
-            <i className="deck-logo-card deck-logo-green" data-rank="0" />
-            <i className="deck-logo-card deck-logo-blue" data-rank="9" />
+            <span className="deck-logo-card-slot deck-logo-red">
+              <ColorCard card={LOBBY_LOGO_CARDS[0]} displayOnly />
+            </span>
+            <span className="deck-logo-card-slot deck-logo-yellow">
+              <ColorCard card={LOBBY_LOGO_CARDS[1]} displayOnly />
+            </span>
+            <span className="deck-logo-card-slot deck-logo-back"><i /></span>
+            <span className="deck-logo-card-slot deck-logo-green">
+              <ColorCard card={LOBBY_LOGO_CARDS[2]} displayOnly />
+            </span>
+            <span className="deck-logo-card-slot deck-logo-blue">
+              <ColorCard card={LOBBY_LOGO_CARDS[3]} displayOnly />
+            </span>
           </div>
           <h1 id="mobile-menu-title"><span>DECK</span><strong>MAYHEM</strong></h1>
         </div>

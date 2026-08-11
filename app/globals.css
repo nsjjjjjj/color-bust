@@ -29,76 +29,52 @@
   pointer-events: none;
 }
 
-.deck-logo-card {
-  --card-color: #c83e35;
+.deck-logo-card-slot {
   position: absolute;
   width: clamp(105px, 9vw, 150px);
   aspect-ratio: .69;
-  overflow: hidden;
-  border: clamp(4px, .38vw, 7px) solid #f4ead4;
-  background-color: var(--card-color);
-  background-image:
-    linear-gradient(135deg, rgba(255, 255, 255, .18) 0 18%, transparent 18% 48%, rgba(0, 0, 0, .15) 48% 70%, transparent 70%),
-    repeating-linear-gradient(45deg, transparent 0 8px, rgba(255, 255, 255, .06) 8px 12px);
-  box-shadow:
-    inset 0 0 0 clamp(3px, .24vw, 5px) rgba(4, 8, 10, .42),
-    7px 8px 0 #06090b;
-  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  display: block;
   image-rendering: pixelated;
 }
 
-.deck-logo-card::before {
-  content: attr(data-rank);
-  position: absolute;
-  z-index: 2;
-  left: 10%;
-  top: 6%;
-  color: #fff2db;
-  font-size: clamp(24px, 2.25vw, 38px);
-  font-weight: 1000;
-  line-height: 1;
-  -webkit-text-stroke: 1px #10181d;
-  text-shadow: 3px 3px 0 #10181d;
-}
-
-.deck-logo-card::after {
-  content: "";
-  position: absolute;
-  inset: 19% 14%;
-  border: clamp(3px, .25vw, 5px) solid rgba(255, 245, 218, .78);
-  box-shadow: inset 0 0 0 4px rgba(8, 12, 14, .18);
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+.deck-mayhem-card-fan .number-card {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: 7px 8px 0 #06090b;
 }
 
 .deck-logo-red {
-  --card-color: #d84c3d;
   transform: translateX(-168%) translateY(12%) rotate(-25deg);
 }
 
 .deck-logo-yellow {
-  --card-color: #dda61e;
   transform: translateX(-84%) translateY(1%) rotate(-12deg);
 }
 
 .deck-logo-green {
-  --card-color: #31915b;
   transform: translateX(84%) translateY(1%) rotate(12deg);
 }
 
 .deck-logo-blue {
-  --card-color: #277ab0;
   transform: translateX(168%) translateY(12%) rotate(25deg);
 }
 
 .deck-logo-back {
   z-index: 2;
-  background: #251755 url("/art/card-back.png") center / cover no-repeat;
   transform: translateY(-5%);
 }
 
-.deck-logo-back::before,
-.deck-logo-back::after {
-  content: none;
+.deck-logo-back i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: #251755 url("/art/card-back.png") center / cover no-repeat;
+  box-shadow: 7px 8px 0 #06090b;
+  image-rendering: pixelated;
 }
 
 .mobile-menu-brand .deck-mayhem-lockup h1 {
@@ -110,10 +86,12 @@
   gap: clamp(88px, 11vh, 132px);
   margin: 0;
   color: #f7edd4;
+  font-family: "Galmuri11", ui-monospace, monospace;
   font-size: clamp(76px, 7.7vw, 136px);
-  font-weight: 1000;
-  line-height: .66;
-  letter-spacing: -.075em;
+  font-weight: 700;
+  line-height: .72;
+  letter-spacing: -.025em;
+  font-synthesis: none;
   transform: none;
   filter: none;
   pointer-events: none;
@@ -149,7 +127,7 @@
     height: clamp(350px, 44vh, 490px);
   }
 
-  .deck-logo-card { width: clamp(125px, 9vw, 174px); }
+  .deck-logo-card-slot { width: clamp(125px, 9vw, 174px); }
 
   .mobile-menu-brand .deck-mayhem-lockup h1 {
     gap: clamp(104px, 12vh, 148px);
@@ -164,18 +142,12 @@
     margin-top: 0;
   }
 
-  .deck-logo-card {
+  .deck-logo-card-slot {
     width: clamp(56px, 10.5vh, 80px);
-    border-width: 3px;
-    box-shadow: inset 0 0 0 2px rgba(4, 8, 10, .42), 4px 5px 0 #06090b;
   }
 
-  .deck-logo-card::before {
-    font-size: clamp(14px, 4vh, 22px);
-    text-shadow: 2px 2px 0 #10181d;
-  }
-
-  .deck-logo-card::after { border-width: 2px; }
+  .deck-mayhem-card-fan .number-card,
+  .deck-logo-back i { box-shadow: 4px 5px 0 #06090b; }
 
   .mobile-menu-brand .deck-mayhem-lockup h1 {
     gap: clamp(36px, 11vh, 55px);
@@ -201,7 +173,7 @@
     height: clamp(245px, 36vh, 335px);
   }
 
-  .deck-logo-card { width: clamp(70px, 19vw, 104px); }
+  .deck-logo-card-slot { width: clamp(70px, 19vw, 104px); }
 
   .mobile-menu-brand .deck-mayhem-lockup h1 {
     gap: clamp(70px, 11vh, 102px);
