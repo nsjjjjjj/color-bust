@@ -128,6 +128,24 @@ export interface CommunityUnoCard {
   readonly negativeModules: readonly UnoNegativeModuleId[];
 }
 
+export interface HandUpgradeItem {
+  readonly id: string;
+  readonly kind: "hand-upgrade";
+  readonly handType: HandType;
+  readonly name: string;
+  readonly price: number;
+}
+
+export interface GhostItem {
+  readonly id: string;
+  readonly kind: "ghost";
+  readonly ghostId: GhostId;
+  readonly name: string;
+  readonly price: number;
+}
+
+export type StashedMayhemItem = CommunityUnoCard | HandUpgradeItem | GhostItem;
+
 export interface UnoValidationResult {
   readonly valid: boolean;
   readonly pointTotal: number;
@@ -410,6 +428,8 @@ export type RunActionType =
   | "buy-protocol"
   | "buy-firmware"
   | "use-consumable"
+  | "use-hand-upgrade"
+  | "sell-stashed-item"
   | "choose-pack-card"
   | "take-pack-choices"
   | "upgrade-hand"
@@ -449,7 +469,7 @@ export interface RunState {
   /** Economy effects earned during this round and paid on reward claim. */
   readonly roundIncome?: number;
   readonly jokers: readonly JokerInstance[];
-  readonly communityUno: readonly CommunityUnoCard[];
+  readonly communityUno: readonly StashedMayhemItem[];
   readonly communityUnoPool: readonly CommunityUnoCard[];
   /** Shared two-slot inventory for PROTOCOL and GHOST cards. */
   readonly consumables?: readonly ConsumableInstance[];

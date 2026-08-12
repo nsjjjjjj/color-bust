@@ -263,3 +263,16 @@ test("takes modifier and upgrade pack rewards through their own acquisition path
   shop = takePackChoices(shop, [upgrade.id], target.id);
   assert.ok(shop.deck!.find((card) => card.id === target.id)?.enhancement);
 });
+
+test("consumes and removes a MAYHEM card from communityUno upon play", () => {
+  const starter = DEFAULT_COMMUNITY_UNO_CARDS[0];
+  const run = createRun({ seed: "uno-consume", starterUno: starter });
+  assert.equal(run.communityUno.length, 1);
+
+  const result = playHand(run, [run.hand[0].id], {
+    unoCardId: starter.id,
+    calledColor: "red",
+  });
+  assert.equal(result.state.communityUno.length, 0);
+  assert.ok(!result.state.communityUno.some((card) => card.id === starter.id));
+});
