@@ -113,10 +113,23 @@ export function CommunityHub({
           <h1>다른 정글러의 한 수</h1>
           <p>효과와 비용의 합이 0인 메이헴 카드를 만들고, 누군가의 다음 스테이지에 등장시키세요.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
-          + 메이헴 카드 제작
-        </button>
+        {signedIn ? (
+          <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
+            + 메이헴 카드 제작
+          </button>
+        ) : (
+          <a className="social-login-button" href="/login?returnTo=%2F">로그인 · 카드 제작</a>
+        )}
       </div>
+      {!signedIn && (
+        <section className="social-login-prompt social-login-prompt--community" aria-label="계정 연결 안내">
+          <div>
+            <span>커뮤니티 신호 연결</span>
+            <strong>로그인하면 만든 메이헴 카드와 장착 정보가 다른 기기에도 이어집니다.</strong>
+          </div>
+          <a href="/login?returnTo=%2F">로그인 · 가입</a>
+        </section>
+      )}
       <div className="status-strip"><span className="live-dot" />{notice}</div>
       <div className="uno-grid">
         {cards.map((card) => {

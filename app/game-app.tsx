@@ -256,6 +256,9 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [run, setRun] = useState<RunState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedUnoId, setSelectedUnoId] = useState<string | null>(null);
+  // One inspector selection across the entire run shell. A shop card, MOD,
+  // or MAYHEM card may be open — never several competing details at once.
+  const [selectedDetailKey, setSelectedDetailKey] = useState<string | null>(null);
   const [calledColor, setCalledColor] = useState<CardColor>("red");
   const [calledColorTwo, setCalledColorTwo] = useState<CardColor>("blue");
   const [, setLastBreakdown] = useState<ScoreBreakdown | null>(null);
@@ -974,7 +977,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onBack={openLobby}
         />
       )}
-      {view === "leaderboard" && <LeaderboardView />}
+      {view === "leaderboard" && <LeaderboardView signedIn={signedIn} />}
       {view === "game" && !run && <GameSelectScreen savedRun={null} loading={loadingSave} onContinue={() => undefined} onNewGame={() => requestStartRun("standard")} onBack={openLobby} />}
       {view === "game" && run && runScenePhase && (
         <GameTable
@@ -1000,6 +1003,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               run={run}
               embedded
               notice={notice}
+              selectedDetailKey={selectedDetailKey}
+              onSelectedDetailChange={setSelectedDetailKey}
               onBuy={(offer, options) => {
                 const nextState = updateRun(() => buyShopOffer(run, offer.id, undefined, options));
                 if (nextState) {
@@ -1054,6 +1059,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           handOrderIds={handOrder.scope === `${run.runId}:${run.roundNumber}` ? handOrder.ids : []}
           activeHandSort={handOrder.scope === `${run.runId}:${run.roundNumber}` ? handOrder.activeSort : null}
           handSortMotionKey={handSortMotionKey}
+          selectedDetailKey={selectedDetailKey}
+          onSelectedDetailChange={setSelectedDetailKey}
           onToggleCard={handleToggleCard}
           onSelectUno={(id) => { setSelectedUnoId(id); audio.playEffect(id ? "mayhem-arm" : "ui-click", { gain: id ? 0.72 : 0.3, maxVoices: 1 }); }}
           onCallColor={(color) => { setCalledColor(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
@@ -1108,9 +1115,9 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       {accountOpen && <AccountModal user={initialUser} onClose={() => setAccountOpen(false)} />}
       {settingsOpen && <SettingsModal audio={audio} reducedMotion={reducedMotion} startInSettings={view !== "game"} showNewRun={view === "game"} onNewRun={() => { setSettingsOpen(false); requestStartRun("standard"); }} onExitRun={() => { setSettingsOpen(false); if (view === "game" && run) setPendingLobbyExit(true); else openLobby(); }} onReducedMotion={(value) => { setReducedMotion(value); setLocalSetting("reducedMotion", value).catch(() => undefined); }} onClose={() => setSettingsOpen(false)} />}
       {playSelectOpen && <Modal title="플레이" className="lobby-bottom-sheet lobby-play-sheet" wide onClose={() => setPlaySelectOpen(false)}><GameSelectScreen embedded savedRun={summary} loading={loadingSave} onContinue={() => { setPlaySelectOpen(false); setPendingContinue(true); }} onNewGame={() => { setPlaySelectOpen(false); requestStartRun("standard"); }} onBack={() => setPlaySelectOpen(false)} /></Modal>}
-      {collectionOpen && <Modal title="컬렉션" className="lobby-bottom-sheet" wide onClose={() => setCollectionOpen(false)}><CommunityHub signedIn={signedIn} equippedId={equippedUno?.id} onEquip={(card) => { setEquippedUno(card); setLocalSetting("equippedCommunityUno", card).catch(() => undefined); setNotice(`${card.name} 카드를 다음 런의 첫 상점에 예약했습니다.`); audio.playEffect("equip", { maxVoices: 1 }); }} /></Modal>}
+      {collectionOpen && <Modal title="컬렉션" className="lobby-bottom-sheet" wide onClose={() => setCollectionOpen(false)}><CommunityHub signedIn={signedIn} equippedId={equippedUno?.id} onEquip={(card) => { setEquippedUno(card); setLocalSetting("equippedCommunityUno", card).catch(() => undefined); setNotice(""); audio.playEffect("equip", { maxVoices: 1 }); }} /></Modal>}
       {guestbookOpen && <Modal title="평가소" className="lobby-bottom-sheet" wide onClose={() => setGuestbookOpen(false)}><GuestbookView signedIn={signedIn} /></Modal>}
-      {leaderboardOpen && <Modal title="랭킹" className="lobby-bottom-sheet lobby-leaderboard-sheet" wide onClose={() => setLeaderboardOpen(false)}><LeaderboardView /></Modal>}
+      {leaderboardOpen && <Modal title="랭킹" className="lobby-bottom-sheet lobby-leaderboard-sheet" wide onClose={() => setLeaderboardOpen(false)}><LeaderboardView signedIn={signedIn} /></Modal>}
       {utilityModal === "run-info" && run && <RunInfoModal run={run} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "hands" && <HandGuide handLevels={run?.handLevels ?? BASE_HAND_LEVELS} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "deck" && run && <DeckInspector deck={run.deck} drawPile={run.drawPile} discardPile={run.discardPile} hand={run.hand} onClose={() => setUtilityModal(null)} />}
@@ -1148,6 +1155,8 @@ function GameTable({
   handOrderIds,
   activeHandSort,
   handSortMotionKey,
+  selectedDetailKey,
+  onSelectedDetailChange,
   onToggleCard,
   onSelectUno,
   onCallColor,
@@ -1181,6 +1190,8 @@ function GameTable({
   handOrderIds: readonly string[];
   activeHandSort: HandSort | null;
   handSortMotionKey: number;
+  selectedDetailKey: string | null;
+  onSelectedDetailChange: (key: string | null) => void;
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
   onCallColor: (color: CardColor) => void;
@@ -1317,6 +1328,8 @@ function GameTable({
           onSellJoker={onSellJoker}
           onUseStashedItem={onUseStashedItem}
           onSellStashedItem={onSellStashedItem}
+          selectedDetailKey={selectedDetailKey}
+          onSelectedDetailChange={onSelectedDetailChange}
           className="deck-modifier-rail"
         />
       )}

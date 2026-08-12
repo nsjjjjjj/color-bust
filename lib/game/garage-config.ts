@@ -280,6 +280,7 @@ export const CARD_PACK_CONFIG: Readonly<
       readonly description: string;
       readonly price: number;
       readonly symbol: string;
+      readonly artSrc: string;
     }
   >
 > = {
@@ -288,60 +289,70 @@ export const CARD_PACK_CONFIG: Readonly<
     description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
     price: 4,
     symbol: "ST",
+    artSrc: "/art/packs/Standard Pack.png",
   },
   large: {
     name: "LARGE PACK",
     description: "숫자 카드 5장을 공개하고 2장을 선택합니다.",
     price: 7,
     symbol: "LG",
+    artSrc: "/art/packs/Large Pack.png",
   },
   premium: {
     name: "PREMIUM PACK",
     description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
     price: 9,
     symbol: "PR",
+    artSrc: "/art/packs/Premium Pack.png",
   },
   modifier: {
     name: "MODIFIER PACK",
     description: "MOD 3개를 공개하고 1개를 장착합니다.",
     price: 7,
     symbol: "MD",
+    artSrc: "/art/packs/Modifier Pack.png",
   },
   upgrade: {
     name: "UPGRADE PACK",
     description: "강화 효과 3개 중 1개를 골라 덱 카드에 부여합니다.",
     price: 6,
     symbol: "UP",
+    artSrc: "/art/packs/Upgrade Pack.png",
   },
   core: {
     name: "CORE PACK",
     description: "족보 CORE 3개를 공개하고 1개를 선택합니다.",
     price: 6,
     symbol: "CR",
+    artSrc: "/art/packs/Core Pack.png",
   },
   protocol: {
     name: "PROTOCOL PACK",
     description: "안전한 일회용 PROTOCOL 3개를 공개하고 1개를 선택합니다.",
     price: 5,
     symbol: "PT",
+    artSrc: "/art/packs/Protocol Pack.png",
   },
   ghost: {
     name: "GHOST PACK",
     description: "강력한 대가를 가진 GHOST 2개를 공개하고 1개를 선택합니다.",
     price: 7,
     symbol: "GH",
+    artSrc: "/art/packs/Ghost Pack.png",
   },
   supply: {
     name: "STANDARD PACK",
     description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
     price: 4,
     symbol: "ST",
+    artSrc: "/art/packs/Standard Pack.png",
   },
   glitch: {
     name: "PREMIUM PACK",
     description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
     price: 9,
     symbol: "PR",
+    artSrc: "/art/packs/Premium Pack.png",
   },
 };
 

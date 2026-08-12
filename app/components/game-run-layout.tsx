@@ -205,6 +205,7 @@ export function GameRunLayout({
               totalCards={referenceCards.length}
               onOpenDetails={onOpenDeck}
               onPreviewChange={setIsDeckPreviewOpen}
+              previewEnabled={phase === "playing"}
               disabled={deckDisabled}
             />
           </aside>

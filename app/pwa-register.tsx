@@ -10,8 +10,30 @@ type InstallPromptEvent = Event & {
 export function PwaRegister() {
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
+  const [isAppleMobile, setIsAppleMobile] = useState(false);
+  const [showAppleGuide, setShowAppleGuide] = useState(false);
 
   useEffect(() => {
+    const isStandalone = () =>
+      window.matchMedia("(display-mode: standalone)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    const appleMobile = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    setIsAppleMobile(appleMobile);
+    if (appleMobile && !isStandalone()) setVisible(true);
+
+    // Android/Chrome obey the manifest at launch. This is an extra guard for
+    // installed browsers that expose the Screen Orientation API.
+    const lockLandscape = () => {
+      if (!isStandalone()) return;
+      const orientation = screen.orientation as (ScreenOrientation & {
+        lock?: (orientation: "landscape" | "landscape-primary" | "landscape-secondary") => Promise<void>;
+      }) | undefined;
+      void orientation?.lock?.("landscape").catch(() => undefined);
+    };
+    lockLandscape();
+
     if ("serviceWorker" in navigator) {
       const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
       if (process.env.NODE_ENV !== "production" || localHost) {
@@ -50,24 +72,31 @@ export function PwaRegister() {
     return () => window.removeEventListener("beforeinstallprompt", handlePrompt);
   }, []);
 
-  if (!visible || !installPrompt) return null;
+  if (!visible || (!installPrompt && !isAppleMobile)) return null;
+
+  const requestInstall = async () => {
+    if (!installPrompt) {
+      setShowAppleGuide(true);
+      return;
+    }
+
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setVisible(false);
+    setInstallPrompt(null);
+  };
 
   return (
     <aside className="install-toast" aria-label="앱 설치 안내">
       <div>
         <strong>DECK MAYHEM 설치</strong>
-        <span>홈 화면에서 오프라인으로 바로 플레이하세요.</span>
+        <span>{showAppleGuide ? "Safari 공유 버튼 → ‘홈 화면에 추가’를 누르세요." : "홈 화면에서 가로 화면으로 바로 플레이하세요."}</span>
       </div>
       <button
         type="button"
-        onClick={async () => {
-          await installPrompt.prompt();
-          await installPrompt.userChoice;
-          setVisible(false);
-          setInstallPrompt(null);
-        }}
+        onClick={() => void requestInstall()}
       >
-        추가
+        {isAppleMobile && !installPrompt ? "방법 보기" : "홈에 추가"}
       </button>
       <button type="button" aria-label="설치 안내 닫기" onClick={() => setVisible(false)}>
         ×
