@@ -5,6 +5,7 @@ import {
   buyDeckWork,
   buyShopOffer,
   claimRoundReward,
+  continueEndlessRun,
   createRun,
   discardCards,
   nextRound,
@@ -12,9 +13,11 @@ import {
   previewHand,
   rerollShop,
   sellJoker,
+  sellStashedItem,
   setHotSwapColor,
   takePackChoices,
-  useConsumable as consumeUtilityCard,
+  useStashedHandUpgrade as applyStashedHandUpgrade,
+  useStashedItem as applyStashedItem,
 } from "../lib/game/engine";
 import {
   CARD_COLORS,
@@ -25,6 +28,7 @@ import {
   UNO_MODULE_CATALOG,
 } from "../lib/game/constants";
 import { COLOR_IDENTITIES } from "../lib/game/colors";
+import { PROTOCOL_CONFIG } from "../lib/game/garage-config";
 import { buildScoreEvents, type ScoreEvent } from "../lib/game/score-events";
 import { validateCommunityUnoCard } from "../lib/game/uno";
 import { HAND_TYPES } from "../lib/game/types";
@@ -671,15 +675,16 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     });
   }, [currentScoreSoundEvent, playEffect, playScoreEvent, scorePlayback]);
 
-  function updateRun(action: () => RunState): boolean {
+  function updateRun(action: () => RunState): RunState | null {
     try {
-      setRun(action());
+      const next = action();
+      setRun(next);
       setNotice("");
-      return true;
+      return next;
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "행동을 처리할 수 없습니다.");
       audio.playEffect("ui-error", { maxVoices: 1 });
-      return false;
+      return null;
     }
   }
 
@@ -968,25 +973,29 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               run={run}
               embedded
               notice={notice}
-              onBuy={(offer) => {
-                if (updateRun(() => buyShopOffer(run, offer.id))) audio.playEffect("buy");
+              onBuy={(offer, options) => {
+                const nextState = updateRun(() => buyShopOffer(run, offer.id, undefined, options));
+                if (nextState) {
+                  audio.playEffect("buy");
+                  if (offer.kind === "protocol") {
+                    setNotice(`${PROTOCOL_CONFIG[offer.protocolId].name} 적용 완료!`);
+                  }
+                }
+                return nextState;
               }}
               onReroll={() => {
                 if (updateRun(() => rerollShop(run))) audio.playEffect("reroll", { maxVoices: 1 });
               }}
-              onSell={setPendingSellId}
               onSelectDeckTarget={(offer, card) => {
                 if (updateRun(() => buyDeckWork(run, offer.id, card.id))) audio.playEffect("buy");
               }}
-              onTakePack={(_opening, choiceIds, targetCardId) => {
-                if (updateRun(() => takePackChoices(run, choiceIds, targetCardId))) audio.playEffect("pack-pick", { progressionStep: Math.max(0, choiceIds.length - 1) });
+              onTakePack={(_opening, choiceIds, targetCardId, targetColor) => {
+                const nextState = updateRun(() => takePackChoices(run, choiceIds, targetCardId, targetColor));
+                if (nextState) audio.playEffect("pack-pick", { progressionStep: Math.max(0, choiceIds.length - 1) });
+                return nextState;
               }}
               onPackOpen={() => audio.playEffect("pack-open", { maxVoices: 1 })}
               onPackReveal={(index) => audio.playEffect("pack-reveal", { progressionStep: index, semitonesPerStep: 0.6, maxVoices: 2 })}
-              onOpenDeck={() => setUtilityModal("deck")}
-              onUseConsumable={(instanceId, options) => {
-                if (updateRun(() => consumeUtilityCard(run, instanceId, options))) audio.playEffect("equip", { maxVoices: 1 });
-              }}
               onNext={() => {
                 let nextState: RunState;
                 try {
@@ -1019,19 +1028,43 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onToggleCard={handleToggleCard}
           onSelectUno={(id) => { setSelectedUnoId(id); audio.playEffect(id ? "mayhem-arm" : "ui-click", { gain: id ? 0.72 : 0.3, maxVoices: 1 }); }}
           onCallColor={(color) => { setCalledColor(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
+          onUseStashedItem={(instanceId) => {
+            const item = run.communityUno.find((candidate) => candidate.id === instanceId);
+            const useItem = item && "kind" in item && item.kind === "ghost"
+              ? () => applyStashedItem(run, instanceId, { targetCardIds: selectedIds })
+              : () => applyStashedHandUpgrade(run, instanceId);
+            if (updateRun(useItem)) {
+              audio.playEffect("equip", { maxVoices: 1 });
+              setNotice(item && "kind" in item && item.kind === "ghost"
+                ? "고스트 카드 효과가 적용되었습니다."
+                : "족보 레벨이 성공적으로 강화되었습니다.");
+            }
+          }}
+          onSellStashedItem={(instanceId) => {
+            if (updateRun(() => sellStashedItem(run, instanceId))) {
+              audio.playEffect("buy", { maxVoices: 1 });
+              setNotice("보관 카드를 판매했습니다.");
+            }
+          }}
           onSort={changeSort}
           onOpenRunInfo={() => setUtilityModal("run-info")}
           onOpenDeck={() => setUtilityModal("deck")}
           onOpenSettings={() => setSettingsOpen(true)}
           onPlay={handlePlay}
           onDiscard={handleDiscard}
+          onSellJoker={setPendingSellId}
           onHotSwap={(color) => {
             if (scorePlayback || discardPlayback) return;
             if (updateRun(() => setHotSwapColor(run, color))) audio.playEffect("equip", { gain: 0.72 });
           }}
         />
       )}
-      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => startRun("endless")} onLobby={openLobby} />}
+      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => {
+        if (updateRun(() => continueEndlessRun(run))) {
+          setNotice("현재 빌드를 유지한 채 무제한 모드로 이어갑니다.");
+          audio.playEffect("round-start", { maxVoices: 1 });
+        }
+      }} onLobby={openLobby} />}
 
       {currentSection && (
         <nav className="mobile-nav mobile-nav-contextual" aria-label="현재 화면">
@@ -1081,6 +1114,8 @@ function GameTable({
   onToggleCard,
   onSelectUno,
   onCallColor,
+  onUseStashedItem,
+  onSellStashedItem,
   onSort,
   onOpenRunInfo,
   onOpenDeck,
@@ -1088,6 +1123,7 @@ function GameTable({
   onPlay,
   onDiscard,
   onHotSwap,
+  onSellJoker,
 }: {
   run: RunState;
   phase: RunLayoutPhase;
@@ -1108,6 +1144,8 @@ function GameTable({
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
   onCallColor: (color: CardColor) => void;
+  onUseStashedItem?: (instanceId: string) => void;
+  onSellStashedItem?: (instanceId: string) => void;
   onSort: (sort: HandSort) => void;
   onOpenRunInfo: () => void;
   onOpenDeck: () => void;
@@ -1115,6 +1153,7 @@ function GameTable({
   onPlay: () => void;
   onDiscard: () => void;
   onHotSwap: (color: CardColor) => void;
+  onSellJoker: (instanceId: string) => void;
 }) {
   const currentScoreEvent = scorePlayback && scorePlayback.phase !== "moving"
     ? scorePlayback.events[scorePlayback.eventIndex] ?? null
@@ -1225,6 +1264,9 @@ function GameTable({
           disabled={inputLocked}
           onSelectUno={onSelectUno}
           onCallColor={onCallColor}
+          onSellJoker={onSellJoker}
+          onUseStashedItem={onUseStashedItem}
+          onSellStashedItem={onSellStashedItem}
           className="deck-modifier-rail"
         />
       )}

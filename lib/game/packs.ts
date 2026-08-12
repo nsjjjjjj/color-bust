@@ -133,10 +133,11 @@ const PROTOCOL_RARITY: Readonly<Record<ProtocolId, CardRarity>> = {
 };
 
 const GHOST_RARITY: Readonly<Record<GhostId, CardRarity>> = {
-  "dead-channel": "rare",
-  "white-noise": "rare",
-  blackout: "legendary",
-  "forbidden-port": "legendary",
+  "wild-signal": "rare",
+  "chaos-cache": "legendary",
+  "bankrupt-bargain": "legendary",
+  "spectrum-wash": "rare",
+  "universal-core": "legendary",
 };
 
 function modifierRarity(jokerId: JokerId): CardRarity {

@@ -116,8 +116,12 @@ test("exposes stable CSS variables for a thin view adapter", () => {
 });
 
 test("rejects impossible public inputs instead of producing NaN geometry", () => {
+  assert.equal(
+    handLayoutManager.calculate({ cardCount: 11, availableWidth: 900 }).cards.length,
+    11,
+  );
   assert.throws(
-    () => handLayoutManager.calculate({ cardCount: 11, availableWidth: 900 }),
+    () => handLayoutManager.calculate({ cardCount: 12, availableWidth: 900 }),
     /cardCount/,
   );
   assert.throws(

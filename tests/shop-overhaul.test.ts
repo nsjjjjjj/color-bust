@@ -2,20 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_COMMUNITY_UNO_CARDS,
+  JOKER_CATALOG,
   JOKER_IDS,
   buyCardPack,
   buyFirmware,
+  buyHandUpgrade,
   buyProtocol,
   createRun,
   nextRound,
+  sellStashedItem,
   takePackChoices,
-  useConsumable,
+  useStashedGhostItem,
+  useStashedHandUpgrade,
   type JokerInstance,
+  type PackChoice,
   type RunState,
   type ShopOffer,
 } from "../lib/game/index";
 import { TODAY_SIGNAL_WEIGHTS } from "../lib/game/garage-config";
-import { jokerSlotLimitFor, nextRoundHandSizeFor } from "../lib/game/run-upgrades";
+import { nextRoundHandSizeFor } from "../lib/game/run-upgrades";
 import { generateShop, rerollShopSignals } from "../lib/game/shop";
 
 function offerById(offers: readonly ShopOffer[], id: string | undefined): ShopOffer {
@@ -214,7 +219,7 @@ test("upgrades a legacy flat shop to section metadata on reroll", () => {
   assert.ok(rerolled.shop.soldOfferIds?.includes(generated.shop.deckLabOfferId!));
 });
 
-test("buys, stores, and consumes a PROTOCOL from the shared utility rack", () => {
+test("buys and applies a PROTOCOL directly upon purchase", () => {
   const offer = {
     id: "test-protocol",
     kind: "protocol" as const,
@@ -222,13 +227,8 @@ test("buys, stores, and consumes a PROTOCOL from the shared utility rack", () =>
     price: 3,
   };
   const bought = buyProtocol(inShopWith(createRun({ seed: "protocol-use", startingCoins: 10 }), [offer]), offer.id);
-  assert.equal(bought.coins, 7);
-  assert.equal(bought.consumables?.length, 1);
-
-  const used = useConsumable(bought, bought.consumables![0].instanceId);
-  assert.equal(used.coins, 11);
-  assert.deepEqual(used.consumables, []);
-  assert.equal(used.actionLog.at(-1)?.type, "use-consumable");
+  assert.equal(bought.coins, 11); // 10 - 3 + 4 = 11
+  assert.equal(bought.actionLog.at(-1)?.type, "buy-protocol");
 });
 
 test("installs Deck Lab firmware and applies its next-round effect", () => {
@@ -247,33 +247,114 @@ test("installs Deck Lab firmware and applies its next-round effect", () => {
   assert.equal(advanced.firmware?.[0], "hand-memory");
 });
 
-test("keeps GHOST cards inside packs and applies their tradeoff when used", () => {
+test("stores GHOST cards in communityUno stash, allowing use and sell", () => {
   const offer = {
     id: "test-ghost-pack",
     kind: "card-pack" as const,
     packKind: "ghost" as const,
     price: 6,
   };
-  const opened = buyCardPack(inShopWith(createRun({ seed: "ghost-pack", startingCoins: 20 }), [offer]), offer.id);
-  const ghostChoice = opened.packOpening?.choices[0];
-  assert.equal(ghostChoice?.kind, "ghost");
-  assert.ok(ghostChoice?.kind === "ghost");
+  const opened = buyCardPack(inShopWith(createRun({ seed: "ghost-pack-1", startingCoins: 20 }), [offer]), offer.id);
+  const choice = opened.packOpening?.choices.find((c): c is Extract<PackChoice, { kind: "ghost" }> => c.kind === "ghost");
+  assert.ok(choice);
 
-  const stored = takePackChoices(opened, [ghostChoice.id]);
-  assert.equal(stored.consumables?.[0]?.kind, "ghost");
+  const stashedState = takePackChoices(opened, [choice.id]);
+  assert.equal(stashedState.communityUno.length, 1);
+  const stashedItem = stashedState.communityUno[0];
+  assert.ok("kind" in stashedItem && stashedItem.kind === "ghost");
 
-  const forbidden = {
-    ...stored,
-    consumables: [{
-      instanceId: "forced-forbidden-port",
-      kind: "ghost" as const,
-      ghostId: "forbidden-port" as const,
-      acquiredRound: stored.roundNumber,
+  const playing = nextRound(stashedState);
+  const target = playing.hand.find((card) => !card.enhancement);
+  assert.ok(target);
+  const applied = useStashedGhostItem(playing, stashedItem.id, { targetCardIds: [target.id] });
+  if (stashedItem.ghostId === "wild-signal") {
+    assert.ok(applied.hand.find((card) => card.id === target.id)?.enhancement);
+  } else {
+    assert.equal(applied.hand.length, playing.hand.length + 2);
+    assert.equal(applied.discardPile.length, playing.discardPile.length + 1);
+    assert.equal(applied.hand.filter((card) => card.id.startsWith("ghost-")).length, 3);
+    assert.ok(applied.hand.filter((card) => card.id.startsWith("ghost-")).every((card) => card.enhancement));
+  }
+
+  // Test selling stashed ghost item
+  const sold = sellStashedItem(stashedState, stashedItem.id);
+  assert.equal(sold.communityUno.length, 0);
+  assert.equal(sold.coins, stashedState.coins + 3);
+});
+
+test("bankrupt bargain creates a rare MOD and spends every coin", () => {
+  const playing = createRun({ seed: "bankrupt-bargain", startingCoins: 17 });
+  const state: RunState = {
+    ...playing,
+    coins: 17,
+    communityUno: [{
+      id: "bankrupt-bargain-1",
+      kind: "ghost",
+      ghostId: "bankrupt-bargain",
+      name: "파산 거래",
+      price: 7,
     }],
   };
-  const beforeLimit = jokerSlotLimitFor(forbidden);
-  const used = useConsumable(forbidden, "forced-forbidden-port");
-  assert.equal(jokerSlotLimitFor(used), beforeLimit + 1);
-  assert.equal(used.permanentDiscardPenalty, 1);
-  assert.deepEqual(used.consumables, []);
+  const applied = useStashedGhostItem(state, "bankrupt-bargain-1");
+  assert.equal(applied.coins, 0);
+  assert.equal(applied.jokers.length, state.jokers.length + 1);
+  assert.equal(JOKER_CATALOG[applied.jokers.at(-1)!.jokerId].rarity, "rare");
+});
+
+test("spectrum wash changes every hand card to one random color", () => {
+  const playing = createRun({ seed: "spectrum-wash" });
+  const state: RunState = {
+    ...playing,
+    communityUno: [{
+      id: "spectrum-wash-1",
+      kind: "ghost",
+      ghostId: "spectrum-wash",
+      name: "스펙트럼 워시",
+      price: 7,
+    }],
+  };
+  const applied = useStashedGhostItem(state, "spectrum-wash-1");
+  assert.equal(new Set(applied.hand.map((card) => card.color)).size, 1);
+  assert.equal(applied.communityUno.length, 0);
+});
+
+test("universal core raises every hand level", () => {
+  const playing = createRun({ seed: "universal-core" });
+  const state: RunState = {
+    ...playing,
+    communityUno: [{
+      id: "universal-core-1",
+      kind: "ghost",
+      ghostId: "universal-core",
+      name: "유니버설 코어",
+      price: 7,
+    }],
+  };
+  const applied = useStashedGhostItem(state, "universal-core-1");
+  for (const handType of Object.keys(state.handLevels) as (keyof typeof state.handLevels)[]) {
+    assert.equal(applied.handLevels[handType], state.handLevels[handType] + 1);
+  }
+});
+
+test("stores Hand Upgrade cards in communityUno stash, allowing use and sell", () => {
+  const offer = {
+    id: "test-hand-upgrade",
+    kind: "hand-upgrade" as const,
+    handType: "pair" as const,
+    price: 4,
+  };
+  const bought = buyHandUpgrade(inShopWith(createRun({ seed: "upgrade-stash", startingCoins: 10 }), [offer]), offer.id);
+  assert.equal(bought.coins, 6);
+  assert.equal(bought.communityUno.length, 1);
+  const stashed = bought.communityUno[0];
+  assert.ok("kind" in stashed && stashed.kind === "hand-upgrade");
+
+  const used = useStashedHandUpgrade(bought, bought.communityUno[0].id);
+  assert.equal(used.handLevels.pair, 2);
+  assert.equal(used.communityUno.length, 0);
+
+  const bought2 = buyHandUpgrade(inShopWith(createRun({ seed: "upgrade-sell", startingCoins: 10 }), [offer]), offer.id);
+  const sold = sellStashedItem(bought2, bought2.communityUno[0].id);
+  assert.equal(sold.coins, 8); // 10 - 4 + 2 = 8
+  assert.equal(sold.communityUno.length, 0);
 });

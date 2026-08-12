@@ -83,8 +83,8 @@ export interface HandCardPresentation {
 export type HandCSSVariables = Record<`--hand-${string}`, string | number>;
 
 export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.freeze({
-  maximumCards: 10,
-  // The gameplay card raster is exactly 288 × 448 pixels (9:14).
+  maximumCards: 11,
+  // The active gameplay card raster is exactly 288 × 448 pixels (9:14).
   cardAspectRatio: 9 / 14,
   // Keep the card readable first. Dense hands should overlap before shrinking.
   minimumCardWidth: 72,

@@ -9,6 +9,7 @@ export {
   previewHand,
   discardCards,
   claimRoundReward,
+  continueEndlessRun,
   buyJoker,
   buyUnoCard,
   buyHandUpgrade,
@@ -20,6 +21,10 @@ export {
   takePackChoices,
   buyShopOffer,
   sellJoker,
+  useStashedHandUpgrade,
+  useStashedGhostItem,
+  useStashedItem,
+  sellStashedItem,
   rerollShop,
   useConsumable,
   setHotSwapColor,
@@ -27,11 +32,9 @@ export {
 } from "./engine";
 
 export {
-  runConsumables,
   runFirmware,
   firmwareCount,
   jokerSlotLimitFor,
-  consumableSlotsFree,
 } from "./run-upgrades";
 
 export { PACK_DEFINITIONS, PackGenerator, RARITY_ORDER } from "./packs";
