@@ -835,7 +835,9 @@ export function GarageView({
   const [targetOfferId, setTargetOfferId] = useState<string | null>(null);
   const [protocolOfferId, setProtocolOfferId] = useState<string | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [leavingGarage, setLeavingGarage] = useState(false);
   const purchaseTimer = useRef<number | null>(null);
+  const nextTimer = useRef<number | null>(null);
   const targetOffer = offers.find(
     (offer): offer is DeckWorkShopOffer => offer.kind === "deck-work" && offer.id === targetOfferId,
   );
@@ -846,6 +848,15 @@ export function GarageView({
     ? selectedOfferId
     : null;
   const offerById = new Map(offers.map((offer) => [offer.id, offer]));
+  const leaveForNextRound = () => {
+    if (leavingGarage || run.packOpening) return;
+    setLeavingGarage(true);
+    nextTimer.current = window.setTimeout(onNext, 330);
+  };
+
+  useEffect(() => () => {
+    if (nextTimer.current !== null) window.clearTimeout(nextTimer.current);
+  }, []);
   const signalOffers = (run.shop?.signalOfferIds
     ? run.shop.signalOfferIds.map((id) => offerById.get(id)).filter((offer): offer is ShopOffer => Boolean(offer))
     : offers.filter((offer) => !["card-pack", "deck-work", "firmware"].includes(String(offer.kind))))
@@ -902,7 +913,7 @@ export function GarageView({
 
   return (
     <section
-      className={`dm-garage${embedded ? " dm-garage--embedded" : ""}`}
+      className={`dm-garage${embedded ? " dm-garage--embedded" : ""}${leavingGarage ? " is-leaving" : ""}`}
       aria-label={embedded ? "DECK MAYHEM GARAGE" : undefined}
       aria-labelledby={embedded ? undefined : "dm-garage-title"}
     >
@@ -933,8 +944,8 @@ export function GarageView({
               <button
                 type="button"
                 className="is-next"
-                disabled={Boolean(run.packOpening)}
-                onClick={onNext}
+                disabled={Boolean(run.packOpening) || leavingGarage}
+                onClick={leaveForNextRound}
                 aria-label={`다음 라운드로 이동 · ${nextTargetLabel(run)}`}
               >
                 <span>다음<br />라운드</span>

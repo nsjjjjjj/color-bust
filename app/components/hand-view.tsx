@@ -209,6 +209,15 @@ export function HandView({
               // small, physical overshoot instead of an abrupt stop.
               event.currentTarget.dataset.selectionMotion = selected ? "down" : "up";
             }}
+            onAnimationStart={(event) => {
+              // A card can have settled from an earlier click by the time
+              // React commits the next selection. Restart the animation from
+              // its own resting position so every new selection visibly lifts
+              // on the Y axis instead of occasionally keeping the old frame.
+              if (event.animationName === "dm-hand-selection-settle") {
+                event.currentTarget.dataset.selectionMotion = "up";
+              }
+            }}
             onAnimationEnd={(event) => {
               if (event.animationName === "dm-hand-selection-settle"
                 || event.animationName === "dm-hand-deselection-settle") {

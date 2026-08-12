@@ -18,6 +18,8 @@ export type SampledSoundEffect =
   | "pack-open"
   | "pack-reveal"
   | "round-score-settle"
+  | "cashout-claim"
+  | "cashout-tick"
   | "win"
   | "lose";
 
@@ -85,6 +87,8 @@ export interface ScoreTickOptions {
   readonly semitoneOffset?: number;
   readonly gain?: number;
   readonly maxVoices?: number;
+  /** Runs when the browser confirms that this score voice has started. */
+  readonly onStarted?: () => void;
 }
 
 export const BGM_CROSSFADE_MS = 550;
@@ -124,6 +128,8 @@ export const AUDIO_EFFECTS = {
   "pack-open": { src: "/audio/pack-open.m4a", gain: 0.82 },
   "pack-reveal": { src: "/audio/pack-reveal.m4a", gain: 0.6 },
   "round-score-settle": { src: "/audio/round-score-settle.mp3", gain: 0.62 },
+  "cashout-claim": { src: "/audio/cashout-claim.mp3", gain: 0.52 },
+  "cashout-tick": { src: "/audio/cashout-tick.mp3", gain: 0.44 },
   win: { src: "/audio/win.m4a", gain: 0.8 },
   lose: { src: "/audio/lose.m4a", gain: 0.72 },
 } as const satisfies Readonly<Record<SampledSoundEffect, AudioAsset | null>>;
@@ -316,7 +322,7 @@ export class ScoreEffectPool {
 
   play(
     eventToken: string,
-    options: { readonly playbackRate: number; readonly gain?: number },
+    options: { readonly playbackRate: number; readonly gain?: number; readonly onStarted?: () => void },
   ): boolean {
     if (this.playedTokens.has(eventToken)) return false;
     this.rememberToken(eventToken);
@@ -344,7 +350,9 @@ export class ScoreEffectPool {
       // Safari can reject a seek before metadata is ready. The preloaded pool
       // still removes allocation/decode latency, so starting at zero is safe.
     }
-    voice.audio.play().catch(() => this.stopVoice(voice));
+    voice.audio.play()
+      .then(() => options.onStarted?.())
+      .catch(() => this.stopVoice(voice));
     this.scheduleTailRelease(voice);
     return true;
   }
@@ -864,6 +872,7 @@ export function useGameAudio(scene: AudioScene) {
     return pool.play(eventToken, {
       playbackRate,
       gain: options.gain,
+      onStarted: options.onStarted,
     });
   }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated]);
 

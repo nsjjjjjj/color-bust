@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   buyDeckWork,
   buyShopOffer,
@@ -84,7 +84,7 @@ import {
   type AudioScene,
 } from "./use-game-audio";
 
-type View = "lobby" | "game-select" | "game" | "community" | "leaderboard" | "guestbook";
+type View = "lobby" | "game-select" | "game" | "leaderboard";
 type UtilityModal = "run-info" | "hands" | "deck" | null;
 type HandOrderState = {
   readonly scope: string;
@@ -261,6 +261,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [equippedUno, setEquippedUno] = useState<CommunityUnoCard | undefined>();
   const [online, setOnline] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [playSelectOpen, setPlaySelectOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [guestbookOpen, setGuestbookOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [utilityModal, setUtilityModal] = useState<UtilityModal>(null);
   const [handOrder, setHandOrder] = useState<HandOrderState>({ scope: "", ids: [], activeSort: null });
@@ -272,6 +276,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [pendingLobbyExit, setPendingLobbyExit] = useState(false);
   const [syncConflict, setSyncConflict] = useState<SyncConflict | null>(null);
   const [scorePlayback, setScorePlayback] = useState<ScorePlayback | null>(null);
+  const [scoreImpactKey, setScoreImpactKey] = useState<string | null>(null);
   const [discardPlayback, setDiscardPlayback] = useState<DiscardPlayback | null>(null);
   const [dealtCardIds, setDealtCardIds] = useState<readonly string[]>([]);
   const [displayRoundScore, setDisplayRoundScore] = useState(0);
@@ -284,7 +289,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const lastScoreSoundEventRef = useRef<string | null>(null);
   const lastScoreDepositRef = useRef<number | null>(null);
   const lastResultSoundRef = useRef<string | null>(null);
-  const lastRewardSoundRef = useRef<string | null>(null);
   const scoreCountUpFrameRef = useRef<number | null>(null);
   const scoreSettleTimerRef = useRef<number | null>(null);
   const cashOutTimerRef = useRef<number | null>(null);
@@ -324,6 +328,12 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const playEffect = audio.playEffect;
   const playScoreEvent = audio.playScoreEvent;
   const prepareScoreSequence = audio.prepareScoreSequence;
+  const queueScoreImpact = useCallback((key: string) => {
+    // The pooled audio voice resolves only once playback has actually begun.
+    // Starting one short frame afterwards makes the physical room jiggle feel
+    // attached to the sound rather than leading it.
+    window.setTimeout(() => setScoreImpactKey(key), 12);
+  }, []);
   const signedIn = Boolean(initialUser);
   const currentScoreSoundEvent = scorePlayback?.phase === "scoring"
     ? scorePlayback.events[scorePlayback.eventIndex]
@@ -342,14 +352,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     if (lastResultSoundRef.current === resultKey) return;
     lastResultSoundRef.current = resultKey;
     playEffect(run.phase === "won" ? "win" : "lose", { maxVoices: 1 });
-  }, [playEffect, run, scorePlayback]);
-
-  useEffect(() => {
-    if (!run || scorePlayback || run.phase !== "reward") return;
-    const rewardKey = `${run.runId}:${run.roundNumber}:${run.pendingReward?.total ?? 0}`;
-    if (lastRewardSoundRef.current === rewardKey) return;
-    lastRewardSoundRef.current = rewardKey;
-    playEffect("round-clear", { maxVoices: 1 });
   }, [playEffect, run, scorePlayback]);
 
   useLayoutEffect(() => {
@@ -618,6 +620,18 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     return () => window.clearTimeout(timer);
   }, [discardPlayback, playEffect, reducedMotion]);
 
+  // `dealtCardIds` is only a short-lived entrance cue. Leaving it attached
+  // after the deal completes lets the !important draw animation keep owning a
+  // card's transform, which prevents a later selection from lifting that card.
+  useEffect(() => {
+    if (dealtCardIds.length === 0) return;
+    const dealDuration = reducedMotion
+      ? 60
+      : 460 + Math.max(0, dealtCardIds.length - 1) * 62 + 48;
+    const timer = window.setTimeout(() => setDealtCardIds([]), dealDuration);
+    return () => window.clearTimeout(timer);
+  }, [dealtCardIds, reducedMotion]);
+
   useLayoutEffect(() => {
     if (!scorePlayback || !currentScoreSoundEvent) {
       lastScoreSoundEventRef.current = null;
@@ -667,6 +681,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       playScoreEvent(soundEventKey, pitchStep, {
         semitonesPerStep: CARD_SCORE_TICK_SEMITONES,
         gain: scoringCardStep === scoringCardEvents.length - 1 ? 1.14 : 1,
+        onStarted: () => queueScoreImpact(soundEventKey),
       });
       return;
     }
@@ -675,7 +690,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     playScoreEvent(soundEventKey, eventStep, {
       gain: eventStep === anchoredEvents.length - 1 ? gain * 1.14 : gain,
     });
-  }, [currentScoreSoundEvent, playEffect, playScoreEvent, scorePlayback]);
+  }, [currentScoreSoundEvent, playEffect, playScoreEvent, queueScoreImpact, scorePlayback]);
 
   function updateRun(action: () => RunState): RunState | null {
     try {
@@ -694,7 +709,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     if (cashOutLeaving || rewardRun.phase !== "reward") return;
 
     setCashOutLeaving(true);
-    audio.playEffect("coin", { progressionStep: rewardRun.pendingReward?.total ?? 0, semitonesPerStep: 0.08 });
+    audio.playEffect("cashout-claim", { gain: 0.92, maxVoices: 1 });
     cashOutTimerRef.current = window.setTimeout(() => {
       cashOutTimerRef.current = null;
       const current = latestRunRef.current;
@@ -705,7 +720,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
 
       updateRun(() => claimRoundReward(current));
       setCashOutLeaving(false);
-    }, reducedMotion ? 60 : 300);
+    }, reducedMotion ? 60 : 760);
   }
 
   function handleToggleCard(id: string) {
@@ -750,6 +765,10 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
     setPendingLobbyExit(false);
     setPendingContinue(false);
     setSettingsOpen(false);
+    setPlaySelectOpen(false);
+    setCollectionOpen(false);
+    setGuestbookOpen(false);
+    setLeaderboardOpen(false);
     setAccountOpen(false);
   }
 
@@ -867,7 +886,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       });
       if (!response.ok) throw new Error("기록을 검증하지 못했습니다.");
       setNotice("공식 랭킹에 기록을 제출했습니다.");
-      setView("leaderboard");
+      setView("lobby");
+      setLeaderboardOpen(true);
     } catch (cause) {
       setNotice(cause instanceof Error ? cause.message : "기록 제출에 실패했습니다.");
     }
@@ -885,19 +905,19 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   } : null;
 
   const sectionLabel: Partial<Record<View, string>> = {
-    community: "메이헴 연구소",
     leaderboard: "랭킹",
-    guestbook: "평가소",
     game: "런 결과",
   };
   const currentSection = sectionLabel[view];
   const immersiveView = view === "lobby" || view === "game-select"
-    || (view === "game" && (!run || run.phase === "playing" || run.phase === "reward" || run.phase === "shop" || Boolean(scorePlayback)));
+    || (view === "game" && (!run || run.phase === "playing" || run.phase === "reward" || run.phase === "shop" || run.phase === "lost" || Boolean(scorePlayback)));
   const runScenePhase: RunLayoutPhase | null = view === "game" && run
     ? scorePlayback
       ? "playing"
       : run.phase === "playing" || run.phase === "reward" || run.phase === "shop"
         ? run.phase
+        : run.phase === "lost"
+          ? "playing"
         : null
     : null;
 
@@ -943,7 +963,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         )}
       </header>
 
-      {view === "lobby" && <Lobby savedRun={summary} equippedUno={equippedUno} signedIn={signedIn} online={online} onPlay={() => setView("game-select")} onOpenCommunity={() => setView("community")} onOpenAccount={() => setAccountOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenLeaderboard={() => setView("leaderboard")} onOpenGuestbook={() => setView("guestbook")} />}
+      {view === "lobby" && <Lobby savedRun={summary} equippedUno={equippedUno} signedIn={signedIn} online={online} onPlay={() => setPlaySelectOpen(true)} onOpenCommunity={() => setCollectionOpen(true)} onOpenAccount={() => setAccountOpen(true)} onOpenSettings={() => setSettingsOpen(true)} onOpenLeaderboard={() => setLeaderboardOpen(true)} onOpenGuestbook={() => setGuestbookOpen(true)} />}
       {view === "game-select" && (
         <GameSelectScreen
           savedRun={summary}
@@ -953,9 +973,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onBack={openLobby}
         />
       )}
-      {view === "community" && <CommunityHub signedIn={signedIn} equippedId={equippedUno?.id} onEquip={(card) => { setEquippedUno(card); setLocalSetting("equippedCommunityUno", card).catch(() => undefined); setNotice(`${card.name} 카드를 다음 런의 첫 상점에 예약했습니다.`); audio.playEffect("equip", { maxVoices: 1 }); }} />}
       {view === "leaderboard" && <LeaderboardView />}
-      {view === "guestbook" && <GuestbookView signedIn={signedIn} />}
       {view === "game" && !run && <GameSelectScreen savedRun={null} loading={loadingSave} onContinue={() => undefined} onNewGame={() => requestStartRun("standard")} onBack={openLobby} />}
       {view === "game" && run && runScenePhase && (
         <GameTable
@@ -968,6 +986,12 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               notice={notice}
               claiming={cashOutLeaving}
               reducedMotion={reducedMotion}
+              onCoinSettle={(index) => audio.playEffect("cashout-tick", {
+                progressionStep: index,
+                semitonesPerStep: 0.35,
+                gain: 0.9,
+                maxVoices: 2,
+              })}
               onClaim={() => handleCashOutClaim(run)}
             />
           ) : runScenePhase === "shop" ? (
@@ -1023,6 +1047,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           displayRoundScore={displayRoundScore}
           displayTransferScore={displayTransferScore}
           notice={notice}
+          scoreImpactKey={scoreImpactKey}
           dealtCardIds={dealtCardIds}
           handOrderIds={handOrder.scope === `${run.runId}:${run.roundNumber}` ? handOrder.ids : []}
           activeHandSort={handOrder.scope === `${run.runId}:${run.roundNumber}` ? handOrder.activeSort : null}
@@ -1061,7 +1086,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           }}
         />
       )}
-      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => {
+      {view === "game" && run && !scorePlayback && run.phase === "lost" && <RunLostModal run={run} onRestart={() => startRun(run.mode)} onLobby={openLobby} />}
+      {view === "game" && run && !scorePlayback && run.phase === "won" && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => {
         if (updateRun(() => continueEndlessRun(run))) {
           setNotice("현재 빌드를 유지한 채 무제한 모드로 이어갑니다.");
           audio.playEffect("round-start", { maxVoices: 1 });
@@ -1077,7 +1103,11 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       {notice && view !== "game" && <div className="global-notice" role="status">{notice}</div>}
       {loadingSave && <div className="loading-save" role="status">저장된 런 확인 중…</div>}
       {accountOpen && <AccountModal user={initialUser} onClose={() => setAccountOpen(false)} />}
-      {settingsOpen && <SettingsModal audio={audio} reducedMotion={reducedMotion} onNewRun={() => { setSettingsOpen(false); requestStartRun("standard"); }} onExitRun={() => { setSettingsOpen(false); if (view === "game" && run) setPendingLobbyExit(true); else openLobby(); }} onReducedMotion={(value) => { setReducedMotion(value); setLocalSetting("reducedMotion", value).catch(() => undefined); }} onClose={() => setSettingsOpen(false)} />}
+      {settingsOpen && <SettingsModal audio={audio} reducedMotion={reducedMotion} startInSettings={view !== "game"} showNewRun={view === "game"} onNewRun={() => { setSettingsOpen(false); requestStartRun("standard"); }} onExitRun={() => { setSettingsOpen(false); if (view === "game" && run) setPendingLobbyExit(true); else openLobby(); }} onReducedMotion={(value) => { setReducedMotion(value); setLocalSetting("reducedMotion", value).catch(() => undefined); }} onClose={() => setSettingsOpen(false)} />}
+      {playSelectOpen && <Modal title="플레이" className="lobby-bottom-sheet lobby-play-sheet" wide onClose={() => setPlaySelectOpen(false)}><GameSelectScreen embedded savedRun={summary} loading={loadingSave} onContinue={() => { setPlaySelectOpen(false); setPendingContinue(true); }} onNewGame={() => { setPlaySelectOpen(false); requestStartRun("standard"); }} onBack={() => setPlaySelectOpen(false)} /></Modal>}
+      {collectionOpen && <Modal title="컬렉션" className="lobby-bottom-sheet" wide onClose={() => setCollectionOpen(false)}><CommunityHub signedIn={signedIn} equippedId={equippedUno?.id} onEquip={(card) => { setEquippedUno(card); setLocalSetting("equippedCommunityUno", card).catch(() => undefined); setNotice(`${card.name} 카드를 다음 런의 첫 상점에 예약했습니다.`); audio.playEffect("equip", { maxVoices: 1 }); }} /></Modal>}
+      {guestbookOpen && <Modal title="평가소" className="lobby-bottom-sheet" wide onClose={() => setGuestbookOpen(false)}><GuestbookView signedIn={signedIn} /></Modal>}
+      {leaderboardOpen && <Modal title="랭킹" className="lobby-bottom-sheet lobby-leaderboard-sheet" wide onClose={() => setLeaderboardOpen(false)}><LeaderboardView /></Modal>}
       {utilityModal === "run-info" && run && <RunInfoModal run={run} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "hands" && <HandGuide handLevels={run?.handLevels ?? BASE_HAND_LEVELS} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "deck" && run && <DeckInspector deck={run.deck} drawPile={run.drawPile} discardPile={run.discardPile} hand={run.hand} onClose={() => setUtilityModal(null)} />}
@@ -1088,7 +1118,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
         const refund = Math.max(1, Math.floor(definition.price / 2));
         return <Modal title="조커 판매" onClose={() => setPendingSellId(null)}><div className="confirm-body"><div className="confirm-joker"><span>{definition.name.slice(0, 1)}</span><div><b>{definition.name}</b><small>{definition.description}</small></div></div><p>이 조커를 판매하고 <strong>{refund}¢</strong>를 받을까요?</p><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingSellId(null)}>취소</button><button type="button" className="primary-button" onClick={() => { if (updateRun(() => sellJoker(run, pendingSellId))) audio.playEffect("sell", { maxVoices: 1 }); setPendingSellId(null); }}>판매 +{refund}¢</button></div></div></Modal>;
       })()}
-      {pendingContinue && run && <Modal title="이어서 하기" onClose={() => setPendingContinue(false)}><div className="confirm-body"><p><strong>STAGE {run.ante}-{ROUND_ORDER.indexOf(run.round) + 1}</strong>의 게임을 이어서 하시겠습니까?</p><div className="conflict-card"><span>마지막 진행</span><b>STAGE {run.ante}-{ROUND_ORDER.indexOf(run.round) + 1} · ROUND {run.roundNumber}</b><small>{run.score.toLocaleString()} / {run.target.toLocaleString()} POINT · {run.coins}¢</small></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingContinue(false)}>취소</button><button type="button" className="primary-button" onClick={() => { setPendingContinue(false); setView("game"); }}>이어서 하기</button></div></div></Modal>}
+      {pendingContinue && run && <Modal title="이어서 하기" className="run-confirm-sheet" onClose={() => setPendingContinue(false)}><div className="confirm-body run-confirm-body"><p><strong>마지막 런을 이어서 할까요?</strong><br />현재 진행 지점부터 바로 시작합니다.</p><section className="run-save-card" aria-label="이어갈 진행"><span>LAST RUN</span><b>STAGE {run.ante}-{ROUND_ORDER.indexOf(run.round) + 1} · ROUND {run.roundNumber}</b><small>{run.score.toLocaleString()} / {run.target.toLocaleString()} POINT · {run.coins}¢</small></section><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingContinue(false)}>취소</button><button type="button" className="primary-button" onClick={() => { setPendingContinue(false); setView("game"); }}>이어서 하기</button></div></div></Modal>}
       {pendingStartMode && run && <Modal title="새로운 런" className="run-confirm-sheet" onClose={() => setPendingStartMode(null)}><div className="confirm-body run-confirm-body"><p><strong>새로운 런을 시작하시겠습니까?</strong><br />현재 진행 중인 런은 새 기록으로 교체됩니다.</p><section className="run-save-card" aria-label="교체될 진행"><span>현재 저장</span><b>STAGE {run.ante}-{ROUND_ORDER.indexOf(run.round) + 1}</b></section><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingStartMode(null)}>취소</button><button type="button" className="primary-button" onClick={() => { const mode = pendingStartMode; setPendingStartMode(null); startRun(mode); }}>새로운 런 시작</button></div></div></Modal>}
       {pendingLobbyExit && run && <Modal title="홈으로 이동" className="run-confirm-sheet" onClose={() => setPendingLobbyExit(false)}><div className="confirm-body run-confirm-body"><p><strong>홈으로 이동하시겠습니까?</strong><br />현재 게임 진행 상황은 자동으로 저장됩니다.</p><section className="run-save-card" aria-label="저장될 진행"><span>저장될 진행</span><b>STAGE {run.ante}-{ROUND_ORDER.indexOf(run.round) + 1}</b></section><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => setPendingLobbyExit(false)}>취소</button><button type="button" className="primary-button" onClick={() => { setPendingLobbyExit(false); openLobby(); }}>저장하고 나가기</button></div></div></Modal>}
       {syncConflict && <Modal title="진행 상황 충돌" onClose={() => setSyncConflict(null)} wide><div className="confirm-body"><p>다른 기기에서 같은 모드의 런이 업데이트되었습니다. 자동으로 덮어쓰지 않고 선택을 기다립니다.</p><div className="conflict-grid"><div className="conflict-card"><span>이 기기</span><b>STAGE {syncConflict.local.ante}-{ROUND_ORDER.indexOf(syncConflict.local.round) + 1} · {ROUND_LABEL[syncConflict.local.round]}</b><small>{syncConflict.local.stats.totalScore.toLocaleString()} 누적점</small></div><div className="conflict-card remote"><span>클라우드 · {new Date(syncConflict.remoteUpdatedAt).toLocaleString("ko-KR")}</span><b>STAGE {syncConflict.remote.ante}-{ROUND_ORDER.indexOf(syncConflict.remote.round) + 1} · {ROUND_LABEL[syncConflict.remote.round]}</b><small>{syncConflict.remote.stats.totalScore.toLocaleString()} 누적점</small></div></div><div className="confirm-actions"><button type="button" className="secondary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.remote.mode] = conflict.remoteRevision; replaceRun(conflict.remote); setSyncConflict(null); setNotice("클라우드 진행을 불러왔습니다."); }}>클라우드 불러오기</button><button type="button" className="primary-button" onClick={() => { const conflict = syncConflict; cloudRevision.current[conflict.local.mode] = conflict.remoteRevision; setSyncConflict(null); syncCloudRun(conflict.local).then(() => setNotice("이 기기의 진행으로 클라우드를 갱신했습니다.")).catch((cause) => setNotice(cause instanceof Error ? cause.message : "동기화에 실패했습니다.")); }}>이 기기 진행 유지</button></div></div></Modal>}
@@ -1109,6 +1139,7 @@ function GameTable({
   displayRoundScore,
   displayTransferScore,
   notice,
+  scoreImpactKey,
   dealtCardIds,
   handOrderIds,
   activeHandSort,
@@ -1139,6 +1170,7 @@ function GameTable({
   displayRoundScore: number;
   displayTransferScore: number | null;
   notice: string;
+  scoreImpactKey: string | null;
   dealtCardIds: readonly string[];
   handOrderIds: readonly string[];
   activeHandSort: HandSort | null;
@@ -1194,8 +1226,12 @@ function GameTable({
   const displayedDiscardPile = scorePlayback?.discardPileBefore ?? run.discardPile;
   const referenceHand = scorePlayback?.handBefore ?? run.hand;
   const deckReferenceCards = useMemo(
-    () => [...displayedDrawPile, ...displayedDiscardPile, ...referenceHand],
-    [displayedDiscardPile, displayedDrawPile, referenceHand],
+    // `run.deck` is the authoritative persistent deck.  A card selected from
+    // a pack exists there immediately, but does not join draw/hand/discard
+    // until the next deal.  Using the three live piles here delayed the dock's
+    // total by a whole round.
+    () => run.deck ?? [...displayedDrawPile, ...displayedDiscardPile, ...referenceHand],
+    [displayedDiscardPile, displayedDrawPile, referenceHand, run.deck],
   );
   const resolvedRailValues = shown ? resolvedBreakdownValues(shown) : { power: 0, hype: 0 };
   const selectedHandBase = selectedBreakdown
@@ -1228,11 +1264,13 @@ function GameTable({
       : hypeChanged
         ? "hype"
         : null;
-  const scoreImpactKey = !reducedMotion
-    && currentScoreEvent
-    && currentScoreEvent.currentTotal > (previousScoreEvent?.currentTotal ?? 0)
-    ? currentScoreEvent.id
-    : null;
+  // The score sound rises only for card-score beats. Mirror that staircase in
+  // the cabinet recoil, without making MOD-only beats feel progressively huge.
+  const scoreImpactStep = currentScoreEvent?.type === "card-score"
+    ? Math.max(0, scorePlayback?.events
+      .filter((event) => event.type === "card-score")
+      .findIndex((event) => event.id === currentScoreEvent.id) ?? 0)
+    : 0;
   return (
     <GameRunLayout
       run={run}
@@ -1245,7 +1283,8 @@ function GameTable({
       handLevel={shown?.handLevel ?? null}
       scorePulse={railScorePulse}
       scoreEventKey={currentScoreEvent?.id ?? null}
-      scoreImpactKey={scoreImpactKey}
+      scoreImpactKey={reducedMotion ? null : scoreImpactKey}
+      scoreImpactStep={scoreImpactStep}
       isTransferring={scorePlayback?.phase === "transferring"}
       transferScore={scorePlayback?.phase === "transferring" ? displayTransferScore : null}
       scorePhase={scorePhase}
@@ -1329,6 +1368,74 @@ function ColorPicker({ value, disabled = false, onChange }: { value: CardColor; 
   return <div className="color-call" role="group" aria-label="호출할 채널">{CARD_COLORS.map((color) => <button type="button" key={color} disabled={disabled} className={`${color}${value === color ? " active" : ""}`} aria-label={`${COLOR_IDENTITIES[color].name} (${COLOR_IDENTITIES[color].koreanColor}) 선택`} aria-pressed={value === color} onClick={() => onChange(color)}><span>{COLOR_IDENTITIES[color].short}</span></button>)}</div>;
 }
 
+type HandExampleCard = {
+  readonly color: CardColor;
+  readonly rank: number;
+};
+
+const HAND_PLAY_EXAMPLES: Readonly<Record<HandType, {
+  readonly cards: readonly HandExampleCard[];
+  readonly description: string;
+}>> = {
+  "high-card": {
+    cards: [{ color: "blue", rank: 9 }],
+    description: "다른 족보가 없을 때 가장 높은 카드 1장이 득점합니다.",
+  },
+  pair: {
+    cards: [{ color: "red", rank: 7 }, { color: "blue", rank: 7 }],
+    description: "숫자가 같은 카드 2장을 함께 냅니다.",
+  },
+  "two-pair": {
+    cards: [{ color: "red", rank: 6 }, { color: "blue", rank: 6 }, { color: "green", rank: 3 }, { color: "yellow", rank: 3 }],
+    description: "서로 다른 숫자의 페어 2개를 함께 냅니다.",
+  },
+  "three-of-a-kind": {
+    cards: [{ color: "red", rank: 5 }, { color: "blue", rank: 5 }, { color: "green", rank: 5 }],
+    description: "숫자가 같은 카드 3장을 함께 냅니다.",
+  },
+  straight: {
+    cards: [{ color: "red", rank: 3 }, { color: "blue", rank: 4 }, { color: "green", rank: 5 }, { color: "yellow", rank: 6 }, { color: "red", rank: 7 }],
+    description: "색과 관계없이 이어지는 숫자 5장을 냅니다.",
+  },
+  flush: {
+    cards: [{ color: "green", rank: 1 }, { color: "green", rank: 3 }, { color: "green", rank: 5 }, { color: "green", rank: 7 }, { color: "green", rank: 9 }],
+    description: "같은 채널(색) 카드 5장을 냅니다.",
+  },
+  "full-house": {
+    cards: [{ color: "red", rank: 8 }, { color: "blue", rank: 8 }, { color: "green", rank: 8 }, { color: "red", rank: 4 }, { color: "yellow", rank: 4 }],
+    description: "같은 숫자 3장과 다른 같은 숫자 2장을 함께 냅니다.",
+  },
+  "four-of-a-kind": {
+    cards: [{ color: "red", rank: 9 }, { color: "blue", rank: 9 }, { color: "green", rank: 9 }, { color: "yellow", rank: 9 }],
+    description: "네 색의 같은 숫자 4장을 함께 냅니다.",
+  },
+  "straight-flush": {
+    cards: [{ color: "yellow", rank: 4 }, { color: "yellow", rank: 5 }, { color: "yellow", rank: 6 }, { color: "yellow", rank: 7 }, { color: "yellow", rank: 8 }],
+    description: "같은 채널에서 이어지는 숫자 5장을 냅니다.",
+  },
+};
+
+function HandPlayExample({ handType }: { handType: HandType | null }) {
+  const example = handType ? HAND_PLAY_EXAMPLES[handType] : null;
+  return (
+    <aside className="run-hand-example" role="status" aria-live="polite">
+      <span className="run-hand-example-kicker">{handType ? `족보 예시 · ${HAND_RULES[handType].name}` : "족보 예시"}</span>
+      {example ? (
+        <>
+          <div className="run-hand-example-cards" aria-hidden="true">
+            {example.cards.map((card, index) => (
+              <span className={`run-hand-example-card is-${card.color}`} key={`${card.color}-${card.rank}-${index}`}>
+                <i>{card.rank}</i><small>M</small>
+              </span>
+            ))}
+          </div>
+          <p>{example.description}</p>
+        </>
+      ) : <p>아래 족보 행에 마우스를 올리면 필요한 카드 조합이 표시됩니다.</p>}
+    </aside>
+  );
+}
+
 function RunInfoModal({
   run,
   onClose,
@@ -1336,6 +1443,7 @@ function RunInfoModal({
   run: RunState;
   onClose: () => void;
 }) {
+  const [exampleHandType, setExampleHandType] = useState<HandType | null>(null);
   const handUses = run.handHistory.reduce<Record<HandType, number>>((counts, handType) => {
     counts[handType] += 1;
     return counts;
@@ -1344,28 +1452,59 @@ function RunInfoModal({
   return (
     <Modal title="런 정보" onClose={onClose} wide className="run-info-sheet" hideHeader>
       <div className="run-info-sheet-content">
-        <section className="run-hand-list" aria-label="족보별 현재 POWER와 HYPE">
+        <HandPlayExample handType={exampleHandType} />
+        <section className="run-hand-list" aria-label="족보별 현재 POWER와 HYPE" onMouseLeave={() => setExampleHandType(null)}>
           {([...HAND_TYPES].reverse()).map((handType) => {
             const rule = HAND_RULES[handType];
             const level = Math.max(1, run.handLevels[handType] ?? 1);
             const power = effectiveHandChips(rule, level);
             const hype = effectiveHandMultiplier(rule, level);
             return (
-              <article className="run-hand-row" key={handType}>
+              <button
+                type="button"
+                className="run-hand-row"
+                key={handType}
+                aria-describedby="run-hand-example-description"
+                onMouseEnter={() => setExampleHandType(handType)}
+                onClick={() => setExampleHandType(handType)}
+              >
                 <b className="run-hand-level">Lv.{level}</b>
                 <strong className="run-hand-name">{rule.name}</strong>
                 <span className="run-hand-equation" aria-label={`POWER ${power} 곱하기 HYPE ${hype}`}>
                   <b>{power.toLocaleString()}</b><i>×</i><strong>{hype.toLocaleString()}</strong>
                 </span>
                 <span className="run-hand-used" aria-label={`이번 런에서 ${handUses[handType]}번 사용`}><i>#</i>{handUses[handType]}</span>
-              </article>
+              </button>
             );
           })}
         </section>
+        <span className="modal-visually-hidden" id="run-hand-example-description">족보 행에 마우스를 올리거나 선택하면 필요한 카드 예시를 표시합니다.</span>
 
         <button type="button" className="run-info-back" onClick={onClose}>뒤로</button>
       </div>
     </Modal>
+  );
+}
+
+function RunLostModal({ run, onRestart, onLobby }: { run: RunState; onRestart: () => void; onLobby: () => void }) {
+  const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
+
+  return (
+    <div className="run-lost-overlay" role="dialog" aria-modal="true" aria-labelledby="run-lost-title">
+      <section className="run-lost-card">
+        <span className="run-lost-kicker">SIGNAL LOST</span>
+        <div className="run-lost-mark" aria-hidden="true">×</div>
+        <h1 id="run-lost-title">런 종료</h1>
+        <p>STAGE {run.ante}-{roundIndex} · {ROUND_LABEL[run.round]}</p>
+        <div className="run-lost-score" aria-label={`누적 점수 ${run.stats.totalScore.toLocaleString()}점`}>
+          <span>누적 점수</span><strong>{run.stats.totalScore.toLocaleString()}</strong>
+        </div>
+        <div className="run-lost-actions">
+          <button type="button" className="secondary-button" onClick={onLobby}>로비로</button>
+          <button type="button" className="primary-button" onClick={onRestart}>재시도</button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1381,9 +1520,34 @@ function AccountModal({
   user: InitialUser | null;
   onClose: () => void;
 }) {
+  const [screen, setScreen] = useState<"account" | "login" | "register">("account");
+  const [authError, setAuthError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const registering = screen === "register";
+
+  async function submitCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setAuthError("");
+    const response = await fetch(registering ? "/api/auth/register" : "/api/auth/login", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new FormData(event.currentTarget),
+    }).catch(() => null);
+    const payload = response ? await response.json().catch(() => null) as { error?: string } | null : null;
+    if (!response?.ok) {
+      setAuthError(payload?.error ?? "계정 연결을 완료하지 못했습니다.");
+      setSubmitting(false);
+      return;
+    }
+    window.location.reload();
+  }
+
   return (
-    <Modal title="플레이어 계정" onClose={onClose}>
+    <Modal title={screen === "account" ? "플레이어 계정" : registering ? "새 파일 생성" : "런 불러오기"} className="lobby-bottom-sheet account-sheet" onClose={onClose}>
       <div className="settings-body account-modal-body">
+        {screen === "account" ? (
         <section>
           <span className="kicker">ACCOUNT</span>
           <div className="account-card">
@@ -1392,9 +1556,7 @@ function AccountModal({
               <b>{user?.displayName ?? "게스트 플레이어"}</b>
               <small>{user?.email ?? "현재 진행은 이 기기에 저장됩니다."}</small>
             </div>
-            <a href={user ? "/signout-with-chatgpt?return_to=%2F" : "/signin-with-chatgpt?return_to=%2F"}>
-              {user ? "로그아웃" : "로그인"}
-            </a>
+            {user ? <a href="/signout-with-chatgpt?return_to=%2F">로그아웃</a> : <button type="button" onClick={() => setScreen("login")}>로그인</button>}
           </div>
           <p className="settings-help">
             {user
@@ -1402,6 +1564,24 @@ function AccountModal({
               : "로그인하면 런, 제작 카드, 평가와 랭킹 기록을 계정에 연결합니다."}
           </p>
         </section>
+        ) : (
+          <section className="account-auth-form">
+            <span className="kicker">DECK MAYHEM CLOUD</span>
+            <p>{registering ? "새 계정에 런과 커뮤니티 기록을 연결합니다." : "기존 런과 온라인 기록을 불러옵니다."}</p>
+            <div className="account-auth-tabs" role="tablist" aria-label="계정 방식">
+              <button type="button" className={!registering ? "active" : ""} onClick={() => { setScreen("login"); setAuthError(""); }}>로그인</button>
+              <button type="button" className={registering ? "active" : ""} onClick={() => { setScreen("register"); setAuthError(""); }}>회원가입</button>
+            </div>
+            <form onSubmit={submitCredentials}>
+              {registering && <label>닉네임<input name="displayName" minLength={2} maxLength={24} autoComplete="nickname" required /></label>}
+              <label>이메일<input name="email" type="email" maxLength={254} autoComplete="email" required /></label>
+              <label>비밀번호<input name="password" type="password" minLength={8} maxLength={72} autoComplete={registering ? "new-password" : "current-password"} required /></label>
+              {authError && <p className="account-auth-error" role="alert">{authError}</p>}
+              <button type="submit" className="primary-button" disabled={submitting}>{submitting ? "연결 중…" : registering ? "계정 만들기" : "로그인"}</button>
+              <button type="button" className="secondary-button" onClick={() => setScreen("account")}>뒤로</button>
+            </form>
+          </section>
+        )}
       </div>
     </Modal>
   );
@@ -1410,6 +1590,8 @@ function AccountModal({
 function SettingsModal({
   audio,
   reducedMotion,
+  startInSettings,
+  showNewRun,
   onNewRun,
   onExitRun,
   onReducedMotion,
@@ -1417,12 +1599,14 @@ function SettingsModal({
 }: {
   audio: ReturnType<typeof useGameAudio>;
   reducedMotion: boolean;
+  startInSettings: boolean;
+  showNewRun: boolean;
   onNewRun: () => void;
   onExitRun: () => void;
   onReducedMotion: (value: boolean) => void;
   onClose: () => void;
 }) {
-  const [screen, setScreen] = useState<"menu" | "settings">("menu");
+  const [screen, setScreen] = useState<"menu" | "settings">(startInSettings ? "settings" : "menu");
 
   return (
     <Modal title="옵션" onClose={onClose} className="options-sheet" hideHeader>
@@ -1432,7 +1616,7 @@ function SettingsModal({
             <header className="options-sheet-title"><span>PAUSE MENU</span><h2>옵션</h2></header>
             <nav className="options-menu-actions" aria-label="옵션 메뉴">
               <button type="button" onClick={onExitRun}><b>메인 메뉴</b></button>
-              <button type="button" onClick={onNewRun}><b>새로운 런</b></button>
+              {showNewRun && <button type="button" onClick={onNewRun}><b>새로운 런</b></button>}
               <button type="button" onClick={() => setScreen("settings")}><b>설정</b></button>
             </nav>
             <button type="button" className="options-sheet-back" onClick={onClose}>뒤로</button>
@@ -1451,7 +1635,7 @@ function SettingsModal({
               </section>
               <div className="options-setting-row"><span><b>모션 줄이기</b><small>점수 팝업과 카드 이동을 줄입니다</small></span><button type="button" role="switch" aria-checked={reducedMotion} aria-label="모션 줄이기" className={`toggle${reducedMotion ? " on" : ""}`} onClick={() => onReducedMotion(!reducedMotion)}><i /></button></div>
             </section>
-            <button type="button" className="options-sheet-back" onClick={() => setScreen("menu")}>뒤로</button>
+            <button type="button" className="options-sheet-back" onClick={startInSettings ? onClose : () => setScreen("menu")}>뒤로</button>
           </>
         )}
       </div>

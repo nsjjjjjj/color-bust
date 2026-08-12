@@ -44,16 +44,38 @@
   animation: dm-scoring-card-impact 290ms cubic-bezier(.18, .82, .22, 1) both;
 }
 
-/* Keep score hits readable: the HUD stays pinned while only the felt makes a
- * very short one-pixel recoil. This keeps the impact cue without the camera
- * shake that can become uncomfortable over a long round. */
+/* Each score tick gives the full cabinet a compact recoil. The strength rises
+ * with the card-score pitch staircase, but stays within a few pixels so it
+ * reads as impact rather than a continuous camera wobble. */
 .deck-game-view.is-score-impact {
-  animation: dm-score-screen-pulse 180ms steps(3, end) both;
-  will-change: filter;
+  --dm-score-kick-x: 3px;
+  --dm-score-kick-y: 2px;
+  will-change: filter, transform;
 }
 
-.deck-game-view.is-score-impact .deck-play-table {
-  animation: dm-score-table-kick 180ms steps(3, end) both;
+.deck-game-view.is-score-impact[data-score-impact-step="1"] {
+  --dm-score-kick-x: 3.7px;
+  --dm-score-kick-y: 2.5px;
+}
+
+.deck-game-view.is-score-impact[data-score-impact-step="2"] {
+  --dm-score-kick-x: 4.4px;
+  --dm-score-kick-y: 3px;
+}
+
+.deck-game-view.is-score-impact[data-score-impact-step="3"] {
+  --dm-score-kick-x: 5.1px;
+  --dm-score-kick-y: 3.4px;
+}
+
+.deck-game-view.is-score-impact[data-score-impact-step="4"] {
+  --dm-score-kick-x: 5.8px;
+  --dm-score-kick-y: 3.8px;
+}
+
+.deck-game-view.is-score-impact .deck-game-shell {
+  transform: translate3d(var(--dm-score-offset-x, 0px), var(--dm-score-offset-y, 0px), 0) rotate(var(--dm-score-rotation, 0deg));
+  transform-origin: 50% 50%;
   will-change: transform;
 }
 
@@ -235,13 +257,6 @@
   0%, 100% { filter: brightness(1) saturate(1); }
   32% { filter: brightness(1.028) saturate(1.035); }
   62% { filter: brightness(1.012) saturate(1.012); }
-}
-
-@keyframes dm-score-table-kick {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  22% { transform: translate3d(-1px, 1px, 0); }
-  46% { transform: translate3d(1px, -1px, 0); }
-  68% { transform: translate3d(0, 1px, 0); }
 }
 
 @keyframes dm-score-badge-impact {
@@ -3202,6 +3217,115 @@
   }
 }
 
+/* Loss keeps the familiar card table on screen and uses the same dark,
+ * pixel-panel language as Cash Out and the settings sheet. */
+.run-lost-overlay {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(1, 7, 8, .68);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: dm-run-lost-fade 180ms ease-out both;
+}
+
+.run-lost-card {
+  width: min(430px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding: 26px 30px 28px;
+  border: 3px solid #4b7475;
+  border-radius: 12px;
+  color: #f6f3e7;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.025) 4px 5px),
+    linear-gradient(135deg, #14282a, #071316 76%);
+  box-shadow: 7px 8px 0 #010506, inset 0 0 0 2px rgba(188,237,229,.07);
+  animation: dm-run-lost-rise 250ms cubic-bezier(.16, .95, .34, 1) both;
+  text-align: center;
+}
+
+.run-lost-kicker {
+  color: #ff6c64;
+  font: 700 11px/1 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: .11em;
+}
+
+.run-lost-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 3px double #efb937;
+  border-radius: 50%;
+  color: #ffd153;
+  font: 700 27px/1 "Galmuri11", ui-monospace, monospace;
+}
+
+.run-lost-card h1 {
+  margin: 1px 0 0;
+  font: 700 42px/.95 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: -.04em;
+  text-shadow: 3px 4px #020708;
+}
+
+.run-lost-card > p {
+  margin: 0;
+  color: #c0d1cf;
+  font: 400 13px/1.5 "Galmuri11", ui-monospace, monospace;
+}
+
+.run-lost-score {
+  width: 100%;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 2px solid #3a5c5d;
+  border-radius: 7px;
+  background: rgba(2, 10, 12, .72);
+}
+
+.run-lost-score span {
+  color: #a8bcba;
+  font: 400 10px/1 "Galmuri11", ui-monospace, monospace;
+}
+
+.run-lost-score strong {
+  color: #ffd153;
+  font: 700 26px/1 "Galmuri11", ui-monospace, monospace;
+}
+
+.run-lost-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.run-lost-actions button {
+  min-height: 49px;
+  font-size: 16px;
+}
+
+@keyframes dm-run-lost-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dm-run-lost-rise {
+  from { opacity: 0; transform: translateY(34px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-lost-overlay, .run-lost-card { animation: none; }
+}
+
 @media (orientation: portrait) and (max-width: 1100px) {
   .mobile-run-rail-lower { grid-column: 1 / -1; }
 }
@@ -5428,6 +5552,72 @@
 .run-hand-used { justify-self: end; display: inline-flex; align-items: center; gap: 5px; color: #f2c956; font-size: clamp(18px, 2.2vw, 26px); text-shadow: 2px 2px #05090a; }
 .run-hand-used i { color: #b9d5d0; font-style: normal; }
 
+/* The rows keep their original appearance.  The larger example lives in the
+ * otherwise unused top portion of the sheet, so changing the hovered row
+ * never covers the POWER/HYPE values or makes the list jump under the cursor. */
+.run-info-sheet-content {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.run-hand-row {
+  font: inherit;
+  text-align: initial;
+}
+
+.run-hand-example {
+  width: min(640px, 100%);
+  min-height: 100px;
+  display: grid;
+  justify-items: center;
+  justify-self: center;
+  gap: 5px;
+  padding: 9px 16px 8px;
+  border: 2px solid #486a65;
+  border-radius: 8px;
+  color: #f8f0dc;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.035) 3px 4px),
+    linear-gradient(145deg, #102422, #071211);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.33), 3px 4px 0 #05090a;
+}
+
+.run-hand-example-kicker {
+  color: #e1c268;
+  font: 700 10px/1 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: .08em;
+}
+
+.run-hand-example-cards {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  padding: 1px 4px;
+}
+
+.run-hand-example-card {
+  position: relative;
+  width: 43px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  margin-left: -5px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  color: #eef7e5;
+  background: #0b1414;
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.5), 2px 3px 0 #020605;
+  font-family: "Galmuri11", ui-monospace, monospace;
+}
+.run-hand-example-card:first-child { margin-left: 0; }
+.run-hand-example-card::before { content: ""; position: absolute; inset: 4px; border: 1px solid currentColor; opacity: .42; }
+.run-hand-example-card i { position: relative; z-index: 1; font-size: 27px; font-style: normal; text-shadow: 2px 2px 0 rgba(0,0,0,.58); }
+.run-hand-example-card small { position: absolute; right: 3px; bottom: 2px; color: currentColor; font-size: 9px; line-height: 1; }
+.run-hand-example-card.is-red { color: #ff5b55; background: linear-gradient(145deg, #461817, #130c0c); }
+.run-hand-example-card.is-blue { color: #30b9ff; background: linear-gradient(145deg, #10384b, #091014); }
+.run-hand-example-card.is-green { color: #7cdb37; background: linear-gradient(145deg, #213e19, #0a1109); }
+.run-hand-example-card.is-yellow { color: #f6c33a; background: linear-gradient(145deg, #493813, #161107); }
+.run-hand-example p { margin: 0; color: #d7e2da; font: 400 11px/1.35 "Galmuri11", ui-monospace, monospace; text-align: center; }
+
 .run-info-summary { display: grid; gap: 16px; min-height: 358px; }
 .run-info-summary > header { display: grid; gap: 4px; padding: 14px 18px; border-left: 6px solid #51c7d2; background: #0a171a; }
 .run-info-summary > header span { color: #5be1e8; font-size: 11px; letter-spacing: .12em; }
@@ -7312,13 +7502,6 @@
   animation: none;
 }
 
-/* A selected card that has already settled must not replay its vertical
- * selection bounce after a keyed DOM reorder. Fresh clicks still carry the
- * explicit data-selection-motion marker and retain their tactile response. */
-.deck-hand-card[data-dealt="true"][data-selected="true"]:not([data-selection-motion]) {
-  animation: none;
-}
-
 /* FLIP-style sorting: React has already assigned the final slot transform.
  * The independent translate property temporarily inverts that change, then
  * returns to zero without interrupting selection or card-face animations. */
@@ -9143,9 +9326,8 @@
   text-shadow: 2px 2px 0 #171209;
 }
 
-/* Preserve the fan's reading order: selecting a card may lift it, but it
- * never jumps above cards to its right. The rightmost card always owns the
- * foreground, even while the clicked card keeps keyboard focus. */
+/* Preserve the fan's reading order: selection only changes the vertical
+ * position. Cards to the right retain their normal foreground order. */
 .deck-hand-stage .deck-hand-card[data-selected="true"],
 .deck-hand-stage .deck-hand-card[data-selected="true"]:focus-within {
   --hand-card-active-z: var(--hand-card-z) !important;
@@ -10177,10 +10359,16 @@
   --hand-draw-source-y: calc(var(--hand-card-y) + clamp(44px, 6vh, 78px));
 }
 
-.deck-game-view:not(.reduced-motion) .deck-hand-card[data-dealing="true"] {
+.deck-game-view:not(.reduced-motion) .deck-hand-card[data-dealing="true"]:not([data-selected="true"]) {
   animation: dm-hand-deal-in 460ms cubic-bezier(.16,.78,.2,1) both !important;
   animation-delay: calc(var(--hand-deal-index, 0) * 62ms) !important;
   will-change: transform, opacity;
+}
+
+/* A player click always wins over a still-running entrance animation. */
+.deck-game-view:not(.reduced-motion) .deck-hand-card[data-dealing="true"][data-selected="true"] {
+  animation: dm-hand-selection-settle 260ms cubic-bezier(.18, .84, .24, 1) both !important;
+  animation-delay: 0ms !important;
 }
 
 .deck-played-layout[data-score-phase="moving"] .deck-played-card {
@@ -10700,4 +10888,964 @@
   font-size: clamp(34px, 3.55vw, 52px) !important;
   line-height: .9 !important;
   text-shadow: 3px 3px 0 #101817, 0 0 7px rgba(241, 227, 181, .2) !important;
+}
+
+/* Score settlement has two visual layers: the submitted cards and the hand
+ * that is fading down. Keep them in separate stacking contexts so the faded
+ * source cards can never draw over the submitted cards mid-animation. */
+.deck-game-view[data-score-phase="moving"] .deck-resolve-zone,
+.deck-game-view[data-score-phase="scoring"] .deck-resolve-zone,
+.deck-game-view[data-score-phase="transferring"] .deck-resolve-zone,
+.deck-game-view[data-score-phase="discarding"] .deck-resolve-zone {
+  position: relative;
+  z-index: 40 !important;
+  isolation: isolate;
+}
+
+.deck-game-view[data-score-phase="moving"] .deck-hand-stage,
+.deck-game-view[data-score-phase="scoring"] .deck-hand-stage,
+.deck-game-view[data-score-phase="transferring"] .deck-hand-stage,
+.deck-game-view[data-score-phase="discarding"] .deck-hand-stage {
+  position: relative;
+  z-index: 1 !important;
+  isolation: isolate;
+}
+
+/* Rack capacities stay with their labels. Keeping them in normal flow avoids
+ * the clipped, detached readout that appeared when the count was hung below
+ * the rack header. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header {
+    position: relative !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    align-self: start;
+    gap: 7px;
+    overflow: visible;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header h2 {
+    position: static;
+    top: auto;
+    margin: 0;
+    line-height: 1;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header span {
+    position: static !important;
+    top: auto !important;
+    right: auto;
+    bottom: auto !important;
+    left: auto !important;
+    z-index: auto;
+    display: inline-block;
+    margin: 0;
+    line-height: 1;
+  }
+}
+
+/* Home collection and feedback keep the lobby visible and use the same
+ * upward-moving sheet language as Options.  Their data views remain intact;
+ * only their presentation changes from a full navigation page to a focused
+ * home overlay. */
+.modal-backdrop:has(.lobby-bottom-sheet) {
+  align-items: center;
+  padding: clamp(12px, 2.5vh, 28px) clamp(10px, 2vw, 28px);
+  background: rgba(2, 12, 14, .7);
+  -webkit-backdrop-filter: blur(3px) brightness(.7);
+  backdrop-filter: blur(3px) brightness(.7);
+}
+
+.lobby-bottom-sheet.modal-panel {
+  width: min(1180px, 100%);
+  max-height: min(84dvh, 850px);
+  overflow: auto;
+  border: 3px solid #557276;
+  border-radius: 16px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #122427, #081315 76%);
+  box-shadow: 0 0 0 3px #081113, 10px 12px 0 rgba(0,0,0,.68);
+  animation: lobby-bottom-sheet-rise 280ms cubic-bezier(.16,.84,.22,1) both;
+}
+
+.lobby-bottom-sheet.modal-panel > header {
+  min-height: 72px;
+  padding: 13px clamp(15px, 2vw, 24px);
+  border-bottom: 2px solid #41666a;
+  background: linear-gradient(90deg, #102c31, #0a1719 76%);
+}
+
+.lobby-bottom-sheet.modal-panel > header .kicker { color: #62d2da; font-family: "Galmuri11", ui-monospace, monospace; }
+.lobby-bottom-sheet.modal-panel > header h2 { color: #f7f0e2; font-family: "Galmuri11", ui-monospace, monospace; font-size: clamp(24px, 2.5vw, 32px); }
+.lobby-bottom-sheet .content-view { width: 100%; padding: clamp(18px, 3vw, 34px) clamp(16px, 3.5vw, 46px) clamp(28px, 4vw, 52px); }
+.lobby-bottom-sheet .view-heading { margin-bottom: clamp(16px, 2vw, 26px); }
+.lobby-bottom-sheet .view-heading h1,
+.lobby-bottom-sheet :is(.community-view, .guestbook-view) :is(h2, h3, b, strong, span, small, p, label, textarea, button) { font-family: "Galmuri11", ui-monospace, monospace; }
+.lobby-bottom-sheet .guestbook-form { top: 0; }
+
+/* Play and rank are also home overlays. The game selector loses only its
+ * full-page backdrop here; its existing cards and actions remain unchanged. */
+.lobby-play-sheet.modal-panel { width: min(1100px, 100%); max-height: min(92dvh, 760px); }
+.lobby-play-sheet .game-select-screen--embedded {
+  min-height: 0;
+  display: block;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
+.lobby-play-sheet .game-select-screen--embedded .game-select-backdrop { display: none; }
+.lobby-play-sheet .game-select-screen--embedded .game-select-panel {
+  width: 100%;
+  padding: clamp(20px, 3vw, 34px);
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.lobby-play-sheet .game-select-screen--embedded .game-select-panel::before { left: clamp(20px, 3vw, 34px); }
+.lobby-leaderboard-sheet.modal-panel { width: min(980px, 100%); }
+
+/* The creator is a dense desktop work surface. Give it the available viewport
+ * height and a wider canvas so all module choices and the registration button
+ * stay visible without a panel scrollbar. Small screens keep the safe scroll
+ * fallback below. */
+@media (min-width: 761px) {
+  .modal-backdrop:has(.creator-sheet) { padding: 12px; }
+  .creator-sheet.modal-panel {
+    width: min(1280px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+  .creator-sheet .creator-form,
+  .creator-sheet .creator-preview { padding: 20px; }
+}
+
+@media (min-width: 761px) and (min-height: 840px) {
+  .creator-sheet.modal-panel {
+    height: min(900px, calc(100dvh - 24px));
+    overflow: hidden;
+  }
+  .creator-sheet .creator-layout { min-height: calc(100% - 76px); }
+}
+
+@media (min-width: 761px) and (max-height: 839px) {
+  .creator-sheet.modal-panel {
+    height: calc(100dvh - 24px);
+    overflow: hidden;
+  }
+  .creator-sheet.modal-panel > header { min-height: 62px; padding: 11px 16px; }
+  .creator-sheet .creator-layout { min-height: calc(100% - 62px); }
+  .creator-sheet .creator-form,
+  .creator-sheet .creator-preview { padding: 12px; }
+  .creator-sheet .creator-form label { gap: 4px; margin-bottom: 8px; }
+  .creator-sheet textarea { min-height: 60px; }
+  .creator-sheet .module-columns { gap: 8px; }
+  .creator-sheet .module-columns h3 { margin: 1px 0 5px; }
+  .creator-sheet .module-option { min-height: 40px; gap: 6px; margin-bottom: 4px; padding: 5px; }
+  .creator-sheet .module-option > b { width: 24px; height: 24px; font-size: 10px; }
+  .creator-sheet .module-option strong { font-size: 10px; }
+  .creator-sheet .module-option small { font-size: 7px; line-height: 1.1; }
+  .creator-sheet .mini-uno { height: 144px; gap: 10px; }
+  .creator-sheet .budget-meter { margin: 12px 0 8px; padding: 8px; }
+  .creator-sheet .creator-preview > p { margin: 8px 0; }
+  .creator-sheet .creator-preview ul { min-height: 0; margin: 8px 0; }
+}
+
+@keyframes lobby-bottom-sheet-rise {
+  from { transform: translateY(42vh); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 760px) {
+  .modal-backdrop:has(.lobby-bottom-sheet) { padding: 10px 8px; }
+  .lobby-bottom-sheet.modal-panel { max-height: min(88dvh, 850px); border-width: 3px; border-radius: 13px; }
+  .lobby-bottom-sheet.modal-panel > header { min-height: 62px; padding: 10px 13px; }
+  .lobby-bottom-sheet .content-view { padding: 16px 12px 26px; }
+  .lobby-bottom-sheet .uno-grid { gap: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-bottom-sheet.modal-panel { animation: none; }
+}
+
+/* Compact run picker -------------------------------------------------------
+ * The lobby sheet is a choice, not a second landing page: keep two readable
+ * cards, surface only the live run values, and reuse the rounded HUD metal. */
+.lobby-play-sheet.modal-panel {
+  width: min(760px, calc(100vw - 28px));
+  max-height: min(78dvh, 620px);
+  border-radius: 17px;
+  border-color: #466a64;
+}
+
+.lobby-play-sheet.modal-panel > header {
+  min-height: 58px;
+  padding: 10px 16px;
+  border-bottom-color: #31584f;
+}
+
+.lobby-play-sheet.modal-panel > header h2 {
+  font-size: clamp(21px, 2.5vw, 28px);
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-panel {
+  padding: 18px 20px 20px;
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-panel::before {
+  display: none;
+}
+
+.lobby-play-sheet .game-select-heading {
+  text-align: left;
+}
+
+.lobby-play-sheet .game-select-heading span {
+  color: #75d7d0;
+  font-size: 9px;
+  letter-spacing: .08em;
+}
+
+.lobby-play-sheet .game-select-heading h1 {
+  margin: 3px 0 0;
+  font-size: clamp(26px, 3.2vw, 34px);
+  text-shadow: 2px 2px 0 #071511;
+}
+
+.lobby-play-sheet .game-select-heading p {
+  margin: 5px 0 0;
+  color: #aabbb3;
+  font: 600 12px/1.4 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+}
+
+.lobby-play-sheet .game-select-options {
+  gap: 11px;
+  margin-top: 15px;
+}
+
+.lobby-play-sheet .game-select-card {
+  min-height: 168px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  padding: 14px;
+  border-width: 2px;
+  border-radius: 12px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px),
+    linear-gradient(145deg, #142723, #091713 78%);
+  box-shadow: inset 0 0 0 1px rgba(231, 221, 165, .08), 4px 5px 0 #020605;
+}
+
+.lobby-play-sheet .game-select-card:hover:not(:disabled),
+.lobby-play-sheet .game-select-card:focus-visible {
+  transform: translateY(-3px);
+}
+
+.lobby-play-sheet .game-select-card-icon {
+  width: 45px;
+  height: 62px;
+  border-width: 2px;
+  border-radius: 8px;
+  box-shadow: 3px 4px #020605;
+  font-size: 21px;
+}
+
+.lobby-play-sheet .game-select-card-copy > small {
+  color: #83a99d;
+  font-size: 8px;
+}
+
+.lobby-play-sheet .game-select-card-copy > strong {
+  margin-top: 3px;
+  font-size: 21px;
+}
+
+.lobby-play-sheet .game-select-card-copy > p {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.lobby-play-sheet .game-select-card dl {
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.lobby-play-sheet .game-select-card dl div {
+  padding: 5px 6px;
+  border-color: #36554a;
+  border-radius: 5px;
+  background: rgba(3, 12, 9, .52);
+}
+
+.lobby-play-sheet .game-select-card dt { font-size: 7px; }
+.lobby-play-sheet .game-select-card dd { margin-top: 2px; font-size: 11px; }
+.lobby-play-sheet .game-select-new-tags { gap: 4px; margin-top: 10px; }
+.lobby-play-sheet .game-select-new-tags i { padding: 3px 4px; border-radius: 4px; font-size: 6px; }
+
+/* Continue and new-run confirmation use the same compact rounded module. */
+.run-confirm-sheet.modal-panel {
+  border-radius: 16px;
+  border-color: #496b63;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px),
+    linear-gradient(145deg, #122620, #07130f 78%);
+  box-shadow: inset 0 0 0 1px rgba(231, 221, 165, .1), 7px 8px 0 rgba(0,0,0,.6);
+}
+
+.run-confirm-sheet.modal-panel > header {
+  min-height: 64px;
+  padding: 11px 16px;
+  border-bottom-color: #35574e;
+  background: linear-gradient(90deg, #15352e, #0a1915 74%);
+}
+
+.run-confirm-sheet.modal-panel > header .kicker { color: #6ed3c9; font-size: 9px; }
+.run-confirm-sheet.modal-panel > header h2 { margin-top: 2px; font-size: clamp(22px, 2.7vw, 29px); }
+.run-confirm-sheet .run-confirm-body { gap: 14px; padding: 18px; }
+.run-confirm-sheet .run-confirm-body > p { font-size: 13px; line-height: 1.45; }
+.run-confirm-sheet .run-confirm-body > p strong { font-size: 16px; color: #f0d36e; }
+
+.run-confirm-sheet .run-save-card {
+  min-height: 78px;
+  gap: 5px;
+  padding: 12px 14px;
+  border-color: #47695e;
+  border-radius: 10px;
+  background: rgba(4, 16, 12, .62);
+  box-shadow: inset 0 0 0 1px rgba(232, 224, 175, .08), 3px 4px 0 rgba(0,0,0,.34);
+}
+
+.run-confirm-sheet .run-save-card span { color: #81b9a8; font-size: 9px; }
+.run-confirm-sheet .run-save-card b { font-size: clamp(18px, 2.4vw, 24px); }
+.run-confirm-sheet .run-save-card small { color: #bdcdc5; font: 700 10px/1.2 "Galmuri11", ui-monospace, monospace; }
+
+.run-confirm-sheet .confirm-actions { gap: 9px; }
+.run-confirm-sheet .confirm-actions button { min-height: 43px; padding: 8px 14px; border-radius: 9px; font-size: 14px; }
+.run-confirm-sheet .confirm-actions .secondary-button { border-color: #49635a; background: #24362f; box-shadow: 3px 3px 0 #07100d; }
+.run-confirm-sheet .confirm-actions .primary-button { border-color: #d7a23d; background: linear-gradient(#e0a637, #ad6e15); box-shadow: 3px 3px 0 #4e2d09; }
+
+@media (max-width: 620px) {
+  .lobby-play-sheet.modal-panel { width: min(100% - 16px, 520px); max-height: 88dvh; }
+  .lobby-play-sheet .game-select-screen--embedded .game-select-panel { padding: 14px; }
+  .lobby-play-sheet .game-select-options { grid-template-columns: 1fr; }
+  .lobby-play-sheet .game-select-card { min-height: 136px; }
+}
+
+/* The embedded picker is intentionally just two big actions.  Keeping the
+ * saved-run details on this screen made the choice harder to scan than the
+ * actual confirmation that follows it. */
+.game-select-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.lobby-play-sheet.modal-panel {
+  width: min(680px, calc(100vw - 28px));
+  max-height: min(54dvh, 390px);
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-panel {
+  padding: clamp(22px, 3vw, 32px);
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 2.2vw, 22px);
+  margin: 0;
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-card {
+  min-height: clamp(142px, 18vw, 176px);
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: 22px 16px;
+  border-radius: 15px;
+  text-align: center;
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-card-copy {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.lobby-play-sheet .game-select-screen--embedded .game-select-card-copy > strong {
+  margin: 0;
+  font-size: clamp(25px, 3.3vw, 34px);
+  line-height: 1.1;
+  letter-spacing: -.035em;
+}
+
+@media (max-width: 620px) {
+  .lobby-play-sheet.modal-panel {
+    width: min(100% - 16px, 520px);
+    max-height: min(62dvh, 440px);
+  }
+
+  .lobby-play-sheet .game-select-screen--embedded .game-select-panel { padding: 14px; }
+  .lobby-play-sheet .game-select-screen--embedded .game-select-options { grid-template-columns: 1fr; gap: 10px; }
+  .lobby-play-sheet .game-select-screen--embedded .game-select-card { min-height: 92px; padding: 16px; }
+  .lobby-play-sheet .game-select-screen--embedded .game-select-card-copy > strong { font-size: clamp(24px, 7vw, 31px); }
+}
+
+/* Final home-sheet polish: all copy and numeric values use the same crisp
+ * bitmap family, while the rounded metal surface stays consistent between
+ * Play, New Run, rankings and the account drawer. */
+.lobby-leaderboard-sheet :is(.leaderboard-row, .rank-number, .leaderboard-row > strong, .leaderboard-row > span:nth-child(3), .player-avatar) {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+}
+
+.lobby-play-sheet .game-select-card,
+.lobby-play-sheet .game-select-card :is(strong, small, p, dt, dd, i),
+.lobby-play-sheet .game-select-panel > footer :is(button, p) {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-synthesis: none;
+}
+
+.lobby-play-sheet .game-select-card.is-continue {
+  border-color: #258ab7;
+  background: linear-gradient(180deg, #339ee0, #1672b6) !important;
+  box-shadow: 5px 6px 0 rgba(0,0,0,.66) !important;
+}
+
+.lobby-play-sheet .game-select-card.is-new {
+  border-color: #d29c2e;
+  background: linear-gradient(180deg, #f4c942, #d69217) !important;
+  box-shadow: 5px 6px 0 rgba(0,0,0,.66) !important;
+}
+
+.lobby-play-sheet .game-select-card :is(strong, small, p, dt, dd) { color: #f4f0e1; text-shadow: 1px 1px 0 rgba(0,0,0,.56); }
+.lobby-play-sheet .game-select-card.is-new :is(strong, small, p, dt, dd) { color: #fff2c8; }
+
+/* Account starts as the same centered, upward-moving sheet as the rest of
+ * the home actions. Selecting login swaps content in place instead of routing
+ * the player to a separate screen. */
+.account-sheet.modal-panel { width: min(510px, calc(100vw - 28px)); overflow: hidden; }
+.account-sheet .settings-body { padding: 20px; }
+.account-sheet :is(.account-card, .account-auth-form, .account-auth-form form, .account-auth-tabs) { font-family: "Galmuri11", ui-monospace, monospace; }
+.account-sheet .account-card {
+  padding: 14px;
+  border: 2px solid #456d69;
+  border-radius: 13px;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.03) 3px 4px), #0b1a1a;
+}
+.account-sheet .account-card :is(a, button) { border-radius: 9px !important; }
+.account-auth-form { display: grid; gap: 13px; }
+.account-auth-form > p { margin: 0; color: #afc5bf; font-size: 11px; line-height: 1.45; }
+.account-auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.account-auth-tabs button { min-height: 42px; border: 2px solid #42645e; border-radius: 9px !important; color: #b7cfca; background: #0a1716; }
+.account-auth-tabs button.active { border-color: #5ccfbd; color: #eff6e8; background: #174239; }
+.account-auth-form form { display: grid; gap: 10px; }
+.account-auth-form label { display: grid; gap: 5px; color: #d7e6de; font-size: 11px; }
+.account-auth-form input { min-height: 43px; border: 2px solid #41645e; border-radius: 8px; background: #071211; color: #f1f5e8; font: 400 13px/1 "Galmuri11", ui-monospace, monospace; }
+.account-auth-form .primary-button,
+.account-auth-form .secondary-button { min-height: 45px; border-radius: 9px !important; font-family: "Galmuri11", ui-monospace, monospace; }
+.account-auth-form .primary-button { border-color: #d9a73d; background: linear-gradient(#dda938, #a56413); }
+.account-auth-error { margin: 0; padding: 9px 10px; border: 2px solid #b94d4d; border-radius: 8px; color: #ffd9d3; background: #391618; font-size: 10px; }
+
+/* At compact desktop heights preserve a no-scroll creator by giving the card
+ * effects more of the frame and simplifying their smaller support copy. */
+@media (min-width: 761px) and (max-height: 839px) {
+  .creator-sheet .creator-form { padding: 10px 14px; }
+  .creator-sheet .creator-preview { padding: 12px 14px; }
+  .creator-sheet .module-option { min-height: 48px; padding: 6px 8px; }
+  .creator-sheet .module-option > b { width: 28px; height: 28px; font-size: 12px; }
+  .creator-sheet .module-option strong { font-size: 11px; }
+  .creator-sheet .module-option small { font-size: 8px; line-height: 1.2; color: #b7c7c1; }
+  .creator-sheet .module-columns h3 { margin-bottom: 6px; font-size: 12px; }
+  .creator-sheet textarea { min-height: 50px; }
+}
+
+@media (min-width: 761px) {
+  .mobile-menu-primary {
+    transform: translateY(clamp(18px, 2.8vh, 32px));
+  }
+  .mobile-menu-primary .mobile-menu-button {
+    min-height: clamp(68px, 7.6vh, 86px);
+    border-radius: 15px !important;
+    clip-path: none;
+    font-family: "Galmuri11", ui-monospace, monospace;
+    background-blend-mode: screen, normal;
+    box-shadow: inset 0 0 0 1px rgba(255,248,226,.2), inset 0 -6px 0 rgba(0,0,0,.25), 5px 6px 0 rgba(0,0,0,.6);
+  }
+  .mobile-menu-primary .mobile-menu-button::before { border-radius: 10px; clip-path: none; }
+  .mobile-menu-primary .mobile-menu-button span { font-family: "Galmuri11", ui-monospace, monospace; }
+  .mobile-menu-primary .mobile-menu-button small { font-family: "Galmuri11", ui-monospace, monospace; }
+}
+
+/* Home actions use the compact arcade treatment from the confirm/cancel
+ * controls: a dark framed bezel, a restrained top highlight, and a heavy
+ * lower edge.  Keep the action colors, but drop the bright diagonal streaks
+ * so the buttons do not compete with the logo art. */
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button {
+  border: 3px solid #182725;
+  border-radius: 7px !important;
+  background-blend-mode: normal;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, .16),
+    inset 0 -5px 0 rgba(0, 0, 0, .32),
+    0 4px 0 #07100f,
+    3px 6px 0 rgba(0, 0, 0, .42);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button::before {
+  content: none;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-play {
+  background: linear-gradient(180deg, #2c96cf 0%, #1d79b2 76%, #166397 76%, #166397 100%);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-options {
+  background: linear-gradient(180deg, #f3bd34 0%, #d99514 76%, #a9680c 76%, #a9680c 100%);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-collection {
+  background: linear-gradient(180deg, #43ae78 0%, #2d895d 76%, #216a49 76%, #216a49 100%);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button:hover:not(:disabled),
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button:focus-visible {
+  filter: brightness(1.06);
+  outline: 2px solid rgba(223, 238, 224, .58);
+  outline-offset: 2px;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button:active:not(:disabled) {
+  transform: translate(2px, 3px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .1), inset 0 -2px 0 rgba(0, 0, 0, .3), 0 2px 0 #07100f;
+}
+
+/* Boss rounds -------------------------------------------------------------
+ * Bosses now carry a real, STAGE-specific penalty.  The existing empty title
+ * track becomes a warning cassette and the left HUD gets a red diagnostic
+ * panel without moving the score, cards, MOD rack, or deck. */
+.deck-run-view-playing.is-boss-round .deck-play-table {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(147, 35, 37, .24), transparent 52%),
+    linear-gradient(rgba(26, 11, 14, .74), rgba(8, 14, 15, .94)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.025) 0 2px, transparent 2px 10px),
+    #201113;
+  box-shadow: inset 0 0 0 4px #4e2528, inset 0 0 86px rgba(118, 13, 22, .42);
+}
+
+.deck-run-view-playing.is-boss-round .deck-stage-spacer {
+  display: grid;
+  align-items: stretch;
+}
+
+.deck-boss-banner {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(7px, .75vw, 13px);
+  padding: 3px clamp(8px, 1vw, 16px);
+  border: 2px solid #a63c42;
+  border-radius: 5px;
+  color: #ffe9dd;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 12px, rgba(255,255,255,.035) 12px 13px),
+    linear-gradient(90deg, #571e24, #241417 58%, #101918);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.32), 3px 3px 0 #05090a;
+  font-family: "Galmuri11", ui-monospace, monospace;
+}
+.deck-boss-banner span { color: #ff776c; font-size: clamp(8px, .68vw, 12px); letter-spacing: .08em; }
+.deck-boss-banner strong { color: #fff0df; font-size: clamp(11px, 1vw, 17px); letter-spacing: .03em; text-shadow: 2px 2px #401016; }
+.deck-boss-banner small { min-width: 0; overflow: hidden; color: #efc4bb; font-size: clamp(8px, .65vw, 11px); text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+
+.mobile-run-rail-boss-note {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 7px;
+  padding: 7px 9px;
+  border: 2px solid #a83d40;
+  border-radius: 7px;
+  color: #ffdbd4;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px),
+    #351719;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.3), 2px 3px 0 #08090a;
+  font-family: "Galmuri11", ui-monospace, monospace;
+}
+.mobile-run-rail-boss-note b { grid-row: 1 / span 2; align-self: center; color: #ff766b; font-size: 8px; letter-spacing: .07em; writing-mode: vertical-rl; transform: rotate(180deg); }
+.mobile-run-rail-boss-note strong { min-width: 0; color: #fff0e1; font-size: clamp(11px, .9vw, 15px); line-height: 1.1; }
+.mobile-run-rail-boss-note span { min-width: 0; overflow: hidden; color: #f2b9af; font-size: clamp(8px, .65vw, 11px); line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+
+.deck-boss-intro {
+  position: absolute;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  pointer-events: none;
+  color: #fff1e3;
+  background: radial-gradient(ellipse at center, rgba(116, 17, 25, .75), rgba(4, 10, 11, .18) 57%, rgba(3, 8, 9, .64));
+  animation: deck-boss-intro 1450ms cubic-bezier(.13,.76,.24,1) both;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  text-align: center;
+}
+.deck-boss-intro span { color: #ff796e; font-size: clamp(12px, 1vw, 18px); letter-spacing: .18em; }
+.deck-boss-intro strong { color: #fff0df; font-size: clamp(30px, 4vw, 68px); line-height: .88; letter-spacing: .04em; text-shadow: 5px 5px #4c1017, 9px 10px rgba(0,0,0,.45); }
+.deck-boss-intro small { color: #ffc4ba; font-size: clamp(11px, .9vw, 15px); letter-spacing: .12em; }
+@keyframes deck-boss-intro {
+  0% { opacity: 0; transform: scale(1.08); }
+  13%, 74% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.98); }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 560px) {
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-round {
+    grid-template-rows: clamp(28px, 3.7vh, 42px) minmax(42px, auto) minmax(0, 1fr) !important;
+  }
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-blind-copy > small { display: none !important; }
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-boss-note {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: stretch;
+  }
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-blind-mark,
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-round-reward { grid-row: 3; }
+  .deck-run-view-playing .mobile-run-rail.is-boss .mobile-run-rail-blind-copy h2 {
+    border-color: #a83d40 !important;
+    color: #fff0e1 !important;
+    background: linear-gradient(180deg, #c34b4f, #812a31) !important;
+    text-shadow: 3px 3px #4c1017 !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .deck-boss-banner { grid-template-columns: auto minmax(0, 1fr); gap: 4px 7px; }
+  .deck-boss-banner small { grid-column: 1 / -1; text-align: left; }
+  .deck-boss-intro strong { font-size: 32px; }
+  .mobile-run-rail-boss-note { padding: 5px 6px; }
+}
+
+/* Cash out → Garage -------------------------------------------------------
+ * The upper-left round cassette is a transition object, not part of the
+ * score panel.  On clear it exits on its own; once coins are claimed the new
+ * Garage cassette descends into exactly that track. */
+.deck-run-view-reward .mobile-run-rail-round.is-clearing {
+  pointer-events: none;
+  animation: dm-round-banner-clear 360ms cubic-bezier(.2,.8,.25,1) both !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage {
+  position: relative;
+  min-height: clamp(180px, 26vh, 274px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  border-color: #e15a55 !important;
+  background:
+    linear-gradient(#ffd895, #ffd895) 9px 8px / 34px 2px no-repeat,
+    linear-gradient(#ffd895, #ffd895) calc(100% - 43px) calc(100% - 8px) / 34px 2px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.03) 4px 5px),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 218, 177, .34), transparent 58%),
+    linear-gradient(135deg, #df5c5b, #b6363d 62%, #7d2029);
+  box-shadow: inset 0 0 0 2px rgba(255, 166, 116, .14), 0 5px 0 #020504 !important;
+  animation: dm-garage-banner-drop 470ms cubic-bezier(.12,.82,.2,1) both !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 5px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 185, 115, .45);
+  background:
+    radial-gradient(circle at 4px 4px, #fff8cc 0 1px, #ffc75c 1.5px 3px, transparent 3.5px) 0 0 / 18px 8px repeat-x,
+    radial-gradient(circle at 4px 4px, #fff8cc 0 1px, #ffc75c 1.5px 3px, transparent 3.5px) 0 100% / 18px 8px repeat-x,
+    radial-gradient(circle at 4px 4px, #fff8cc 0 1px, #ffc75c 1.5px 3px, transparent 3.5px) 0 0 / 8px 18px repeat-y,
+    radial-gradient(circle at 4px 4px, #fff8cc 0 1px, #ffc75c 1.5px 3px, transparent 3.5px) 100% 0 / 8px 18px repeat-y;
+  filter: drop-shadow(0 0 2px #ff982f);
+  animation: dm-garage-bulbs 850ms steps(2, end) infinite;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage::after {
+  content: none;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  border-bottom: 0;
+  position: relative;
+  z-index: 2;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-mark {
+  border-color: #62ddec;
+  color: #dcfcff;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.07) 6px 8px),
+    #124352;
+  box-shadow: inset 0 -4px 0 #09262e, 3px 4px 0 #030504;
+  text-shadow: 2px 2px #0a3d47;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #fff4d7;
+  font-size: clamp(30px, 3.3vw, 48px);
+  line-height: 1;
+  letter-spacing: .1em;
+  background: transparent;
+  box-shadow: none;
+  text-align: center;
+  text-shadow: 3px 4px #6c1d26;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy > span {
+  color: #ffd18a;
+  letter-spacing: .08em;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy small {
+  color: #f0c9bd;
+}
+
+.mobile-run-rail-garage-console {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 7px;
+  margin: 8px;
+  padding: 8px;
+  position: relative;
+  z-index: 2;
+  border: 1px solid rgba(255, 169, 121, .5);
+  background:
+    linear-gradient(90deg, rgba(255, 176, 108, .23) 0 16px, transparent 16px) 0 0 / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 19px, rgba(255, 184, 126, .08) 19px 20px),
+    linear-gradient(145deg, rgba(141, 45, 48, .65), rgba(40, 13, 18, .82));
+  box-shadow: inset 0 0 22px rgba(233, 77, 58, .18);
+  font-family: "Galmuri11", ui-monospace, monospace;
+}
+
+.mobile-run-rail-garage-status,
+.mobile-run-rail-garage-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  color: #ffd3bd;
+  font-size: 7px;
+  letter-spacing: .1em;
+}
+
+.mobile-run-rail-garage-status b {
+  padding: 3px 5px;
+  color: #fff3d3;
+  background: #bd4549;
+  box-shadow: 2px 2px #4a1119;
+  font-size: 7px;
+}
+
+.mobile-run-rail-garage-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(15px, 1fr));
+  gap: 5px;
+  padding: 5px;
+  border: 1px dashed rgba(255, 190, 128, .43);
+  background: rgba(31, 7, 12, .42);
+}
+
+.mobile-run-rail-garage-grid i {
+  position: relative;
+  min-width: 0;
+  border: 1px solid rgba(255, 180, 125, .36);
+  background: linear-gradient(135deg, rgba(235, 89, 71, .34), transparent 54%);
+}
+
+.mobile-run-rail-garage-grid i::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  background: #ffd373;
+  box-shadow: -5px 0 rgba(255, 211, 115, .5), 0 -5px rgba(255, 211, 115, .5);
+}
+
+.mobile-run-rail-garage-footer b { color: #fff2d2; font-size: 7px; }
+
+@keyframes dm-garage-bulbs {
+  0%, 100% { opacity: 1; filter: drop-shadow(0 0 3px #ffbd44); }
+  50% { opacity: .42; filter: drop-shadow(0 0 1px #9e3a23); }
+}
+
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
+  .deck-run-view-shop .mobile-run-rail-round.is-garage { min-height: clamp(142px, 23vh, 184px); }
+  .deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind { min-height: 0; }
+  .mobile-run-rail-garage-console { gap: 4px; margin: 5px; padding: 5px; }
+  .mobile-run-rail-garage-status,
+  .mobile-run-rail-garage-footer,
+  .mobile-run-rail-garage-status b,
+  .mobile-run-rail-garage-footer b { font-size: 5px; }
+  .mobile-run-rail-garage-grid { gap: 3px; padding: 3px; }
+}
+
+/* The Garage cabinet already receives its `is-leaving` state before the
+ * engine advances. Mirror that state on the fixed left HUD so its marquee
+ * leaves the screen instead of disappearing with the next render. */
+.deck-run-view-shop:has(.dm-garage--embedded.is-leaving) .mobile-run-rail-round.is-garage {
+  pointer-events: none;
+  animation: dm-garage-banner-exit 330ms cubic-bezier(.2,.8,.25,1) both !important;
+}
+
+@keyframes dm-garage-banner-exit {
+  from { opacity: 1; transform: translateY(0); filter: brightness(1); }
+  to { opacity: 0; transform: translateY(calc(-100% - 30px)); filter: brightness(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view-shop:has(.dm-garage--embedded.is-leaving) .mobile-run-rail-round.is-garage {
+    animation: none !important;
+    opacity: 0;
+  }
+}
+
+@keyframes dm-round-banner-clear {
+  from { opacity: 1; transform: translateY(0); filter: brightness(1); }
+  to { opacity: 0; transform: translateY(calc(-100% - 24px)); filter: brightness(1.28); }
+}
+
+@keyframes dm-garage-banner-drop {
+  from { opacity: 0; transform: translateY(calc(-100% - 30px)); }
+  72% { opacity: 1; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view-reward .mobile-run-rail-round.is-clearing { animation: none !important; opacity: 0; }
+  .deck-run-view-shop .mobile-run-rail-round.is-garage { animation: none !important; }
+}
+
+/* Garage is a single full-panel destination sign.  Keep these overrides last:
+ * the gameplay HUD also styles the blind header and otherwise turns it back
+ * into the dark, top-left title cassette at some viewport sizes. */
+.deck-run-view-shop .mobile-run-rail-round.is-garage {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  place-items: stretch !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.045) 4px 5px),
+    radial-gradient(ellipse at 50% 15%, rgba(255, 220, 183, .34), transparent 59%),
+    linear-gradient(145deg, #e46461 0%, #c44045 57%, #83212a 100%) !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind,
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy {
+  display: grid !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  place-items: center !important;
+  position: static !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
+  display: block !important;
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: clamp(40px, 4.4vw, 64px) !important;
+  line-height: .92 !important;
+  letter-spacing: .11em !important;
+  text-align: center !important;
+  transform: none !important;
+}
+
+/* The full-panel marquee intentionally has a single line of copy.  Earlier
+ * HUD sizing rules could enlarge this heading until it collided with the
+ * bulbs, so lock it to the actual width of the left rail instead. */
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy > span,
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy > small {
+  display: none !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
+  max-width: calc(100% - 34px) !important;
+  overflow: hidden;
+  color: #fff4d7 !important;
+  font-size: clamp(23px, 2.45vw, 36px) !important;
+  line-height: 1 !important;
+  letter-spacing: .08em !important;
+  text-overflow: clip;
+  white-space: nowrap;
+  text-shadow: 3px 4px #6c1d26, 0 0 10px rgba(255, 222, 155, .18) !important;
+}
+
+/* This is a destination marquee, so its one word belongs in the physical
+ * centre of the sign rather than in the inherited round-header track. */
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind {
+  position: absolute !important;
+  z-index: 2;
+  inset: 0 !important;
+  height: auto !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy {
+  position: absolute !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
+  font-size: clamp(36px, 4vw, 52px) !important;
+}
+
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-garage-console {
+  display: none;
+}
+
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
+  .deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
+    font-size: clamp(30px, 3.7vw, 42px) !important;
+  }
 }

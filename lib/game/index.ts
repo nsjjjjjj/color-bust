@@ -2,6 +2,7 @@
 export * from "./types";
 export * from "./constants";
 export * from "./garage-config";
+export { BOSS_PENALTIES, bossPenaltyFor } from "./boss-penalties";
 
 export {
   createRun,

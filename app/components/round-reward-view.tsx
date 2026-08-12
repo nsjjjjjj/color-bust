@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { RoundReward, RunState } from "../../lib/game/types";
 
@@ -26,6 +26,8 @@ export interface RoundRewardViewProps {
   readonly notice?: string;
   readonly claiming?: boolean;
   readonly reducedMotion?: boolean;
+  /** Fires as each completed reward line settles its visible coin amount. */
+  readonly onCoinSettle?: (lineIndex: number) => void;
   readonly onClaim: () => void;
 }
 
@@ -52,6 +54,7 @@ export function RoundRewardView({
   notice = "",
   claiming = false,
   reducedMotion = false,
+  onCoinSettle,
   onClaim,
 }: RoundRewardViewProps) {
   if (!reward) {
@@ -75,6 +78,7 @@ export function RoundRewardView({
       notice={notice}
       claiming={claiming}
       reducedMotion={reducedMotion}
+      onCoinSettle={onCoinSettle}
       onClaim={onClaim}
     />
   );
@@ -87,9 +91,12 @@ function RewardReceipt({
   notice,
   claiming,
   reducedMotion,
+  onCoinSettle,
   onClaim,
-}: Required<Pick<RoundRewardViewProps, "run" | "embedded" | "notice" | "claiming" | "reducedMotion" | "onClaim">> & { readonly reward: RoundReward }) {
-  const lines: readonly RewardLine[] = [
+}: Required<Pick<RoundRewardViewProps, "run" | "embedded" | "notice" | "claiming" | "reducedMotion" | "onClaim">>
+  & Pick<RoundRewardViewProps, "onCoinSettle">
+  & { readonly reward: RoundReward }) {
+  const allLines: readonly RewardLine[] = [
     {
       id: "base",
       label: "TARGET CLEAR",
@@ -119,15 +126,17 @@ function RewardReceipt({
       symbol: "M",
     },
   ];
-  const rewardValues = useMemo(() => [
-    reward.baseCoins,
-    reward.handBonus,
-    reward.reserveBonus,
-    reward.modIncome,
-  ], [reward.baseCoins, reward.handBonus, reward.modIncome, reward.reserveBonus]);
+  // Keep the receipt about this round. Optional rewards that paid nothing do
+  // not take up a full row in the cash-out sequence.
+  const lines = allLines.filter((line) => line.id === "base" || line.value > 0);
+  const rewardValues = useMemo(
+    () => lines.map((line) => line.value),
+    [reward.baseCoins, reward.handBonus, reward.modIncome, reward.reserveBonus],
+  );
   const [countState, setCountState] = useState<RewardCountState>(() => reducedMotion
     ? { values: rewardValues, total: reward.total, activeIndex: null, revealedCount: rewardValues.length, complete: true }
     : { values: rewardValues.map(() => 0), total: 0, activeIndex: null, revealedCount: 0, complete: false });
+  const settledLineCountRef = useRef(0);
 
   useEffect(() => {
     if (reducedMotion) return;
@@ -173,6 +182,21 @@ function RewardReceipt({
     return () => window.cancelAnimationFrame(frame);
   }, [reducedMotion, reward.total, rewardValues]);
 
+  useEffect(() => {
+    if (reducedMotion) {
+      settledLineCountRef.current = countState.revealedCount;
+      return;
+    }
+
+    const previousCount = settledLineCountRef.current;
+    if (countState.revealedCount <= previousCount) return;
+
+    for (let index = previousCount; index < countState.revealedCount; index += 1) {
+      if (rewardValues[index] > 0) onCoinSettle?.(index);
+    }
+    settledLineCountRef.current = countState.revealedCount;
+  }, [countState.revealedCount, onCoinSettle, reducedMotion, rewardValues]);
+
   return (
     <section className={`dm-reward${embedded ? " dm-reward--embedded" : ""}${claiming ? " is-leaving" : ""}`} aria-labelledby="dm-reward-title">
       <div className="dm-reward__backdrop" aria-hidden="true">
@@ -181,7 +205,7 @@ function RewardReceipt({
       <section className="dm-reward__card">
         <header className="dm-reward__header">
           <div className="dm-reward__clear-mark" aria-hidden="true">
-            <span>✓</span>
+            <span>{run.round === "small" ? "SMALL\nBLIND" : run.round === "big" ? "BIG\nBLIND" : "MAYHEM"}</span>
           </div>
           <div>
             <span>STAGE {run.ante} · {ROUND_LABELS[run.round]}</span>
@@ -189,38 +213,24 @@ function RewardReceipt({
               <button
                 type="button"
                 className="dm-reward__title-claim"
+                data-sfx="silent"
                 disabled={claiming || !countState.complete}
                 aria-busy={claiming || !countState.complete}
                 onClick={onClaim}
               >
                 {claiming
                   ? "코인 수령 중…"
-                  : countState.complete
-                    ? `캐시 아웃: +${countState.total}¢`
-                    : `보상 계산 중: +${countState.total}¢`}
+                  : `캐시 아웃: +${reward.total}¢`}
               </button>
             </h1>
-            <p>목표 {run.target.toLocaleString()} POINT 달성 · 보상 명세를 확인하고 직접 수령하세요.</p>
+            <p className="dm-reward__target"><b>최소 득점:</b><strong>◉ {run.target.toLocaleString()}</strong></p>
           </div>
         </header>
-
-        <div className="dm-reward__wallets" aria-label="보상 전후 지갑">
-          <div>
-            <span>현재 지갑</span>
-            <strong>{run.coins}¢</strong>
-          </div>
-          <span className="dm-reward__wallet-arrow" aria-hidden="true">→</span>
-          <div className="is-after">
-            <span>수령 후</span>
-            <strong key={`wallet-${countState.total}`} className="dm-reward__coin-tick">{run.coins + countState.total}¢</strong>
-          </div>
-        </div>
 
         <ol className="dm-reward__ledger" aria-label="라운드 보상 상세">
           {lines.map((line, index) => (
             <li
               className="dm-reward__line"
-              data-zero={line.value === 0 || undefined}
               data-count-state={index < countState.revealedCount ? "counted" : countState.activeIndex === index ? "counting" : "pending"}
               style={{ animationDelay: `${index * 75}ms` }}
               key={line.id}
@@ -230,6 +240,7 @@ function RewardReceipt({
                 <b>{line.label}</b>
                 <small>{line.description}</small>
               </span>
+              <span className="dm-reward__settle-coins" aria-hidden="true"><i>¢</i><i>¢</i><i>¢</i></span>
               <output
                 className="dm-reward__coin-tick"
                 key={`${line.id}-${countState.values[index]}`}
@@ -241,17 +252,23 @@ function RewardReceipt({
           ))}
         </ol>
 
-        <section className="dm-reward__total" data-counting={!countState.complete || undefined} aria-label={`총 보상 ${reward.total}코인`}>
-          <div>
-            <span>TOTAL PAYOUT</span>
-            <small>이번 라운드 총 획득</small>
-          </div>
-          <output className="dm-reward__coin-tick" key={`total-${countState.total}`}>+{countState.total}¢</output>
-        </section>
+        <div
+          className="dm-reward__payout-dock"
+          data-complete={countState.complete || undefined}
+          aria-label={`이번 라운드 총 ${reward.total}코인`}
+        >
+          <output>+{countState.total}¢</output>
+          <span className="dm-reward__coin-well" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, index) => <i key={index}>¢</i>)}
+          </span>
+        </div>
 
-        <p className="dm-reward__notice" role="status" aria-live="polite">
-          {notice || (countState.complete ? `위 캐시 아웃을 누르면 보상을 받고 ${reward.nextPhase === "won" ? "결과 화면" : "상점"}으로 이동합니다.` : "항목별 보상을 계산하는 중입니다.")}
-        </p>
+        {notice ? <p className="dm-reward__notice" role="status" aria-live="polite">{notice}</p> : null}
+        {claiming && (
+          <span className="dm-reward__coin-flight" aria-hidden="true">
+            {Array.from({ length: 7 }, (_, index) => <i key={index}>¢</i>)}
+          </span>
+        )}
       </section>
     </section>
   );
