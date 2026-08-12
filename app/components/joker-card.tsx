@@ -1,11 +1,15 @@
 "use client";
 
+import { JOKER_ART } from "../../lib/game/special-card-art";
+import type { JokerId } from "../../lib/game/types";
+
 export type DisplayJoker = {
   id: string;
   name: string;
   description: string;
   rarity?: "common" | "uncommon" | "rare";
   price?: number;
+  jokerId?: JokerId;
 };
 
 const RARITY_LABEL = { common: "일반", uncommon: "고급", rare: "희귀" } as const;
@@ -27,8 +31,7 @@ export function JokerCard({
   return (
     <article className={`joker-card rarity-${rarity}${compact ? " is-compact" : ""}`}>
       <div className="joker-art" aria-hidden="true">
-        <span>{joker.name.slice(0, 1)}</span>
-        <i />
+        {joker.jokerId ? <img className="special-card-art" src={JOKER_ART[joker.jokerId]} alt="" /> : <><span>{joker.name.slice(0, 1)}</span><i /></>}
       </div>
       <div className="joker-copy">
         <div className="eyebrow-row">
@@ -46,4 +49,3 @@ export function JokerCard({
     </article>
   );
 }
-
