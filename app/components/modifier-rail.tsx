@@ -219,11 +219,6 @@ export function ModifierRail({
                 className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={joker.instanceId}
                 onMouseEnter={() => showTooltip(key)}
-                onMouseLeave={(event) => {
-                  if (!event.currentTarget.contains(event.currentTarget.ownerDocument.activeElement)) {
-                    hideTooltip(key);
-                  }
-                }}
               >
                 <button
                   type="button"
@@ -233,7 +228,13 @@ export function ModifierRail({
                   aria-controls={tooltipId}
                   aria-expanded={isOpen}
                   onFocus={() => showTooltip(key)}
-                  onBlur={() => hideTooltip(key)}
+                  onBlur={(event) => {
+                    // Moving focus into this same tooltip (e.g. the sell button)
+                    // isn't "leaving" it — only close when focus goes elsewhere.
+                    const next = event.relatedTarget;
+                    if (next && event.currentTarget.parentElement?.contains(next)) return;
+                    hideTooltip(key);
+                  }}
                   onPointerDown={(event) => {
                     pointerOpenedTooltip.current = event.pointerType !== "mouse" && openTooltip === key ? key : null;
                   }}
