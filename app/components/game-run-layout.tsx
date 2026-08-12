@@ -82,7 +82,7 @@ export function GameRunLayout({
   return (
     <main
       ref={screenRef}
-      className={`game-view balatro-mobile-game deck-game-view deck-run-view deck-run-view-${phase}${className ? ` ${className}` : ""}`}
+      className={`game-view balatro-mobile-game deck-game-view deck-run-view deck-run-view-${phase}${phase === "shop" ? " deck-run-view-playing" : ""}${className ? ` ${className}` : ""}`}
       data-run-phase={phase}
       data-score-phase={scorePhase}
       aria-busy={busy}

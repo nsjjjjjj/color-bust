@@ -148,11 +148,14 @@ export function GameLeftRail({
           <dl className="mobile-run-rail-run-meta" aria-label="스테이지와 라운드 진행도">
             <div>
               <dt>STAGE</dt>
-              <dd>{run.ante}{run.mode === "standard" ? "/5" : "/∞"}</dd>
+              <dd>
+                <b>{run.ante}</b>
+                <small>/{run.mode === "standard" ? 5 : "∞"}</small>
+              </dd>
             </div>
             <div>
               <dt>ROUND</dt>
-              <dd>{run.roundNumber}{run.mode === "standard" ? "/15" : ""}</dd>
+              <dd>{roundIndex}</dd>
             </div>
           </dl>
         </div>
