@@ -509,6 +509,41 @@
   font-size: clamp(28px, 3vw, 46px);
   text-shadow: 3px 3px 0 #071113, 0 0 12px var(--rarity-color);
 }
+
+/* Use the supplied MOD/MAYHEM card face as-is instead of rebuilding art in CSS. */
+.dm-shop-slot__art.is-special-art,
+.dm-pack-choice__icon.is-special-art {
+  overflow: hidden;
+  border-color: transparent;
+  background: #06090a;
+}
+
+.dm-shop-slot__art.is-special-art::after { display: none; }
+
+.dm-shop-slot__art.is-special-art .special-card-art,
+.dm-pack-choice__icon.is-special-art .special-card-art,
+.joker-art .special-card-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+/* Supplied booster pack art is a locked portrait asset.  Let it completely
+   * replace the generated symbol frame, without cropping its border. */
+.dm-shop-slot__art.is-pack-art {
+  border-color: transparent;
+  background: #050807;
+}
+.dm-shop-slot__art.is-pack-art::after { display: none; }
+.dm-shop-slot__art.is-pack-art .dm-pack-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 .dm-shop-slot__copy { display: block; min-width: 0; text-align: center; }
 .dm-shop-slot__copy > small { display: block; color: #879d9a; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
 .dm-shop-slot__copy > strong { display: block; margin-top: 2px; color: #f3faf8; font-size: 13px; line-height: 1.2; }
@@ -707,9 +742,286 @@
 }
 .dm-sealed-pack:hover { transform: translateY(-10px) scale(1.05) rotate(-1deg); filter: brightness(1.2); }
 .dm-sealed-pack[data-opening] { animation: dm-pack-open .52s cubic-bezier(.2,.85,.2,1); }
-.dm-sealed-pack > span { color: #f7d853; font-family: "Galmuri11", monospace !important; font-size: 52px; }
-.dm-sealed-pack > strong { margin-top: 14px; font-size: 17px; }
-.dm-sealed-pack > small { margin-top: 9px; color: #d4b7ee; font-size: 10px; }
+.dm-sealed-pack:has(.dm-sealed-pack__art) {
+  width: min(330px, 62vw);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #050807;
+}
+.dm-sealed-pack__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.dm-sealed-pack__copy {
+  position: absolute;
+  right: 0;
+  bottom: -34px;
+  left: 0;
+  display: grid;
+  gap: 3px;
+  color: #f7eacb;
+  text-shadow: 2px 2px 0 #050807;
+}
+.dm-sealed-pack__copy strong { font-size: 16px; }
+.dm-sealed-pack__copy small { color: #d4b7ee; font-size: 10px; }
+
+/* Pack opening is a self-contained stage.  A fixed three-part layout keeps
+ * the pack, all revealed choices and the confirm action inside the viewport
+ * instead of letting tall 5-choice packs run underneath the footer. */
+.dm-pack-overlay {
+  overflow: hidden;
+  padding: clamp(10px, 2vh, 22px);
+}
+.dm-pack-stage {
+  width: min(1120px, calc(100vw - 28px));
+  height: min(760px, calc(100dvh - 28px));
+  max-height: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  padding: clamp(12px, 1.45vw, 20px);
+  border: 2px solid #4a7773;
+  background:
+    linear-gradient(#d0a848, #d0a848) 15px 0 / 84px 2px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(209,244,233,.025) 4px 5px),
+    linear-gradient(145deg, #0c2020, #061112 72%);
+}
+.dm-pack-stage > header {
+  min-width: 0;
+  padding: 0 0 9px;
+}
+.dm-pack-stage > header h2 { font-size: clamp(20px, 2vw, 30px); }
+.dm-pack-notice {
+  position: absolute;
+  top: 68px;
+  right: 18px;
+  left: 18px;
+  z-index: 4;
+  padding: 7px 12px;
+  border: 1px solid #ff5555;
+  color: #ffaaa0;
+  background: rgba(71, 20, 22, .96);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.dm-pack-content {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  overflow: hidden;
+}
+.dm-pack-content:has(.dm-pack-targets) {
+  grid-template-rows: minmax(190px, 1fr) minmax(146px, .74fr);
+  gap: 10px;
+}
+.dm-sealed-pack {
+  align-self: center;
+  width: min(300px, 44vw);
+  max-height: 100%;
+  margin: 0 auto 30px;
+}
+.dm-pack-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  min-height: 0;
+  height: 100%;
+  padding: 10px 4px;
+  gap: clamp(8px, 1.25vw, 16px);
+  overflow: hidden;
+  align-items: center;
+  justify-items: center;
+}
+.dm-pack-choice {
+  width: min(100%, 155px);
+  min-width: 0;
+  max-height: 100%;
+  aspect-ratio: .69;
+}
+.dm-pack-choice-tile {
+  position: relative;
+  width: min(100%, 155px);
+  height: 100%;
+  max-height: 100%;
+}
+.dm-pack-choice-tile .dm-pack-choice { width: 100%; height: 100%; }
+.dm-pack-choice-tile[data-previewed] { z-index: 12; }
+.dm-pack-choice-tile[data-previewed] .dm-pack-choice {
+  transform: translateY(-8px) scale(1.035);
+  box-shadow: 0 0 20px var(--rarity-color), 5px 7px 0 #020708;
+}
+.dm-pack-choice__confirm {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  left: 8px;
+  z-index: 14;
+  min-height: 26px;
+  border: 2px solid #f2cf5c;
+  cursor: pointer;
+  color: #16130a;
+  background: linear-gradient(#ffe67c, #d69c22);
+  box-shadow: 2px 3px 0 #060806;
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-size: 10px;
+  font-weight: 900;
+}
+.dm-pack-choice__confirm:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+/* Same compact reveal proportions as before; only the SELECT control gains a
+ * proper pixel-button treatment. */
+.dm-pack-choice__confirm {
+  right: 7px !important;
+  bottom: 7px !important;
+  left: 7px !important;
+  display: grid !important;
+  min-height: 28px !important;
+  place-items: center !important;
+  border: 2px solid #f2cf5c !important;
+  color: #191307 !important;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.14) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #ffe875, #d99419 78%) !important;
+  box-shadow: inset 0 1px rgba(255,255,230,.6), inset 0 -2px rgba(107,60,0,.45), 2px 3px 0 #040605 !important;
+  font-size: 10px !important;
+  letter-spacing: .05em !important;
+}
+
+/* Restore the compact five-card reveal: choice tiles size themselves from
+ * their portrait ratio, not from the full height of the opening panel.  The
+ * second-click SELECT remains visible directly beneath its chosen card. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .dm-pack-stage {
+    width: min(1240px, 96vw) !important;
+    height: min(760px, calc(100dvh - 28px)) !important;
+  }
+
+  .dm-pack-choices {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: clamp(10px, 1.45vw, 22px) !important;
+    padding: 28px 8px 15px !important;
+    align-items: center !important;
+  }
+
+  .dm-pack-choice-tile {
+    width: min(100%, 190px) !important;
+    height: auto !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    display: grid !important;
+    grid-template-rows: auto auto !important;
+    gap: 7px !important;
+    align-self: center !important;
+  }
+
+  .dm-pack-choice-tile .dm-pack-choice {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: .69 !important;
+  }
+
+  .dm-pack-choice__confirm {
+    position: static !important;
+    width: calc(100% - 12px) !important;
+    min-height: 30px !important;
+    margin: 0 6px !important;
+    padding: 0 !important;
+    border: 2px solid #f2cf5c !important;
+    color: #191307 !important;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.14) 0 1px, transparent 1px 5px),
+      linear-gradient(180deg, #ffe875, #d99419 78%) !important;
+    box-shadow: inset 0 1px rgba(255,255,230,.6), inset 0 -2px rgba(107,60,0,.45), 2px 3px 0 #040605 !important;
+    font-size: 10px !important;
+  }
+
+  .dm-pack-choice-tile[data-previewed] .dm-pack-choice {
+    transform: translateY(-6px) scale(1.025) !important;
+  }
+}
+.dm-pack-choice__front,
+.dm-pack-choice__back { padding: clamp(7px, .8vw, 11px); }
+.dm-pack-choice__front > strong { margin-top: 7px; font-size: clamp(10px, 1vw, 13px); }
+.dm-pack-choice__front > span:last-child { font-size: clamp(8px, .8vw, 10px); }
+.dm-pack-choice__number,
+.dm-pack-choice__icon { width: 68%; }
+.dm-pack-targets {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 7px;
+  padding: 9px 10px;
+  overflow: hidden;
+}
+.dm-pack-targets > header { min-width: 0; }
+.dm-pack-targets .dm-utility-colors { margin: 0 !important; }
+.dm-pack-targets .dm-deck-grid { min-height: 0; max-height: none; overflow: auto; }
+.dm-pack-target-confirm {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 2px solid #4ddc86;
+  cursor: pointer;
+  color: #06130b;
+  background: #72e69f;
+  box-shadow: 2px 3px 0 #020708;
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-size: 9px;
+}
+.dm-pack-target-confirm:disabled { cursor: not-allowed; opacity: .4; }
+.dm-pack-targets { position: relative; padding-bottom: 46px; }
+.dm-pack-footer,
+.dm-pack-stage > footer {
+  min-height: 46px;
+  margin-top: 0;
+  padding-top: 9px;
+}
+.dm-pack-footer > button,
+.dm-pack-stage > footer > button { min-width: 164px; min-height: 38px; }
+
+@media (max-width: 760px), (max-height: 620px) {
+  .dm-pack-overlay { padding: 8px; overflow: auto; place-items: start center; }
+  .dm-pack-stage { height: auto; min-height: calc(100dvh - 16px); overflow: visible; grid-template-rows: auto auto auto; }
+  .dm-pack-content { overflow: visible; }
+  .dm-pack-content:has(.dm-pack-targets) { grid-template-rows: auto auto; }
+  .dm-pack-choices { grid-template-columns: repeat(auto-fit, minmax(98px, 1fr)); height: auto; overflow: visible; }
+  .dm-pack-choice { width: min(100%, 130px); }
+  .dm-pack-targets { overflow: visible; }
+  .dm-pack-targets .dm-deck-grid { max-height: 190px; }
+}
+
+/* Pack artwork already carries its own title.  Give it the text row too, so
+   * every supplied portrait is shown uncropped in the shop shelf. */
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__select {
+  grid-template-rows: 13px minmax(0, 1fr) !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__copy {
+  display: none !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art {
+  grid-row: 2 !important;
+  width: min(100%, 112px) !important;
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: 2 / 3 !important;
+  clip-path: none !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art .dm-pack-art {
+  object-fit: contain !important;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art {
+    width: min(100%, 132px) !important;
+  }
+}
 @keyframes dm-pack-open {
   0%,100% { transform: scale(1); }
   22% { transform: translateX(-7px) rotate(-3deg) scale(1.08); }
@@ -1516,6 +1828,76 @@
     margin: 0 !important;
     overflow: visible !important;
   }
+}
+
+
+/* Mobile cash-out is deliberately independent from the desktop receipt. Keep
+ * it inside the available felt height, with the receipt itself scrolling only
+ * when a particularly long reward ledger needs the space. */
+@media (max-width: 1000px) {
+  .deck-run-view-reward .deck-run-main-content[data-run-content="reward"] {
+    display: grid !important;
+    align-items: end !important;
+    justify-items: center !important;
+    min-height: 0 !important;
+    padding: 8px 8px max(10px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    place-items: end center !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    width: min(100%, 620px) !important;
+    max-height: calc(100% - 2px) !important;
+    margin: 0 !important;
+    padding: clamp(11px, 3.2vw, 18px) !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    border: 3px solid #385957 !important;
+    border-radius: 7px !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(225,245,228,.03) 4px 5px),
+      linear-gradient(135deg, #11231f, #07130f 72%) !important;
+    box-shadow: 5px 6px 0 #020605, inset 0 0 0 1px rgba(214,242,224,.06) !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__header {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark {
+    width: 44px !important;
+    height: 44px !important;
+    border-width: 3px !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark span { font-size: 7px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__header > div > span { font-size: 8px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim { min-height: 42px !important; padding: 7px 9px 9px !important; font-size: clamp(20px, 6.3vw, 29px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target { gap: 6px !important; margin-top: 6px !important; font-size: 11px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target strong { font-size: clamp(19px, 5.5vw, 26px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__ledger { margin-top: 9px !important; padding-top: 5px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line { grid-template-columns: 28px minmax(0, 1fr) auto !important; gap: 6px !important; min-height: 35px !important; padding: 3px 2px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-icon { width: 25px !important; height: 25px !important; font-size: 12px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy b { font-size: 10px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy small { font-size: 8px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line output { min-width: 45px !important; font-size: clamp(17px, 5vw, 23px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__settle-coins { right: 43px !important; font-size: 14px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock { min-height: 48px !important; margin-top: 8px !important; padding: 7px 10px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock output { font-size: clamp(25px, 8vw, 34px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well { right: 54px !important; height: 60px !important; }
 }
 
 /* Garage market cabinet ----------------------------------------------------
@@ -2793,8 +3175,12 @@
   visibility: visible;
   opacity: 1;
   transform: translate(0, -50%);
-  pointer-events: auto;
+  /* This is an informational hover card, not an action surface.  Leaving the
+     shop card must therefore close it even when the pointer crosses over the
+     floating detail panel. */
+  pointer-events: none;
 }
+
 
 .dm-shop-board .dm-shop-slot__detail strong,
 .dm-shop-board .dm-shop-slot__detail em,
@@ -3065,6 +3451,74 @@
   color: #e8988f;
   font-size: 8px;
   text-align: center;
+}
+
+/* Balatro-style shop interaction: inspect beside a card, then buy directly
+   beneath the selected card.  The detail deliberately stops at the name and
+   one useful effect line; prices and the action stay attached to the item. */
+.dm-shop-board .dm-shop-slot__detail {
+  width: min(276px, 31vw);
+  min-width: 228px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.dm-shop-board .dm-shop-slot__detail strong {
+  padding: 0 0 9px;
+  color: #fff7e2;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.dm-shop-board .dm-shop-slot__detail em {
+  margin: 0;
+  color: #d6e5e0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.dm-shop-slot__purchase {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  z-index: 110;
+  width: max(118px, calc(100% - 10px));
+  transform: translateX(-50%);
+  animation: dm-shop-buy-rise .18s cubic-bezier(.2,.9,.3,1) both;
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 2px solid #59bd79;
+  border-radius: 4px;
+  color: #f1ffef;
+  background: linear-gradient(#2a8052, #185238);
+  box-shadow: 0 3px 0 #071510, 0 0 0 2px rgba(2, 8, 8, .7);
+  font-family: "Galmuri11", monospace !important;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy:not(:disabled):hover {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy:disabled {
+  border-color: #725353;
+  color: #d6aaa7;
+  background: #382323;
+  opacity: .72;
+}
+
+@keyframes dm-shop-buy-rise {
+  from { opacity: 0; transform: translate(-50%, 7px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
 }
 
 @media (min-width: 1500px) and (min-height: 850px) {
