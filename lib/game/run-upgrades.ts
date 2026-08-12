@@ -1,12 +1,11 @@
 import { JOKER_SLOT_LIMIT, STARTING_HAND_SIZE } from "./constants";
-import { CONSUMABLE_SLOT_LIMIT, FIRMWARE_CONFIG } from "./garage-config";
+import { FIRMWARE_CONFIG } from "./garage-config";
 import type {
   ConsumableInstance,
   FirmwareId,
   RunState,
 } from "./types";
 
-/** Legacy v1 saves have no consumable inventory. */
 export function runConsumables(state: RunState): readonly ConsumableInstance[] {
   return state.consumables ?? [];
 }
@@ -26,10 +25,6 @@ export function canInstallFirmware(state: RunState, firmwareId: FirmwareId): boo
 
 export function jokerSlotLimitFor(state: RunState): number {
   return JOKER_SLOT_LIMIT + firmwareCount(state, "expanded-mod-bay");
-}
-
-export function consumableSlotsFree(state: RunState): number {
-  return Math.max(0, CONSUMABLE_SLOT_LIMIT - runConsumables(state).length);
 }
 
 export function nextRoundHandSizeFor(state: RunState): number {
