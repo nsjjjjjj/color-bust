@@ -283,7 +283,7 @@ test("stores GHOST cards in communityUno stash, allowing use and sell", () => {
 });
 
 test("bankrupt bargain creates a rare MOD and spends every coin", () => {
-  const playing = nextRound(createRun({ seed: "bankrupt-bargain", startingCoins: 17 }));
+  const playing = createRun({ seed: "bankrupt-bargain", startingCoins: 17 });
   const state: RunState = {
     ...playing,
     coins: 17,
@@ -302,7 +302,7 @@ test("bankrupt bargain creates a rare MOD and spends every coin", () => {
 });
 
 test("spectrum wash changes every hand card to one random color", () => {
-  const playing = nextRound(createRun({ seed: "spectrum-wash" }));
+  const playing = createRun({ seed: "spectrum-wash" });
   const state: RunState = {
     ...playing,
     communityUno: [{
@@ -319,7 +319,7 @@ test("spectrum wash changes every hand card to one random color", () => {
 });
 
 test("universal core raises every hand level", () => {
-  const playing = nextRound(createRun({ seed: "universal-core" }));
+  const playing = createRun({ seed: "universal-core" });
   const state: RunState = {
     ...playing,
     communityUno: [{
