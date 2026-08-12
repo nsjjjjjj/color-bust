@@ -1,4 +1,4 @@
-const CACHE_VERSION = "deck-mayhem-6c937acf05d6";
+const CACHE_VERSION = "deck-mayhem-45fe27ce883d";
 const APP_SHELL = [
   "/",
   "/_next/static/chunks/08ttfj81-47mu.js",

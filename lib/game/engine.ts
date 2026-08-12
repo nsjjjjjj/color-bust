@@ -992,9 +992,6 @@ export function buyFirmware(state: RunState, offerId: string): RunState {
   if (offer.kind !== "firmware") {
     throw new GameRuleError("NOT_FIRMWARE", "이 상품은 DECK LAB 펌웨어가 아닙니다.");
   }
-  if (!canInstallFirmware(state, offer.firmwareId)) {
-    throw new GameRuleError("FIRMWARE_MAX_STACKS", "이 펌웨어는 최대 단계입니다.");
-  }
   const purchase = payAndMarkSold(state, offer);
   return addAction(
     {

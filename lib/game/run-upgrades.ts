@@ -27,7 +27,7 @@ export function firmwareCount(state: RunState, firmwareId: FirmwareId): number {
 }
 
 export function canInstallFirmware(state: RunState, firmwareId: FirmwareId): boolean {
-  return firmwareCount(state, firmwareId) < FIRMWARE_CONFIG[firmwareId].maxStacks;
+  return true;
 }
 
 export function jokerSlotLimitFor(state: RunState): number {

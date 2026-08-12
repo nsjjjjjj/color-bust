@@ -147,16 +147,14 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
   if (offer.kind === "firmware") {
     const firmware = FIRMWARE_CONFIG[offer.firmwareId];
     const installed = (run.firmware ?? []).filter((firmwareId) => firmwareId === offer.firmwareId).length;
-    if (installed >= firmware.maxStacks) disabledReason = "최대 설치 완료";
     return {
       category: "FIRMWARE",
       rarity: installed > 0 ? "rare" : "uncommon",
       name: firmware.name,
       effect: normalizeTerminology(firmware.description),
-      detail: `런 종료까지 유지 · 현재 ${installed}/${firmware.maxStacks} 설치`,
+      detail: "",
       symbol: firmware.symbol,
-      meta: "PERMANENT RUN UPGRADE",
-      disabledReason,
+      meta: "",
     };
   }
 
@@ -308,8 +306,6 @@ function ShopSlot({
       <div className="dm-shop-slot__detail" aria-label={`${item.name} 상세 정보`}>
           <strong>{item.category} · {item.name}</strong>
           <em>{item.effect}</em>
-          <b>{item.meta}</b>
-          <span>{item.detail}</span>
           <div className="dm-shop-slot__detail-actions">
             <button type="button" className="dm-shop-slot__detail-close" onClick={onSelect}>닫기</button>
             <button
