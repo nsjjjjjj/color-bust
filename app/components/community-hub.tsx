@@ -234,27 +234,33 @@ function UnoCreator({
           <label>카드 이름 (필수, 2자 이상)<input value={name} maxLength={30} minLength={2} required onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
           <label>한 줄 소개 (선택)<textarea value={description} maxLength={120} onChange={(event) => setDescription(event.target.value)} placeholder="다른 플레이어가 사용법을 떠올릴 수 있게 설명하세요." /></label>
           <div className="module-columns">
-            {(["benefit", "drawback"] as const).map((kind) => (
-              <div key={kind}>
-                <h3>{kind === "benefit" ? "좋은 효과" : "반드시 붙는 비용"}</h3>
-                {modules.filter((module) => module.kind === kind).map((module) => {
-                  const active = selected.includes(module.id);
-                  return (
-                    <button
-                      type="button"
-                      key={module.id}
-                      className={`module-option ${kind}${active ? " active" : ""}`}
-                      onClick={() => setSelected((current) =>
-                        active ? current.filter((id) => id !== module.id) : current.length < 4 ? [...current, module.id] : current,
-                      )}
-                    >
-                      <b>{module.points > 0 ? `+${module.points}` : module.points}</b>
-                      <span><strong>{module.label}</strong><small>{module.description.replace(/UNO/g, "메이헴")}</small></span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+            {(["benefit", "drawback"] as const).map((kind) => {
+              const kindSelectedCount = chosen.filter((module) => module.kind === kind).length;
+              return (
+                <div key={kind}>
+                  <h3>{kind === "benefit" ? "좋은 효과" : "반드시 붙는 비용"}</h3>
+                  {modules.filter((module) => module.kind === kind).map((module) => {
+                    const active = selected.includes(module.id);
+                    const capped = !active && kindSelectedCount >= 2;
+                    return (
+                      <button
+                        type="button"
+                        key={module.id}
+                        className={`module-option ${kind}${active ? " active" : ""}`}
+                        disabled={capped}
+                        title={capped ? `${kind === "benefit" ? "좋은 효과" : "비용"}는 최대 2개까지 선택할 수 있어요. 하나를 해제한 뒤 선택하세요.` : undefined}
+                        onClick={() => setSelected((current) =>
+                          active ? current.filter((id) => id !== module.id) : [...current, module.id],
+                        )}
+                      >
+                        <b>{module.points > 0 ? `+${module.points}` : module.points}</b>
+                        <span><strong>{module.label}</strong><small>{module.description.replace(/UNO/g, "메이헴")}</small></span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
         <aside className="creator-preview">

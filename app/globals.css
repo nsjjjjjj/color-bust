@@ -435,6 +435,7 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 .module-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
 .module-columns h3 { margin: 4px 0 9px; font: 850 12px/1 ui-monospace, monospace; }
 .module-option { width: 100%; min-height: 54px; display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 8px; margin-bottom: 7px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); text-align: left; }
+.module-option:disabled { filter: grayscale(.6) brightness(.55); opacity: .55; }
 .module-option > b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 4px; background: #0b0e15; font: 900 12px/1 ui-monospace, monospace; }
 .module-option span { display: flex; flex-direction: column; gap: 3px; }
 .module-option strong { font-size: 11px; }.module-option small { color: var(--dim); font-size: 9px; line-height: 1.35; }
