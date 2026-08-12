@@ -53,6 +53,9 @@
   inset: 0;
   pointer-events: none;
   opacity: 0.32;
+}
+
+.dm-reward__backdrop {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
@@ -1407,6 +1410,14 @@
   margin-inline: auto;
 }
 
+/* A hovered/selected shop card scales up and can spill past its own
+   zone — let it escape every clipping ancestor instead of getting cut
+   off at the edge of the panel. */
+.dm-garage:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]),
+.dm-garage-workspace:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]) {
+  overflow: visible;
+}
+
 .dm-garage-inventory {
   min-height: 0;
   display: grid;
@@ -1683,6 +1694,12 @@
   background: transparent;
 }
 
+/* Solid instead of transparent so the felt table's diagonal-stripe
+   texture (.deck-play-table) doesn't show through behind the cards. */
+.dm-garage.dm-garage--embedded {
+  background: #0b1a1c;
+}
+
 .dm-garage--embedded > .dm-garage__backdrop,
 .dm-reward--embedded > .dm-reward__backdrop { display: none; }
 
@@ -1790,13 +1807,12 @@
   grid-template-areas:
     "controls signal"
     "lab packs";
-  gap: 2px;
-  padding: 2px;
+  gap: 0;
+  padding: 10px;
   overflow: hidden;
   border: 2px solid #3c6064;
   border-radius: 14px;
-  background: #29484c;
-  box-shadow: inset 0 0 30px rgba(67, 216, 229, .03);
+  background: #16211f;
 }
 
 .dm-shop-zone {
@@ -1807,15 +1823,70 @@
   grid-template-rows: minmax(0, 1fr);
   padding: 7px 9px 9px;
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.025), transparent 36%),
-    rgba(6, 17, 19, .98);
+  background: transparent;
 }
 
 .dm-shop-controls { --zone-color: #78e89a; grid-area: controls; }
-.dm-shop-signal { --zone-color: #59dbe7; grid-area: signal; }
-.dm-shop-lab { --zone-color: #f1c94d; grid-area: lab; }
-.dm-shop-packs { --zone-color: #b687ef; grid-area: packs; }
+
+/* Signal keeps its own rounded card, separated from the buttons by margin
+   instead of a grid gap (a gap filled by .dm-shop-board's own background
+   reads as a thin dividing line between zones). */
+.dm-shop-signal {
+  --zone-color: #59dbe7;
+  grid-area: signal;
+  margin-left: 12px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 14px;
+  background: #1c2629;
+}
+
+/* Lab + packs share one background/border and only round their outer
+   corners, so the two grid areas read as a single merged panel with no
+   seam between them — matching the reference's single "shelf" card. */
+.dm-shop-lab,
+.dm-shop-packs {
+  --zone-color: #f1c94d;
+  margin-top: 28px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: #1c2629;
+}
+
+.dm-shop-lab {
+  grid-area: lab;
+  border-right: none;
+  border-radius: 14px 0 0 14px;
+}
+
+.dm-shop-packs {
+  --zone-color: #b687ef;
+  grid-area: packs;
+  border-left: none;
+  border-radius: 0 14px 14px 0;
+}
+
+/* Nested "voucher slot" for the DECK LAB card: a pale outline sitting on
+   the board's own dark fill (not the lighter lab/packs panel color), with
+   a bottom-to-top install-limit label to its left, matching the reference. */
+.dm-shop-lab-voucher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  min-width: 360px;
+  padding: 2px 32px 28px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 10px;
+  background: #16211f;
+}
+
+.dm-shop-lab-voucher__label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  color: rgba(237, 245, 243, .45);
+  font-size: 9px;
+  letter-spacing: .16em;
+  white-space: nowrap;
+}
 
 .dm-shop-controls .dm-garage-actions {
   min-width: 0;
@@ -2277,6 +2348,14 @@
 
 .dm-shop-lab .dm-shop-grid {
   grid-template-columns: 124px !important;
+}
+
+/* Higher specificity than .dm-garage-workspace .dm-shop-board .dm-shop-grid's
+   padding:0 reset, so the DECK LAB card's rest position actually shifts
+   right — giving its left-opening detail panel room to clear the screen
+   edge instead of running off it. */
+.dm-garage-workspace .dm-shop-board .dm-shop-lab .dm-shop-grid {
+  padding-left: 250px;
 }
 
 .dm-garage-workspace .dm-shop-board .dm-shop-slot {
@@ -2808,6 +2887,12 @@
     padding: 13px 16px 15px;
   }
 
+  .dm-garage--embedded .dm-shop-lab,
+  .dm-garage--embedded .dm-shop-packs,
+  .dm-garage--embedded .dm-shop-signal {
+    padding-top: 70px;
+  }
+
   .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
     width: min(230px, 100%);
     height: calc(100% - 52px);
@@ -2859,6 +2944,24 @@
 
   .dm-garage--embedded .dm-shop-lab .dm-shop-grid {
     grid-template-columns: minmax(150px, 172px) !important;
+  }
+
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-lab .dm-shop-grid {
+    padding-left: 250px;
+  }
+  
+  .dm-garage--embedded .dm-shop-lab .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-packs .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    align-content: start;
+  }
+
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-packs .dm-shop-grid {
+    padding-left: 250px;
+  }
+
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    gap: clamp(50px, 6vw, 96px);
   }
 
   .dm-garage--embedded .dm-shop-slot,
