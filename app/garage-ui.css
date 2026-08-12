@@ -2399,10 +2399,10 @@
 
 .dm-shop-board .dm-shop-slot__detail {
   position: absolute;
-  top: calc(100% + 9px);
-  right: auto;
+  top: 50%;
+  right: calc(100% + 9px);
   bottom: auto;
-  left: 50%;
+  left: auto;
   z-index: 90;
   width: min(238px, 28vw);
   min-width: 205px;
@@ -2413,15 +2413,8 @@
   color: #dce9e6;
   background: rgba(3, 12, 14, .98);
   box-shadow: 6px 7px 0 rgba(1, 7, 8, .9), 0 0 18px color-mix(in srgb, var(--rarity-color) 20%, transparent);
-  transform: translate(-50%, -5px);
+  transform: translate(5px, -50%);
   pointer-events: none;
-}
-
-.dm-shop-lab .dm-shop-slot__detail,
-.dm-shop-packs .dm-shop-slot__detail {
-  top: auto;
-  bottom: calc(100% + 9px);
-  transform: translate(-50%, 5px);
 }
 
 .dm-shop-slot:hover .dm-shop-slot__detail,
@@ -2429,7 +2422,7 @@
 .dm-shop-slot[data-selected] .dm-shop-slot__detail {
   visibility: visible;
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translate(0, -50%);
   pointer-events: auto;
 }
 
