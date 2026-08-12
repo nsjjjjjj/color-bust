@@ -456,6 +456,7 @@ export type RunActionType =
   | "sell-joker"
   | "reroll-shop"
   | "claim-reward"
+  | "continue-endless"
   | "set-hot-swap"
   | "next-round";
 

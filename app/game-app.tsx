@@ -5,6 +5,7 @@ import {
   buyDeckWork,
   buyShopOffer,
   claimRoundReward,
+  continueEndlessRun,
   createRun,
   discardCards,
   nextRound,
@@ -1000,7 +1001,12 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           }}
         />
       )}
-      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => startRun("endless")} onLobby={openLobby} />}
+      {view === "game" && run && !scorePlayback && (run.phase === "won" || run.phase === "lost") && <ResultView run={run} notice={notice} signedIn={signedIn} onRank={submitRank} onRestart={() => startRun(run.mode)} onEndless={() => {
+        if (updateRun(() => continueEndlessRun(run))) {
+          setNotice("현재 빌드를 유지한 채 무제한 모드로 이어갑니다.");
+          audio.playEffect("round-start", { maxVoices: 1 });
+        }
+      }} onLobby={openLobby} />}
 
       {currentSection && (
         <nav className="mobile-nav mobile-nav-contextual" aria-label="현재 화면">
