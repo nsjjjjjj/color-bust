@@ -16,7 +16,7 @@ import {
   setHotSwapColor,
   takePackChoices,
   useStashedHandUpgrade as applyStashedHandUpgrade,
-  useStashedItem,
+  useStashedItem as applyStashedItem,
 } from "../lib/game/engine";
 import {
   CARD_COLORS,
@@ -942,7 +942,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               onPackReveal={(index) => audio.playEffect("pack-reveal", { progressionStep: index, semitonesPerStep: 0.6, maxVoices: 2 })}
               onOpenDeck={() => setUtilityModal("deck")}
               onUseStashedItem={(instanceId, options) => {
-                if (updateRun(() => useStashedItem(run, instanceId, options))) {
+                if (updateRun(() => applyStashedItem(run, instanceId, options))) {
                   audio.playEffect("equip", { maxVoices: 1 });
                   setNotice("보관 카드를 성공적으로 사용했습니다.");
                 }
@@ -984,9 +984,15 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onSelectUno={(id) => { setSelectedUnoId(id); audio.playEffect(id ? "mayhem-arm" : "ui-click", { gain: id ? 0.72 : 0.3, maxVoices: 1 }); }}
           onCallColor={(color) => { setCalledColor(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
           onUseStashedItem={(instanceId) => {
-            if (updateRun(() => applyStashedHandUpgrade(run, instanceId))) {
+            const item = run.communityUno.find((candidate) => candidate.id === instanceId);
+            const useItem = item && "kind" in item && item.kind === "ghost"
+              ? () => applyStashedItem(run, instanceId, { targetCardIds: selectedIds })
+              : () => applyStashedHandUpgrade(run, instanceId);
+            if (updateRun(useItem)) {
               audio.playEffect("equip", { maxVoices: 1 });
-              setNotice("족보 레벨이 성공적으로 강화되었습니다.");
+              setNotice(item && "kind" in item && item.kind === "ghost"
+                ? "고스트 카드 효과가 적용되었습니다."
+                : "족보 레벨이 성공적으로 강화되었습니다.");
             }
           }}
           onSellStashedItem={(instanceId) => {
