@@ -5078,6 +5078,10 @@
   overflow: hidden;
 }
 
+.deck-run-main-content[data-run-content="shop"]:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]) {
+  overflow: visible;
+}
+
 .deck-run-view-reward .deck-pile-dock,
 .deck-run-view-shop .deck-pile-dock { z-index: 30; }
 
@@ -6523,6 +6527,12 @@
   align-items: end;
   overflow: hidden;
   padding: 12px 16px 18px;
+}
+
+/* Let a hovered/selected shop card escape this wrapper's clip too,
+   matching the overflow:visible opt-out in garage-ui.css. */
+.deck-run-main-content[data-run-content="shop"]:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]) {
+  overflow: visible;
 }
 
 @media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
