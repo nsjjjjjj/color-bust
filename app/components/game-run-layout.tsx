@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { GameCard, RunState } from "../../lib/game/types";
 import { GameLeftRail, type GameLeftRailProps } from "./game-side-panels";
@@ -28,6 +28,7 @@ export interface GameRunLayoutProps {
   /** A short full-table hit whenever the authoritative score increases. */
   readonly scoreImpactKey?: string | null;
   readonly isTransferring?: boolean;
+  readonly transferScore?: number | null;
   readonly scorePhase?: GameLeftRailProps["scorePhase"];
   readonly onOpenRunInfo: () => void;
   readonly onOpenSettings: () => void;
@@ -45,7 +46,6 @@ export interface GameRunLayoutProps {
 export function GameRunLayout({
   run,
   phase,
-  notice = "",
   displayRoundScore,
   power = 0,
   hype = 0,
@@ -55,6 +55,7 @@ export function GameRunLayout({
   scoreEventKey = null,
   scoreImpactKey = null,
   isTransferring = false,
+  transferScore = null,
   scorePhase = "idle",
   onOpenRunInfo,
   onOpenSettings,
@@ -69,6 +70,7 @@ export function GameRunLayout({
   className = "",
 }: GameRunLayoutProps) {
   const screenRef = useRef<HTMLElement>(null);
+  const [isDeckPreviewOpen, setIsDeckPreviewOpen] = useState(false);
 
   useEffect(() => {
     if (!scoreImpactKey || !screenRef.current) return;
@@ -82,7 +84,7 @@ export function GameRunLayout({
   return (
     <main
       ref={screenRef}
-      className={`game-view balatro-mobile-game deck-game-view deck-run-view deck-run-view-${phase}${phase === "shop" ? " deck-run-view-playing" : ""}${className ? ` ${className}` : ""}`}
+      className={`game-view balatro-mobile-game deck-game-view deck-run-view deck-run-view-${phase}${phase === "playing" || phase === "shop" ? " deck-run-view-playing" : ""}${className ? ` ${className}` : ""}`}
       data-run-phase={phase}
       data-score-phase={scorePhase}
       aria-busy={busy}
@@ -100,6 +102,7 @@ export function GameRunLayout({
           scorePulse={scorePulse}
           scoreEventKey={scoreEventKey}
           isTransferring={isTransferring}
+          transferScore={transferScore}
           scorePhase={scorePhase}
           onOpenRunInfo={onOpenRunInfo}
           onOpenSettings={onOpenSettings}
@@ -107,15 +110,14 @@ export function GameRunLayout({
           {sidebarExtra}
         </GameLeftRail>
 
-        <section className="felt-table play-felt deck-play-table" aria-label={`${PHASE_LABEL[phase]} 카드 테이블`}>
+        <section
+          className={`felt-table play-felt deck-play-table${isDeckPreviewOpen ? " is-deck-preview-open" : ""}`}
+          aria-label={`${PHASE_LABEL[phase]} 카드 테이블`}
+        >
           <div className="felt-watermark" aria-hidden="true"><i /><i /><i /><i /></div>
-          <header className="deck-stage-header">
-            <div><span>{PHASE_LABEL[phase]}</span><strong>DECK MAYHEM</strong></div>
-            <div className="deck-stage-status">
-              <p role="status" aria-live="polite">{notice || (phase === "playing" ? "카드를 선택해 조합을 만드세요" : phase === "reward" ? "보상 명세를 확인하세요" : "필요한 카드를 골라 런을 정비하세요")}</p>
-              {run.mode === "endless" && <strong className="deck-mode-badge"><i aria-hidden="true">∞</i> 무제한</strong>}
-            </div>
-          </header>
+          {/* Reserve the former title strip as deliberate breathing room.
+              MOD and MAYHEM stay in their existing rack row below it. */}
+          <div className="deck-stage-spacer" aria-hidden="true" />
 
           {topCardSlots}
 
@@ -130,6 +132,7 @@ export function GameRunLayout({
               referenceCards={referenceCards}
               totalCards={referenceCards.length}
               onOpenDetails={onOpenDeck}
+              onPreviewChange={setIsDeckPreviewOpen}
               disabled={deckDisabled}
             />
           </aside>

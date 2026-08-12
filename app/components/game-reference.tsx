@@ -3,17 +3,14 @@
 import type { CSSProperties } from "react";
 
 import { HAND_RULES } from "../../lib/game/constants";
-import { COLOR_LABELS } from "../../lib/game/colors";
 import {
   HAND_TYPES,
-  type CardColor,
   type GameCard,
   type HandType,
   type RunState,
 } from "../../lib/game/types";
 import { Modal } from "./modal";
 import { DeckCardGrid } from "./deck-card-grid";
-import { PILE_COLOR_ACCESSIBILITY, summarizePile } from "./pile-inspector";
 
 const bodyStyle: CSSProperties = {
   display: "grid",
@@ -137,56 +134,12 @@ export interface DeckInspectorProps {
 }
 
 export function DeckInspector({ deck, drawPile, discardPile, hand, onClose }: DeckInspectorProps) {
-  const piles = [
-    { id: "draw", label: "드로우 더미", cards: drawPile },
-    { id: "discard", label: "버린 더미", cards: discardPile },
-    { id: "hand", label: "현재 손패", cards: hand },
-  ] as const;
   const zoneCards = [...drawPile, ...discardPile, ...hand];
   const allCards = deck?.length ? [...deck] : zoneCards;
-  const deckSize = allCards.length;
-  const totalSummary = summarizePile(allCards);
-  const ranks = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
-  const colorOrder: readonly CardColor[] = ["red", "yellow", "green", "blue"];
-  const sortedPiles = piles.map((pile) => ({
-    ...pile,
-    summary: summarizePile(pile.cards),
-  }));
 
   return (
-    <Modal title="덱 인스펙터" onClose={onClose} wide>
-      <div className="deck-inspector-layout">
-        <p className="deck-inspector-summary">
-          현재 런 덱 <strong>{deckSize}장</strong>을 실제 카드 모습으로 보여줍니다. 팩에서 막 획득한 카드도 같은 덱 원본에서 즉시 반영됩니다.
-        </p>
-
-        <section className="deck-inspector-piles" aria-label="위치별 카드 분포">
-          {sortedPiles.map((pile) => (
-            <article className="deck-inspector-pile" key={pile.id}>
-              <header><span>{pile.label}</span><strong>{pile.cards.length}장</strong></header>
-              <div className="deck-inspector-color-row">
-                {colorOrder.map((color) => (
-                  <span
-                    key={color}
-                    title={`${COLOR_LABELS[color]} (${PILE_COLOR_ACCESSIBILITY[color].colorLabel}) ${pile.summary.byColor[color]}장`}
-                    aria-label={`${COLOR_LABELS[color]} ${PILE_COLOR_ACCESSIBILITY[color].colorLabel} ${pile.summary.byColor[color]}장`}
-                  >
-                    <b aria-hidden="true">{PILE_COLOR_ACCESSIBILITY[color].symbol}</b>
-                    {pile.summary.byColor[color]}
-                  </span>
-                ))}
-              </div>
-            </article>
-          ))}
-        </section>
-
-        <section className="deck-inspector-ranks" aria-labelledby="deck-inspector-ranks-title">
-          <header><span id="deck-inspector-ranks-title">숫자별 전체 구성</span><small>0은 10칩</small></header>
-          <div className="deck-inspector-rank-grid">
-            {ranks.map((rank) => <span key={rank}><b>{rank}</b><small>×{totalSummary.byRank[rank]}</small></span>)}
-          </div>
-        </section>
-
+    <Modal title="덱 인스펙터" onClose={onClose} wide className="deck-inspector-modal">
+      <div className="deck-inspector-layout deck-inspector-layout--cards-only">
         <DeckCardGrid cards={allCards} ariaLabel="현재 런 덱 전체 카드" />
       </div>
     </Modal>

@@ -40,7 +40,7 @@
 .deck-logo-card-slot {
   position: absolute;
   width: clamp(105px, 9vw, 150px);
-  aspect-ratio: .69;
+  aspect-ratio: 2 / 3;
   display: block;
   image-rendering: pixelated;
 }
@@ -80,7 +80,7 @@
   position: absolute;
   inset: 0;
   display: block;
-  background: #251755 url("/art/card-back.png") center / cover no-repeat;
+  background: #251755 url("/art/card-back.png") center / contain no-repeat;
   box-shadow: 7px 8px 0 #06090b;
   image-rendering: pixelated;
 }
@@ -1315,7 +1315,7 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
   background-color:#17133f;
   background-image:url("/art/card-back.png");
   background-position:center;
-  background-size:cover;
+  background-size:contain;
   image-rendering:pixelated;
 }
 .table-pile-button.draw i::before,
@@ -1341,7 +1341,7 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 .shop-window { background-color:#172126; background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 2px,transparent 2px 7px); }
 .shop-window .shop-card { background-color:#222c31; background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.025) 0 3px,transparent 3px 7px); }
 .shop-window .shop-community-uno .shop-type-art { color:#121212; background:conic-gradient(from 45deg,#ef534a 0 25%,#efc541 0 50%,#55bce8 0 75%,#55bd78 0); }
-.shop-window .shop-hand-upgrade .shop-type-art { color:#e9f2ed; background-color:#274b70; background-image:url("/art/card-back.png"); background-size:cover; }
+.shop-window .shop-hand-upgrade .shop-type-art { color:#e9f2ed; background-color:#274b70; background-image:url("/art/card-back.png"); background-position:center; background-repeat:no-repeat; background-size:contain; }
 
 @media (orientation: landscape) and (max-height:600px) and (max-width:1000px) {
   .mobile-menu-screen { grid-template-columns:1fr; grid-template-rows:20px minmax(115px,1fr) 52px 30px; gap:5px; padding:max(5px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); }

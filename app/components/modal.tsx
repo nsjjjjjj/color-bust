@@ -7,11 +7,16 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className,
+  hideHeader = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  className?: string;
+  /** Use when a game panel supplies its own visible title and close action. */
+  hideHeader?: boolean;
 }) {
   const titleId = useId();
   const panelRef = useRef<HTMLElement>(null);
@@ -19,7 +24,10 @@ export function Modal({
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    closeRef.current?.focus();
+    const firstFocusable = panelRef.current?.querySelector<HTMLElement>(
+      'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+    );
+    (closeRef.current ?? firstFocusable)?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         onClose();
@@ -49,15 +57,19 @@ export function Modal({
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section
         ref={panelRef}
-        className={`modal-panel${wide ? " modal-wide" : ""}`}
+        className={`modal-panel${wide ? " modal-wide" : ""}${className ? ` ${className}` : ""}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <header>
-          <div><span className="kicker">게임 창</span><h2 id={titleId}>{title}</h2></div>
-          <button ref={closeRef} type="button" className="icon-button" aria-label="닫기" onClick={onClose}>×</button>
-        </header>
+        {hideHeader ? (
+          <h2 id={titleId} className="modal-visually-hidden">{title}</h2>
+        ) : (
+          <header>
+            <div><span className="kicker">게임 창</span><h2 id={titleId}>{title}</h2></div>
+            <button ref={closeRef} type="button" className="icon-button" aria-label="닫기" onClick={onClose}>×</button>
+          </header>
+        )}
         {children}
       </section>
     </div>

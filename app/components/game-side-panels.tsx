@@ -28,6 +28,8 @@ export interface GameLeftRailProps {
   scorePulse?: "power" | "hype" | "both" | null;
   scoreEventKey?: string | null;
   isTransferring?: boolean;
+  /** The resolved hand total while it is being deposited into round score. */
+  transferScore?: number | null;
   scorePhase?: "idle" | "selecting" | "moving" | "scoring" | "transferring" | "discarding" | "direct-discard";
   onOpenRunInfo: () => void;
   onOpenSettings: () => void;
@@ -46,6 +48,7 @@ export function GameLeftRail({
   scorePulse = null,
   scoreEventKey = null,
   isTransferring = false,
+  transferScore = null,
   scorePhase = "idle",
   onOpenRunInfo,
   onOpenSettings,
@@ -107,17 +110,32 @@ export function GameLeftRail({
 
       <section
         className="mobile-run-rail-preview"
-        aria-label={`${handName ? `${handName} 레벨 ${handLevel ?? 1}, ` : ""}현재 POWER ${power} 곱하기 HYPE ${hype}`}
+        aria-label={handName ? `현재 족보: ${handName} 레벨 ${handLevel ?? 1}` : "현재 선택한 족보 없음"}
         data-score-pulse={scorePulse ?? undefined}
         data-score-event={scoreEventKey ?? undefined}
       >
-        <span className="mobile-run-rail-hand-name" data-has-hand={handName ? "true" : undefined}>
-          {handName ? <b>{handName} Lv.{handLevel ?? 1}</b> : null}
+        <span
+          className="mobile-run-rail-hand-name"
+          data-has-hand={handName ? "true" : undefined}
+          data-score-transfer={isTransferring && transferScore !== null ? "true" : undefined}
+        >
+          {isTransferring && transferScore !== null
+            ? <b className="mobile-run-rail-transfer-score">{transferScore.toLocaleString()}</b>
+            : handName ? (
+              <b>
+                <span className="mobile-run-rail-hand-title">{handName}</span>
+                <small className="mobile-run-rail-hand-level">Lv.{handLevel ?? 1}</small>
+              </b>
+            ) : null}
         </span>
         <div className="mobile-run-rail-equation">
-          <div className="mobile-run-rail-chips" key={scorePulse === "power" || scorePulse === "both" ? `power-${scoreEventKey}` : "power-static"}><span>POWER</span><strong>{power.toLocaleString()}</strong></div>
+          <div className="mobile-run-rail-chips">
+            <strong><span className="mobile-run-rail-score-value" key={scorePulse === "power" || scorePulse === "both" ? `power-${scoreEventKey}` : "power-static"}>{power.toLocaleString()}</span></strong>
+          </div>
           <b className="mobile-run-rail-equation-sign" aria-hidden="true">×</b>
-          <div className="mobile-run-rail-mult" key={scorePulse === "hype" || scorePulse === "both" ? `hype-${scoreEventKey}` : "hype-static"}><span>HYPE</span><strong>{hype.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></div>
+          <div className="mobile-run-rail-mult">
+            <strong><span className="mobile-run-rail-score-value" key={scorePulse === "hype" || scorePulse === "both" ? `hype-${scoreEventKey}` : "hype-static"}>{hype.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></strong>
+          </div>
         </div>
       </section>
 

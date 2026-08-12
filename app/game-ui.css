@@ -44,9 +44,16 @@
   animation: dm-scoring-card-impact 290ms cubic-bezier(.18, .82, .22, 1) both;
 }
 
-/* A small table-wide recoil for a real score increase: impact, not camera pan. */
+/* Keep score hits readable: the HUD stays pinned while only the felt makes a
+ * very short one-pixel recoil. This keeps the impact cue without the camera
+ * shake that can become uncomfortable over a long round. */
 .deck-game-view.is-score-impact {
-  animation: dm-score-screen-nudge 180ms steps(3, end) both;
+  animation: dm-score-screen-pulse 180ms steps(3, end) both;
+  will-change: filter;
+}
+
+.deck-game-view.is-score-impact .deck-play-table {
+  animation: dm-score-table-kick 180ms steps(3, end) both;
   will-change: transform;
 }
 
@@ -224,12 +231,17 @@
   }
 }
 
-@keyframes dm-score-screen-nudge {
+@keyframes dm-score-screen-pulse {
+  0%, 100% { filter: brightness(1) saturate(1); }
+  32% { filter: brightness(1.028) saturate(1.035); }
+  62% { filter: brightness(1.012) saturate(1.012); }
+}
+
+@keyframes dm-score-table-kick {
   0%, 100% { transform: translate3d(0, 0, 0); }
-  18% { transform: translate3d(-2px, 1px, 0); }
-  38% { transform: translate3d(2px, -1px, 0); }
-  58% { transform: translate3d(-1px, 1px, 0); }
-  76% { transform: translate3d(1px, 0, 0); }
+  22% { transform: translate3d(-1px, 1px, 0); }
+  46% { transform: translate3d(1px, -1px, 0); }
+  68% { transform: translate3d(0, 1px, 0); }
 }
 
 @keyframes dm-score-badge-impact {
@@ -918,9 +930,11 @@
   .deck-game-view .number-card:hover .card-hover-info { display: grid; }
 }
 
+/* Non-scoring cards stay quietly dimmed; do not cover the card art with a
+ * KICKER/비득점 stamp during score resolution. */
 .deck-game-view .number-card.is-kicker::before {
-  content: "비득점";
-  border-radius: 0;
+  display: none !important;
+  content: none !important;
 }
 
 .deck-game-view .number-card.is-resolving {
@@ -981,7 +995,7 @@
 .deck-pile-card {
   position: relative;
   width: 54px;
-  aspect-ratio: .69;
+  aspect-ratio: 2 / 3;
   display: grid;
   place-items: center;
   border: 3px solid #ded5c3;
@@ -993,7 +1007,7 @@
 
 .deck-pile-card-back {
   color: transparent;
-  background: #19153d url("/art/card-back.png") center / cover no-repeat;
+  background: #19153d url("/art/card-back.png") center / contain no-repeat;
 }
 
 .deck-pile-card-face b { font-size: 23px; }
@@ -3577,8 +3591,11 @@
    at a time, leave for the discard pile, then only newly mounted hand cards
    deal in. Selection itself stays limited to lift, light and border. */
 .deck-hand-card {
-  animation: dm-hand-deal-in 260ms cubic-bezier(.2,.72,.22,1) both;
-  animation-delay: calc(var(--hand-card-index) * 18ms);
+  /* Initial hands are dealt one card at a time from the deck lane. Keeping
+     the card hidden during its delay prevents the eight-card hand from
+     materialising as a single block before the draw sound has finished. */
+  animation: dm-hand-deal-in 410ms cubic-bezier(.16,.8,.2,1) both;
+  animation-delay: calc(var(--hand-card-index) * 76ms);
 }
 
 .deck-played-layout[data-score-phase="moving"] .deck-played-card {
@@ -3659,9 +3676,17 @@
   0% {
     opacity: 0;
     transform:
-      translate3d(calc(var(--hand-card-x) + min(24vw, 320px)), calc(var(--hand-card-y) + 60px), 0)
-      rotate(10deg)
-      scale(.72);
+      translate3d(var(--hand-draw-source-x, calc(var(--hand-card-x) + min(34vw, 520px))), var(--hand-draw-source-y, calc(var(--hand-card-y) + 48px)), 0)
+      rotate(7deg)
+      scale(.9);
+  }
+  30% { opacity: 1; }
+  76% {
+    opacity: 1;
+    transform:
+      translate3d(calc(var(--hand-card-x) + 4px), calc(var(--hand-card-y) - 2px), 0)
+      rotate(calc(var(--hand-card-rotation) + .5deg))
+      scale(1.012);
   }
   100% {
     opacity: 1;
@@ -5220,6 +5245,368 @@
 .run-info-grid dd { margin: 0; overflow: hidden; color: #f0cc5c; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
 .run-info-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 
+/* Run info is a Balatro-like bottom sheet.  It deliberately keeps the run
+   visible behind a dimmed panel, but all values come from the live game state. */
+.modal-backdrop:has(.run-info-sheet) {
+  align-items: end;
+  padding: clamp(12px, 2.5vh, 28px);
+  background: rgba(2, 12, 14, .62);
+  -webkit-backdrop-filter: blur(2px) brightness(.72);
+  backdrop-filter: blur(2px) brightness(.72);
+}
+
+.run-info-sheet.modal-panel {
+  width: min(960px, 94vw);
+  max-height: calc(100dvh - 24px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  border: 4px solid #dce9e5;
+  border-radius: 17px 17px 10px 10px;
+  color: #f6f1e4;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #263435 0%, #142325 55%, #0d181a 100%);
+  box-shadow: 0 0 0 3px #17282a, 0 -2px 0 #789294, 10px 13px 0 rgba(0,0,0,.74);
+  animation: run-info-sheet-rise 300ms cubic-bezier(.16,.84,.22,1) both;
+}
+
+.modal-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.run-info-sheet-content {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(8px, 1vh, 12px);
+  padding: clamp(14px, 1.7vw, 22px) clamp(16px, 2.3vw, 30px) clamp(12px, 1.5vw, 18px);
+}
+
+.run-info-tabs {
+  display: flex;
+  justify-content: center;
+  gap: clamp(8px, 1.5vw, 16px);
+}
+
+.run-info-tabs button,
+.run-info-back,
+.run-info-deck button {
+  border: 3px solid #171d1d;
+  border-radius: 11px;
+  box-shadow: inset 0 2px rgba(255,255,255,.25), inset 0 -4px rgba(0,0,0,.27), 3px 4px #071011;
+  color: #fff6e9;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.run-info-tabs button {
+  min-width: min(25vw, 180px);
+  min-height: 46px;
+  padding: 7px 22px 9px;
+  color: #ffe3d3;
+  background: linear-gradient(#ff6660, #e23736);
+  font-size: clamp(17px, 2.2vw, 25px);
+  text-shadow: 2px 2px #9d2529;
+}
+
+.run-info-tabs button.is-active {
+  translate: 0 -7px;
+  background: linear-gradient(#ff7770, #f13d3d);
+  box-shadow: inset 0 2px rgba(255,255,255,.35), inset 0 -4px rgba(0,0,0,.27), 3px 8px #071011;
+}
+
+.run-hand-list {
+  display: grid;
+  min-height: 0;
+  align-content: start;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 3px 4px 3px 0;
+}
+
+.run-hand-row {
+  min-width: 0;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(78px, .72fr) minmax(160px, 1.3fr) minmax(180px, 1.12fr) minmax(54px, .42fr);
+  align-items: center;
+  gap: clamp(7px, 1.2vw, 14px);
+  padding: 3px 10px 3px 7px;
+  border: 2px solid #36565b;
+  border-radius: 8px;
+  color: #eaf2ee;
+  background: linear-gradient(90deg, #102124, #0a1518 71%, #0d1d20);
+  box-shadow: inset 0 -2px rgba(0,0,0,.42), 3px 3px #05090a;
+}
+
+.run-hand-level {
+  justify-self: stretch;
+  padding: 2px 8px 4px;
+  border: 2px solid #4f696b;
+  border-radius: 7px;
+  color: #f2eee2;
+  background: #17282a;
+  box-shadow: inset 0 -3px #091113;
+  font-size: clamp(16px, 2vw, 22px);
+  text-align: center;
+}
+
+.run-hand-name {
+  overflow: hidden;
+  color: #f5f0e3;
+  font-size: clamp(18px, 2.45vw, 29px);
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 2px 2px 0 #06090a;
+  white-space: nowrap;
+}
+
+.run-hand-equation {
+  min-width: 0;
+  display: grid;
+  /* Keep the two value chips close to the multiplication mark instead of
+     stretching them to opposite edges of the row. The tracks may still shrink
+     on narrow panels, so neither chip can escape its allotted side. */
+  grid-template-columns: minmax(0, 108px) auto minmax(0, 108px);
+  justify-content: center;
+  align-items: center;
+  gap: clamp(5px, .7vw, 10px);
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: #fffdf2;
+  font-size: clamp(16px, 2.1vw, 24px);
+  line-height: 1;
+  text-align: center;
+}
+
+.run-hand-equation b,
+.run-hand-equation strong {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  align-items: center;
+  padding: 5px clamp(5px, .55vw, 7px) 7px;
+  border: 3px solid;
+  border-radius: 9px;
+  box-shadow: inset 0 -5px 0 rgba(0,0,0,.32), 3px 4px 0 #020504;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.run-hand-equation b { justify-items: end; border-color: #12b5ff; background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px), #078ee0; text-align: right; text-shadow: 2px 2px #034b77; }
+.run-hand-equation i { display: grid; place-items: center; padding: 0; color: #ef4548; background: transparent; font-size: 1.25em; font-style: normal; text-shadow: 2px 2px #57171a; }
+.run-hand-equation strong { justify-items: start; border-color: #ff7274; background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px), #ef4548; text-align: left; text-shadow: 2px 2px #761e22; }
+.run-hand-used { justify-self: end; display: inline-flex; align-items: center; gap: 5px; color: #f2c956; font-size: clamp(18px, 2.2vw, 26px); text-shadow: 2px 2px #05090a; }
+.run-hand-used i { color: #b9d5d0; font-style: normal; }
+
+.run-info-summary { display: grid; gap: 16px; min-height: 358px; }
+.run-info-summary > header { display: grid; gap: 4px; padding: 14px 18px; border-left: 6px solid #51c7d2; background: #0a171a; }
+.run-info-summary > header span { color: #5be1e8; font-size: 11px; letter-spacing: .12em; }
+.run-info-summary > header strong { color: #f4efe2; font-size: 30px; }
+.run-info-summary > header small { color: #9db0af; font-size: 13px; }
+.run-info-summary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 0; }
+.run-info-summary dl div { display: grid; gap: 5px; padding: 12px; border: 2px solid #486163; background: #0b1719; }
+.run-info-summary dt { color: #99b3b1; font-size: 11px; }
+.run-info-summary dd { margin: 0; overflow: hidden; color: #f2c956; font-size: 22px; text-overflow: ellipsis; white-space: nowrap; }
+
+.run-info-deck { min-height: 358px; display: grid; place-content: center; justify-items: center; gap: 15px; text-align: center; }
+.run-info-deck-back { display: block; width: 102px; height: 150px; background: url("/art/card-back.png") center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(5px 6px #030607); }
+.run-info-deck div { display: grid; gap: 5px; }
+.run-info-deck b { color: #f2e8d6; font-size: 24px; }
+.run-info-deck small { color: #a4bbb6; font-size: 12px; }
+.run-info-deck button { min-height: 44px; padding: 7px 20px 10px; background: linear-gradient(#249fb4, #14788c); font-size: 16px; }
+
+.run-info-back { min-height: 50px; width: 100%; padding: 7px 20px 10px; border-color: #4c3205; background: linear-gradient(#ffbd26, #f1830a); font-size: clamp(22px, 2.8vw, 31px); text-shadow: 2px 2px #9d4b00; }
+.run-info-tabs button:hover, .run-info-tabs button:focus-visible, .run-info-back:hover, .run-info-back:focus-visible, .run-info-deck button:hover, .run-info-deck button:focus-visible { filter: brightness(1.13); outline: 3px solid #f6e49c; outline-offset: 3px; }
+
+@keyframes run-info-sheet-rise { from { transform: translateY(calc(100% + 50px)); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Options uses the same bottom-sheet language as the run view, but keeps the
+ * first screen intentionally compact: menu actions first, settings second. */
+.modal-backdrop:has(.options-sheet) {
+  align-items: center;
+  padding: clamp(12px, 2.5vh, 28px);
+  background: rgba(2, 12, 14, .68);
+  -webkit-backdrop-filter: blur(2px) brightness(.7);
+  backdrop-filter: blur(2px) brightness(.7);
+}
+
+.options-sheet.modal-panel {
+  width: min(510px, 94vw);
+  overflow: hidden;
+  border: 4px solid #557276;
+  border-radius: 26px;
+  color: #f6f0e3;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #172a2c, #0b1517);
+  box-shadow: 0 0 0 3px #081113, 9px 12px 0 rgba(0,0,0,.72);
+  animation: options-sheet-rise 260ms cubic-bezier(.16,.84,.22,1) both;
+}
+
+.options-sheet-content {
+  display: grid;
+  gap: 13px;
+  padding: 20px;
+}
+
+.options-sheet-title {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #355154;
+}
+
+.options-sheet-title span {
+  color: #62d2da;
+  font: 800 10px/1 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: .12em;
+}
+
+.options-sheet-title h2 {
+  margin: 0;
+  color: #f7f0e2;
+  font: 900 clamp(29px, 3.4vw, 39px)/1 "Galmuri11", ui-monospace, monospace;
+  text-shadow: 3px 3px #061012;
+}
+
+.options-menu-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.options-menu-actions button,
+.options-sheet-back {
+  border: 3px solid #1a1b1b;
+  border-radius: 16px;
+  color: #fff5e8;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  cursor: pointer;
+}
+
+.options-menu-actions button {
+  min-height: 70px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 8px 16px 11px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.08) 4px 5px),
+    linear-gradient(#ff6460, #dc3737);
+  box-shadow: inset 0 2px rgba(255,255,255,.23), inset 0 -5px rgba(0,0,0,.26), 4px 5px #071011;
+  text-shadow: 2px 2px #8f2426;
+}
+
+.options-menu-actions button:first-child { border-radius: 18px 18px 13px 13px; }
+.options-menu-actions button:last-child { border-radius: 13px 13px 18px 18px; }
+
+.options-menu-actions button b { font-size: clamp(23px, 2.55vw, 29px); }
+.options-menu-actions button:hover,
+.options-menu-actions button:focus-visible { filter: brightness(1.13); outline: 3px solid #ffe58b; outline-offset: 3px; }
+.options-menu-actions button:active { transform: translate(3px, 4px); box-shadow: inset 0 2px rgba(255,255,255,.23), inset 0 -3px rgba(0,0,0,.26), 1px 1px #071011; }
+
+.options-settings-list {
+  display: grid;
+  gap: 7px;
+}
+
+.options-setting-card {
+  display: grid;
+  border: 2px solid #38575a;
+  background: #0b181a;
+  box-shadow: inset 0 -3px rgba(0,0,0,.26);
+}
+
+.options-setting-card .options-setting-row {
+  border: 0;
+  box-shadow: none;
+}
+
+.options-setting-row {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 9px 11px;
+  border: 2px solid #38575a;
+  background: #0b181a;
+  box-shadow: inset 0 -3px rgba(0,0,0,.26);
+}
+
+.options-setting-row > span { display: grid; gap: 4px; }
+.options-setting-row b { color: #f1ecdf; font-size: 16px; }
+.options-setting-row small { color: #abc1bd; font: 500 10px/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; }
+.options-settings-list .toggle { flex: 0 0 auto; width: 52px; height: 28px; border: 2px solid #486165; border-radius: 4px; background: #060b0d; padding: 3px; box-shadow: inset 0 -3px rgba(0,0,0,.35); }
+.options-settings-list .toggle i { width: 18px; height: 18px; border-radius: 1px; background: #788987; box-shadow: 1px 1px #020504; }
+.options-settings-list .toggle.on { border-color: #49cf91; background: #123824; }
+.options-settings-list .toggle.on i { background: #63e69e; transform: translateX(22px); }
+
+.options-volume {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 3px 10px 10px;
+  border-top: 1px solid #284548;
+  color: #b9ccc7;
+  font: 500 10px/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+}
+.options-volume input { width: 100%; accent-color: #f2b226; }
+
+.options-sheet-back {
+  min-height: 48px;
+  padding: 7px 16px 10px;
+  border-color: #553908;
+  background: linear-gradient(#ffbd27, #e8870b);
+  box-shadow: inset 0 2px rgba(255,255,255,.25), inset 0 -5px rgba(0,0,0,.25), 3px 4px #071011;
+  color: #fff8e8;
+  font-size: 21px;
+  text-shadow: 2px 2px #964300;
+}
+.options-sheet-back:active { transform: translate(2px,3px); box-shadow: inset 0 2px rgba(255,255,255,.25), inset 0 -3px rgba(0,0,0,.25), 1px 1px #071011; }
+
+@keyframes options-sheet-rise { from { transform: translateY(42vh); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+@media (max-width: 640px) {
+  .modal-backdrop:has(.run-info-sheet) { padding: 8px; }
+  .run-info-sheet.modal-panel { width: 100%; max-height: calc(100dvh - 16px); border-width: 3px; border-radius: 14px 14px 7px 7px; }
+  .run-info-sheet-content { gap: 8px; padding: 12px 10px 10px; }
+  .run-info-tabs { gap: 6px; }
+  .run-info-tabs button { min-width: 0; flex: 1; min-height: 42px; padding: 6px 5px 8px; border-width: 2px; border-radius: 8px; font-size: 16px; }
+  .run-info-tabs button.is-active { translate: 0 -4px; }
+  .run-hand-list { min-height: 0; gap: 3px; padding-right: 2px; }
+  .run-hand-row { min-height: 34px; grid-template-columns: 59px minmax(78px, 1fr) minmax(119px, 1.08fr) 35px; gap: 4px; padding: 3px 5px; border-width: 2px; border-radius: 8px; }
+  .run-hand-level { padding: 2px 3px 3px; border-width: 1px; border-radius: 5px; font-size: 13px; }
+  .run-hand-name { font-size: 15px; text-shadow: 1px 1px #3e5553; }
+  .run-hand-equation { grid-template-columns: minmax(0, 72px) auto minmax(0, 72px); gap: 4px; font-size: 13px; }
+  .run-hand-equation b, .run-hand-equation strong { min-height: 30px; padding: 4px 3px 5px; border-width: 2px; border-radius: 6px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.32), 2px 2px #020504; }
+  .run-hand-equation i { padding: 0; }
+  .run-hand-used { gap: 2px; font-size: 14px; text-shadow: 1px 1px #263132; }
+  .run-info-summary { min-height: 0; gap: 10px; }
+  .run-info-summary > header { padding: 10px 12px; border-left-width: 4px; }
+  .run-info-summary > header strong { font-size: 23px; }
+  .run-info-summary dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .run-info-summary dl div { padding: 8px; border-width: 1px; }
+  .run-info-summary dd { font-size: 17px; }
+  .run-info-deck { min-height: 270px; }
+  .run-info-back { min-height: 48px; border-width: 2px; border-radius: 8px; font-size: 21px; }
+}
+
 @media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
   .deck-run-view .deck-play-table { grid-template-rows: 30px 54px minmax(0, 1fr) !important; }
   .deck-game-view .mobile-run-rail-preview { min-height: 96px; padding: 7px; }
@@ -5277,15 +5664,14 @@
 }
 
 /* Approved core card sheet -------------------------------------------------
- * Every gameplay surface now uses the 40 exact raster crops supplied by the
- * user. None of the former CSS frame, reactor, corner or rank artwork is
- * composited on top of these cards. Only state UI (selection, enhancement and
- * tooltips) may sit above the source art. */
+ * Every gameplay surface uses one supplied 2:3 raster as its complete card
+ * face. It is displayed whole; the source is never cropped or rebuilt. Only
+ * interactive state UI (selection, enhancement and tooltips) may sit above it. */
 .number-card,
 .deck-game-view .number-card,
 .deck-game-view .deck-hand-card > .number-card,
 .dm-card-browser__item > .number-card {
-  aspect-ratio: 47 / 70 !important;
+  aspect-ratio: 9 / 14 !important;
   border: 0 !important;
   border-radius: 0 !important;
   padding: 0 !important;
@@ -5302,7 +5688,11 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  /* Every supplied face is a complete 288×448 card. The slot shares the
+     source 9:14 ratio, so contain shows the whole pixel image with no crop
+     or distortion. */
+  object-fit: contain;
+  object-position: center;
   pointer-events: none;
   user-select: none;
   image-rendering: pixelated;
@@ -5324,33 +5714,17 @@
 .number-card .card-enhancement-badge,
 .number-card .card-hover-info { z-index: 6; }
 
-/* Core-sheet corner cleanup: the source raster's rank/brand marks are covered
-   with a tiny, upright pixel pictogram. The large center numeral and lower
-   center M brand remain part of the original card art. */
-.number-card .card-color-sigil {
-  --sigil-color: #ff514f;
-  position: absolute;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  width: 17%;
-  aspect-ratio: 1;
-  color: var(--sigil-color);
-  /* Mask the old corner glyph without turning the new mark into a badge. */
-  background: #07100f;
-  box-shadow: none;
-  pointer-events: none;
+/* The supplied card faces already include their own pixel edge.  Remove the
+ * old shell's opaque black fill, inset ring and offset slab so overlapping
+ * cards read as individual cards rather than one black rectangle. */
+.deck-hand-stage .deck-hand-card > .number-card,
+.deck-played-card > .number-card {
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.number-card .card-color-sigil-top { top: 4%; left: 4%; }
-.number-card .card-color-sigil-bottom { right: 4%; bottom: 4%; }
-.number-card .card-color-sigil[data-color="blue"] { --sigil-color: #55c9ff; }
-.number-card .card-color-sigil[data-color="green"] { --sigil-color: #67e891; }
-.number-card .card-color-sigil[data-color="yellow"] { --sigil-color: #ffd955; }
-.number-card .card-color-sigil svg { width: 86%; height: 84%; fill: currentColor; image-rendering: pixelated; filter: drop-shadow(1px 1px 0 #020607); }
-
-@media (max-width: 760px), (max-height: 640px) {
-  .number-card .card-color-sigil { width: 18%; }
+.deck-hand-stage .deck-hand-card[data-selected="true"] > .number-card {
+  box-shadow: 3px 5px 0 rgba(2, 4, 5, .7) !important;
 }
 
 /* Card-first play surface v4 ---------------------------------------------
@@ -6099,6 +6473,15 @@
   grid-template-rows: 36px 66px minmax(0, 1fr) !important;
 }
 
+/* Deliberate empty headroom above the fixed build rack.  The old title/status
+ * bar was removed, but this track remains so MOD/MAYHEM do not creep upward. */
+.deck-run-view .deck-stage-spacer {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  pointer-events: none;
+}
+
 .deck-run-view .mobile-run-rail-scoreboard {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -6844,28 +7227,28 @@
  * breathing room here rather than making the resting hand compete with it. */
 @media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
   .deck-hand-stage--clean {
-    grid-template-rows: minmax(0, 1fr) 98px !important;
-    padding-bottom: clamp(22px, 3vh, 38px);
+    grid-template-rows: minmax(0, 1fr) 112px !important;
+    padding-bottom: clamp(18px, 2.25vh, 30px);
   }
 
   .deck-hand-stage--clean .table-action-dock {
-    width: min(780px, 82%);
-    min-width: 580px;
-    min-height: 92px;
-    height: 92px;
+    width: min(792px, 82%);
+    min-width: min(720px, 82%);
+    min-height: 112px;
+    height: 112px;
     margin-top: 0;
     align-self: start;
-    grid-template-columns: minmax(218px, 1.16fr) minmax(176px, .78fr) minmax(218px, 1fr) !important;
+    grid-template-columns: minmax(0, 1.16fr) minmax(198px, .86fr) minmax(0, 1.16fr) !important;
   }
 
   .deck-hand-stage--clean .table-action,
   .deck-hand-stage--clean .discard-action,
   .deck-hand-stage--clean .deck-sort-control-two-way {
-    min-height: 86px;
-    height: 86px !important;
+    min-height: 100px;
+    height: 100px !important;
   }
 
-  .deck-hand-stage--clean .table-action { font-size: 20px; }
+  .deck-hand-stage--clean .table-action { font-size: 23px; }
   .deck-hand-stage--clean .table-action span small { font-size: 11px; }
   .deck-hand-stage--clean .deck-sort-control-two-way {
     grid-template-rows: 24px 1fr;
@@ -6881,7 +7264,7 @@
     font-weight: 700;
   }
   .deck-hand-stage--clean .deck-sort-control-two-way button {
-    min-height: 50px;
+    min-height: 58px;
     border-color: #5f8d97;
     background: #172f35;
     color: #f1fffd;
@@ -6896,7 +7279,7 @@
 }
 
 .deck-hand-card[data-selected="true"] {
-  animation: dm-hand-selection-settle 260ms cubic-bezier(.18, .82, .2, 1) both;
+  animation: dm-hand-selection-settle 260ms cubic-bezier(.18, .84, .24, 1) both;
 }
 
 /* The initial deal animation belongs to newly drawn cards only. Without this
@@ -6904,6 +7287,39 @@
  * makes a card look as though it was drawn again. */
 .deck-hand-card[data-dealt="true"]:not([data-selected="true"]) {
   animation: none;
+}
+
+/* A selected card that has already settled must not replay its vertical
+ * selection bounce after a keyed DOM reorder. Fresh clicks still carry the
+ * explicit data-selection-motion marker and retain their tactile response. */
+.deck-hand-card[data-dealt="true"][data-selected="true"]:not([data-selection-motion]) {
+  animation: none;
+}
+
+/* FLIP-style sorting: React has already assigned the final slot transform.
+ * The independent translate property temporarily inverts that change, then
+ * returns to zero without interrupting selection or card-face animations. */
+.deck-hand-card[data-sort-motion="from"] {
+  translate: var(--hand-sort-delta-x) var(--hand-sort-delta-y);
+  transition: none !important;
+}
+
+.deck-hand-card[data-sort-motion="to"] {
+  translate: 0 0;
+  transition:
+    translate 280ms cubic-bezier(.16, .78, .2, 1),
+    filter 160ms ease !important;
+}
+
+/* Both click directions receive a tiny follow-through. The card moves a
+ * little beyond its destination, then settles back, like a physical card
+ * rather than a binary UI switch. */
+.deck-hand-card[data-selection-motion="up"] {
+  animation: dm-hand-selection-settle 260ms cubic-bezier(.18, .84, .24, 1) both;
+}
+
+.deck-hand-card[data-dealt="true"][data-selection-motion="down"]:not([data-selected="true"]) {
+  animation: dm-hand-deselection-settle 230ms cubic-bezier(.2, .78, .24, 1) both;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -6944,17 +7360,11 @@
       rotate(var(--hand-card-rotation))
       scale(1);
   }
-  38% {
-    transform:
-      translate3d(calc(var(--hand-card-x) + 3px), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px) - 3px), 0)
-      rotate(calc(var(--hand-card-rotation) + 1deg))
-      scale(var(--hand-selected-scale));
-  }
   70% {
     transform:
-      translate3d(calc(var(--hand-card-x) - 2px), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px) + 1px), 0)
-      rotate(calc(var(--hand-card-rotation) - .7deg))
-      scale(var(--hand-selected-scale));
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px) - 4px), 0)
+      rotate(var(--hand-card-rotation))
+      scale(calc(var(--hand-selected-scale) + .008));
   }
   100% {
     transform:
@@ -6963,6 +7373,28 @@
       scale(var(--hand-card-scale));
   }
 }
+
+@keyframes dm-hand-deselection-settle {
+  0% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(var(--hand-selected-scale));
+  }
+  74% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + 2px), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1.004);
+  }
+  100% {
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+}
+
 
 /* A selected card already communicates its state by staying raised. Keep its
  * original frame/shadow and remove the additional bright outline and glow. */
@@ -7170,23 +7602,27 @@
   .deck-run-view-playing .mobile-run-rail-mult { min-height: 0; }
 
   .deck-hand-stage--clean .deck-hand-layout {
-    width: min(100%, 1180px);
+    /* Keep eight full cards broad enough to read as a hand, then let the
+       geometry manager handle overlap instead of shrinking the supplied art.
+       At 1280px this yields ~120px cards, close to the deck card, while a
+       wide desktop can still spread a full hand naturally. */
+    width: min(82%, 1040px);
     justify-self: center;
   }
 
   .deck-hand-stage--clean .table-action-dock {
-    width: min(700px, 74%);
-    min-width: 560px;
-    height: 96px;
-    min-height: 96px;
-    grid-template-columns: minmax(200px, 1fr) 190px minmax(200px, 1fr) !important;
+    width: min(792px, 82%);
+    min-width: min(720px, 82%);
+    height: 112px;
+    min-height: 112px;
+    grid-template-columns: minmax(0, 1.16fr) minmax(198px, .86fr) minmax(0, 1.16fr) !important;
   }
 
   .deck-hand-stage--clean .table-action,
   .deck-hand-stage--clean .discard-action,
   .deck-hand-stage--clean .deck-sort-control-two-way {
-    height: 90px !important;
-    min-height: 90px;
+    height: 100px !important;
+    min-height: 100px;
   }
 
   .deck-hand-stage--clean .deck-sort-control-two-way {
@@ -7195,7 +7631,7 @@
   }
 
   .deck-hand-stage--clean .deck-sort-control-two-way button {
-    min-height: 52px;
+    min-height: 58px;
   }
 
   /* Resource cabinet below the score: reference layout uses a left action
@@ -7357,6 +7793,58 @@
       inset 0 0 0 2px rgba(255, 255, 255, .025),
       0 5px 0 #020504 !important;
     overflow: hidden;
+  }
+
+  /* Round cassette scale: title, blind emblem and target use the same visual
+   * weight as the reference instead of leaving a small title above oversized
+   * empty panels. Colours and cabinet treatment stay untouched. */
+  .deck-run-view-playing .mobile-run-rail-round {
+    grid-template-columns: minmax(84px, .82fr) minmax(0, 1.36fr) !important;
+    grid-template-rows: clamp(42px, 5.1vh, 58px) auto minmax(0, 1fr) !important;
+    gap: clamp(4px, .5vh, 7px) !important;
+    padding: clamp(7px, .55vw, 10px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-copy h2 {
+    padding: 4px 10px !important;
+    font-size: clamp(24px, 2.05vw, 35px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-copy > small {
+    font-size: clamp(11px, .92vw, 16px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-mark {
+    width: clamp(70px, 6.3vw, 104px) !important;
+    font-size: clamp(29px, 3vw, 49px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward {
+    min-height: clamp(76px, 9.2vh, 106px) !important;
+    padding: clamp(7px, .55vw, 10px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward span,
+  .deck-run-view-playing .mobile-run-rail-round-reward small {
+    font-size: clamp(15px, 1.2vw, 21px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward strong {
+    min-width: clamp(82px, 8.4vw, 142px) !important;
+    min-height: clamp(48px, 5.7vh, 68px) !important;
+    font-size: clamp(33px, 3.05vw, 50px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current {
+    grid-template-columns: clamp(105px, 27%, 132px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current span {
+    font-size: clamp(20px, 1.35vw, 25px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current strong {
+    font-size: clamp(36px, 3.2vw, 51px) !important;
   }
 
   /* Blind/round: title bar, emblem, then one compact target capsule. */
@@ -7945,4 +8433,2240 @@
     font-size: .78em;
   }
 
+}
+
+/* Final score strip sizing: this comes after the responsive HUD layers on
+ * purpose, so both the narrow rail and full game view share the same ratio. */
+.deck-run-view-playing .mobile-run-rail-score {
+  min-height: clamp(78px, 9vh, 92px) !important;
+  padding: clamp(5px, .45vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current {
+  grid-template-columns: clamp(94px, 26%, 118px) minmax(0, 1fr) !important;
+  gap: clamp(5px, .5vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current span {
+  font-size: clamp(18px, 1.18vw, 23px) !important;
+  line-height: 1.02 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong {
+  font-size: clamp(32px, 3vw, 48px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong::before {
+  width: .64em !important;
+  aspect-ratio: 1;
+  margin-right: .23em !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(90deg, transparent 0 18%, #dfeee7 18% 34%, #fff 34% 66%, #dfeee7 66% 82%, transparent 82%),
+    linear-gradient(transparent 0 18%, #dfeee7 18% 34%, #fff 34% 66%, #dfeee7 66% 82%, transparent 82%),
+    #7e918c !important;
+  clip-path: polygon(29% 0, 71% 0, 71% 10%, 86% 10%, 86% 29%, 100% 29%, 100% 71%, 86% 71%, 86% 90%, 71% 90%, 71% 100%, 29% 100%, 29% 90%, 14% 90%, 14% 71%, 0 71%, 0 29%, 14% 29%, 14% 10%, 29% 10%);
+  box-shadow: none !important;
+}
+
+/* Round-score cassette: keep the original cabinet colours, but use the
+ * reference's short, wide proportion so the number reads as one unit. */
+.deck-run-view-playing .mobile-run-rail-score {
+  min-height: clamp(76px, 8.4vh, 94px) !important;
+  padding: clamp(5px, .45vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current {
+  grid-template-columns: clamp(94px, 26%, 118px) minmax(0, 1fr) !important;
+  gap: clamp(5px, .5vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current span {
+  font-size: clamp(18px, 1.18vw, 23px) !important;
+  line-height: 1.02 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong {
+  font-size: clamp(32px, 3vw, 48px) !important;
+}
+
+/* A stepped, square-edged score chip. Its silhouette is intentionally built
+ * from straight segments instead of the previous smooth dotted circle. */
+.deck-run-view-playing .mobile-run-rail-current strong::before {
+  width: .64em !important;
+  aspect-ratio: 1;
+  margin-right: .23em !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background:
+    linear-gradient(90deg, transparent 0 18%, #dfeee7 18% 34%, #fff 34% 66%, #dfeee7 66% 82%, transparent 82%),
+    linear-gradient(transparent 0 18%, #dfeee7 18% 34%, #fff 34% 66%, #dfeee7 66% 82%, transparent 82%),
+    #7e918c !important;
+  clip-path: polygon(29% 0, 71% 0, 71% 10%, 86% 10%, 86% 29%, 100% 29%, 100% 71%, 86% 71%, 86% 90%, 71% 90%, 71% 100%, 29% 100%, 29% 90%, 14% 90%, 14% 71%, 0 71%, 0 29%, 14% 29%, 14% 10%, 29% 10%);
+  box-shadow: none !important;
+}
+
+/* Play-field cabinet alignment ------------------------------------------------
+ * The hand is the focal point, not the mathematical centre of the whole
+ * table. Reserve the right-hand deck lane first, then centre the playable
+ * cards and controls in the remaining field. This keeps the 16:9 desktop
+ * composition in the same dense, arcade-like proportion as the reference. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px minmax(220px, 21vh) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-playing .deck-stage-header {
+    margin-inline: clamp(18px, 2.1vw, 42px);
+  }
+
+  .deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    width: auto !important;
+    margin-inline: clamp(22px, 2.35vw, 46px);
+  }
+
+  .deck-run-view-playing .deck-hand-stage--clean {
+    /* The pile owns the right lane, so the hand sits in the usable play area. */
+    transform: translateX(clamp(-104px, -4.6vw, -64px)) translateY(clamp(-72px, -7.2vh, -48px));
+  }
+
+  .deck-run-view-playing .deck-hand-stage--clean .deck-hand-layout {
+    /* Width, hitbox and pixel raster now grow in HandLayoutManager. */
+    transform: none;
+  }
+
+  .deck-run-view-playing .deck-hand-stage--clean .table-action-dock {
+    width: min(792px, 82%);
+    min-width: min(720px, 82%);
+    transform: translateY(48px);
+  }
+
+  .deck-run-view-playing .deck-pile-dock {
+    right: clamp(12px, 1.4vw, 28px);
+    bottom: clamp(42px, 4.5vh, 66px);
+    width: clamp(142px, 9.8vw, 172px);
+  }
+
+  .deck-run-view-playing .deck-pile-draw .deck-pile-card {
+    width: clamp(126px, 9.8vw, 158px);
+  }
+}
+
+/* Final round-score alignment ------------------------------------------------
+ * Keep the label and its value capsule on one shared centre line at every HUD
+ * width. The score total is intentionally quieter than the target value. */
+.deck-run-view-playing .mobile-run-rail-round-reward strong {
+  font-size: clamp(37px, 11.8vw, 54px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-scoreboard {
+  display: grid !important;
+  width: 100% !important;
+  height: 100% !important;
+  place-items: stretch !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current {
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.5fr) !important;
+  align-items: center !important;
+  justify-items: stretch !important;
+  min-height: 0 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current span {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 0 !important;
+  line-height: 1.02 !important;
+  /* Galmuri's two-line Korean glyph box sits visually above its line box. */
+  transform: translateY(9px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong {
+  align-self: center !important;
+  justify-self: stretch !important;
+  font-size: clamp(25px, 6.6vw, 34px) !important;
+}
+
+/* Keep the round target's three-tier cassette, but give its helper labels a
+ * quieter hierarchy so the red target number remains the visual anchor. */
+.deck-run-view-playing .mobile-run-rail-round-reward span {
+  font: 800 clamp(11px, .82vw, 15px)/1 "Galmuri11", ui-monospace, monospace !important;
+  letter-spacing: .01em;
+}
+
+.deck-run-view-playing .mobile-run-rail-round-reward small {
+  font: 800 clamp(11px, .8vw, 14px)/1 "Galmuri11", ui-monospace, monospace !important;
+  letter-spacing: 0;
+}
+
+.deck-run-view-playing .mobile-run-rail-round-reward small b {
+  font-size: 1.26em !important;
+  letter-spacing: .055em;
+}
+
+/* Bottom action strip: actions read first, while the two sort buttons sit a
+ * touch closer to their heading and leave a deliberate lower breathing gap. */
+.deck-run-view-playing .deck-hand-stage--clean .table-action {
+  font-size: clamp(23px, 1.48vw, 29px) !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way {
+  grid-template-rows: 25px minmax(0, 1fr) !important;
+  gap: 2px !important;
+  padding: 6px 6px 10px !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way button {
+  min-height: 44px !important;
+  align-self: start !important;
+}
+
+/* Compact draw-deck board ---------------------------------------------------
+ * Opening the deck changes the play field into a temporary deck-inspection
+ * pose. The hand settles to the lower edge, controls leave the stage and the
+ * matrix claims the newly opened centre space. */
+.deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean {
+  transform: translateX(clamp(-104px, -4.6vw, -64px)) translateY(clamp(72px, 9vh, 128px)) !important;
+}
+
+.deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean .deck-hand-layout {
+  transform: scale(1.02) !important;
+  transform-origin: 100% 100% !important;
+}
+
+.deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean .table-action-dock {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(clamp(124px, 16vh, 196px)) !important;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-popover {
+  position: fixed !important;
+  z-index: 100 !important;
+  right: auto !important;
+  /* The hand is deliberately left of the free-table midpoint.  Match that
+     visual centre so the matrix opens over the hand rather than the deck. */
+  left: max(
+    calc(var(--dm-hud-width, 0px) + min(440px, (100vw - var(--dm-hud-width, 0px)) / 2) + 16px),
+    calc(50vw + clamp(0px, 2.6vw, 50px))
+  ) !important;
+  top: clamp(300px, 42vh, 480px) !important;
+  width: min(880px, calc(100vw - var(--dm-hud-width, 0px) - 72px)) !important;
+  max-width: calc(100vw - var(--dm-hud-width, 0px) - 28px) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: max-content !important;
+  gap: 0 !important;
+  padding: clamp(8px, .7vw, 12px) !important;
+  border: 3px solid #4cb8c7 !important;
+  border-radius: 10px !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.025) 4px 5px),
+    #0b1616 !important;
+  box-shadow: 6px 7px 0 #020504 !important;
+  overflow: visible !important;
+  transform: translateX(-50%) !important;
+  animation: dm-deck-matrix-enter 180ms cubic-bezier(.2,.78,.2,1) both;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-popover > .deck-pile-popover-header {
+  display: none !important;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-popover:not([hidden]) {
+  display: block !important;
+}
+
+.deck-pile-compact-board {
+  display: grid !important;
+  grid-template-rows: 30px 58px 164px !important;
+  gap: 6px !important;
+  height: 264px !important;
+  min-width: 0;
+}
+
+.deck-pile-compact-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: end;
+  gap: 10px;
+  height: 30px !important;
+  min-height: 0 !important;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #314541;
+}
+
+.deck-pile-compact-header span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #70d9e7;
+  font-size: clamp(10px, .8vw, 13px);
+  letter-spacing: .08em;
+}
+
+.deck-pile-compact-header span i {
+  display: grid;
+  width: 20px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #9768b8;
+  color: #e5c0ff;
+  background: #352440;
+  font-style: normal;
+  line-height: 1;
+}
+
+.deck-pile-compact-header strong {
+  color: #e7edf0;
+  font-size: clamp(15px, 1.25vw, 20px);
+  line-height: 1;
+}
+
+.deck-pile-compact-header strong b { color: #f4d265; }
+
+.deck-pile-compact-ranks,
+.deck-pile-compact-row {
+  display: grid !important;
+  grid-template-columns: 78px repeat(10, minmax(0, 1fr));
+  gap: 5px;
+  align-items: stretch;
+}
+
+.deck-pile-compact-ranks {
+  height: 58px !important;
+  min-height: 0 !important;
+  background: transparent;
+}
+
+.deck-pile-compact-rank {
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr) 18px;
+  min-height: 0 !important;
+  place-items: center;
+  padding: 2px 1px 0;
+  border: 2px solid #b8d5cf;
+  border-radius: 8px;
+  color: #e8f1ed;
+  background: #263631;
+  box-shadow: inset 0 -3px 0 #15211e, 2px 3px 0 #020504;
+  line-height: 1;
+}
+
+.deck-pile-compact-rank b {
+  color: #e8f1ed;
+  font: 700 clamp(18px, 1.45vw, 24px)/.85 "Galmuri11", ui-monospace, monospace;
+}
+
+.deck-pile-compact-rank small {
+  display: grid;
+  width: 100%;
+  min-height: 16px;
+  place-items: center;
+  border-radius: 3px;
+  color: #d9fff0;
+  background: #203933;
+  font: 700 clamp(11px, .85vw, 14px)/1 "Galmuri11", ui-monospace, monospace;
+  line-height: 1;
+}
+
+.deck-pile-compact-rows {
+  display: grid !important;
+  grid-template-rows: repeat(4, 36px) !important;
+  height: 164px !important;
+  min-height: 0 !important;
+  gap: 4px !important;
+}
+
+.deck-pile-compact-label,
+.deck-pile-compact-cell {
+  min-width: 0;
+  min-height: 0 !important;
+  height: 36px !important;
+  border: 2px solid #3a514d;
+  background: #162421;
+}
+
+.deck-pile-compact-label {
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 4px;
+  padding: 3px 5px;
+  border-radius: 12px;
+  color: #e9f2ed;
+}
+
+.deck-pile-compact-label i {
+  width: 20px;
+  height: 22px;
+  display: block;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+}
+
+.deck-pile-compact-label small {
+  min-width: 0;
+  justify-self: stretch;
+  color: #eef7f1;
+  font: 700 clamp(12px, .95vw, 15px)/1 "Galmuri11", ui-monospace, monospace;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.deck-pile-compact-cell {
+  display: grid !important;
+  place-items: center;
+  color: rgba(240,247,242,.38);
+  font: 700 clamp(15px, 1.14vw, 18px)/1 "Galmuri11", ui-monospace, monospace;
+  line-height: 1;
+  transition: filter 120ms ease, opacity 120ms ease;
+}
+
+.deck-pile-compact-row-red .deck-pile-compact-label i { background-image: url("/art/card-symbols/fire_symbol.png"); }
+.deck-pile-compact-row-yellow .deck-pile-compact-label i { background-image: url("/art/card-symbols/lightning_symbol.png"); }
+.deck-pile-compact-row-green .deck-pile-compact-label i { background-image: url("/art/card-symbols/leaf_symbol.png"); }
+.deck-pile-compact-row-blue .deck-pile-compact-label i { background-image: url("/art/card-symbols/water_symbol.png"); }
+
+.deck-pile-compact-row-red .deck-pile-compact-cell:not(.is-depleted):not(.is-absent) { border-color: #9e4541; background: #542c2b; color: #ffd6d2; }
+.deck-pile-compact-row-yellow .deck-pile-compact-cell:not(.is-depleted):not(.is-absent) { border-color: #aa8735; background: #504420; color: #fff0b1; }
+.deck-pile-compact-row-green .deck-pile-compact-cell:not(.is-depleted):not(.is-absent) { border-color: #4c9662; background: #264635; color: #d4ffe0; }
+.deck-pile-compact-row-blue .deck-pile-compact-cell:not(.is-depleted):not(.is-absent) { border-color: #4386a7; background: #233f50; color: #d7f4ff; }
+
+.deck-pile-compact-cell.is-partial {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,.2) 4px 7px) !important;
+}
+
+.deck-pile-compact-cell.is-depleted,
+.deck-pile-compact-cell.is-absent {
+  border-color: #30403d;
+  color: rgba(210,221,215,.18);
+  background: #111c1a;
+}
+
+.deck-pile-compact-cell.is-absent { opacity: .45; }
+
+@media (orientation: portrait), (max-width: 700px) {
+  .deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean {
+    transform: translateY(52px) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean .deck-hand-layout {
+    transform: scale(.92) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table.is-deck-preview-open .deck-hand-stage--clean .table-action-dock {
+    transform: translateY(104px) !important;
+  }
+
+  .deck-run-view-playing .deck-pile-draw .deck-pile-popover {
+    left: 50vw !important;
+    right: auto !important;
+    top: 38vh !important;
+    bottom: auto !important;
+    width: min(460px, calc(100vw - 30px)) !important;
+    transform: translateX(-50%) !important;
+  }
+
+  .deck-pile-compact-ranks,
+  .deck-pile-compact-row {
+    grid-template-columns: 42px repeat(10, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .deck-pile-compact-label { grid-template-columns: 15px minmax(0, 1fr); column-gap: 2px; padding-inline: 3px; }
+  .deck-pile-compact-rank b { font-size: 11px; }
+  .deck-pile-compact-rank small { font-size: 8px; }
+  .deck-pile-compact-label small,
+  .deck-pile-compact-cell,
+  .deck-pile-compact-label i { font-size: 9px; }
+}
+
+@keyframes dm-deck-matrix-enter {
+  from { opacity: 0; transform: translate(-50%, 12px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* Play-table pixel cabinet ---------------------------------------------------
+ * Match the rounded, chunky HUD grammar instead of mixing it with thin
+ * system typography and flat utility widgets. The card art remains untouched;
+ * this covers the table chrome, build slots, controls and draw pile only. */
+.deck-run-view .deck-play-table,
+.deck-run-view .deck-play-table button,
+.deck-run-view .deck-play-table input,
+.deck-run-view .deck-play-table select,
+.deck-run-view .deck-play-table strong,
+.deck-run-view .deck-play-table small,
+.deck-run-view .deck-play-table span,
+.deck-run-view .deck-play-table p,
+.deck-run-view .deck-play-table i,
+.deck-run-view .deck-play-table h2 {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+}
+
+.deck-run-view .deck-stage-header,
+.deck-run-view .deck-play-table .modifier-rail-section,
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+.deck-run-view .deck-play-table .modifier-rail-empty-slot,
+.deck-run-view .deck-hand-stage--clean .table-action,
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way,
+.deck-run-view .deck-pile-button {
+  border: 3px solid #314541 !important;
+  border-radius: 9px !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.028) 4px 5px),
+    linear-gradient(180deg, #172522, #0c1715) !important;
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,.025),
+    0 5px 0 #020504 !important;
+}
+
+.deck-run-view .deck-stage-header {
+  color: #f3efe2;
+  border-color: #2c4842 !important;
+  border-radius: 8px !important;
+}
+
+.deck-run-view .deck-stage-header span { color: #55cce8 !important; }
+.deck-run-view .deck-stage-header strong { color: #f4f0e5 !important; text-shadow: 2px 2px 0 #06100e; }
+.deck-run-view .deck-stage-header p { color: #c3d1cc !important; }
+
+.deck-run-view .deck-play-table .modifier-rail-section {
+  gap: 9px;
+  padding: 7px 9px;
+  border-color: #38534d !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-section-header h2 {
+  color: #e6f3ed;
+  font-size: 13px;
+  text-shadow: 2px 2px 0 #05100d;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-section-header span {
+  color: #c38cf0;
+  font-size: 12px;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+.deck-run-view .deck-play-table .modifier-rail-empty-slot {
+  min-height: 0;
+  border-width: 2px !important;
+  border-color: #3d5651 !important;
+  color: #edf6f1;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.025) 3px 4px),
+    #14211e !important;
+  box-shadow: inset 0 -4px 0 rgba(0,0,0,.18), 3px 4px 0 #020504 !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger:hover,
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger:focus-visible {
+  border-color: #69d9e8 !important;
+  background: #1b312d !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-slot-copy strong { color: #f3efe2; }
+.deck-run-view .deck-play-table .modifier-rail-slot-copy small,
+.deck-run-view .deck-play-table .modifier-rail-slot-status { color: #9fb7b0 !important; }
+
+.deck-run-view .deck-hand-stage--clean .table-action,
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way {
+  color: #edf7f2;
+  text-shadow: 2px 2px 0 #07100f;
+}
+
+.deck-run-view .deck-hand-stage--clean .play-action:not(:disabled) {
+  border-color: #169ec6 !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.07) 4px 5px),
+    linear-gradient(180deg, #168ec2, #075878) !important;
+}
+
+.deck-run-view .deck-hand-stage--clean .discard-action:not(:disabled) {
+  border-color: #e26158 !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.06) 4px 5px),
+    linear-gradient(180deg, #b9473e, #762722) !important;
+}
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way {
+  border-color: #d4e7e1 !important;
+  background: #112a2d !important;
+}
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way > span { color: #f4d265; }
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way button {
+  border: 2px solid #f7ae26 !important;
+  border-radius: 7px !important;
+  color: #fff5d7;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.09) 3px 4px),
+    linear-gradient(180deg, #ef9c19, #c86609) !important;
+  box-shadow: inset 0 -4px 0 rgba(101,41,3,.4), 2px 3px 0 #07110f !important;
+  font-size: clamp(14px, 1.15vw, 20px) !important;
+  font-weight: 900 !important;
+  text-shadow: 2px 2px 0 #7b3505;
+}
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way {
+  grid-template-rows: 28px minmax(0, 1fr) !important;
+  gap: 5px !important;
+  padding: 6px !important;
+  border: 4px solid #e9f4ed !important;
+  border-radius: 12px !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.04) 4px 5px),
+    #1b3031 !important;
+  box-shadow: 0 0 0 3px #0c2220, 5px 6px 0 #020504 !important;
+}
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way > span {
+  display: grid;
+  place-items: center;
+  color: #fff7e2 !important;
+  font-size: clamp(15px, 1.2vw, 21px) !important;
+  font-weight: 900 !important;
+  line-height: 1;
+  text-shadow: 2px 2px 0 #18423d;
+}
+
+.deck-run-view .deck-pile-button {
+  color: #eff4ed;
+  background: #15211f !important;
+}
+
+.deck-run-view .deck-pile-button-label,
+.deck-run-view .deck-pile-open-hint,
+.deck-run-view .deck-pile-draw .deck-pile-count {
+  color: #f4d265 !important;
+  text-shadow: 2px 2px 0 #171209;
+}
+
+/* Keep the sort cassette compact and self-contained at every desktop size. */
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way {
+  width: 218px !important;
+  min-width: 218px !important;
+  height: 110px !important;
+  min-height: 110px !important;
+  align-self: center !important;
+  justify-self: center !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: 30px minmax(0, 1fr) !important;
+}
+
+.deck-run-view .deck-hand-stage--clean .deck-sort-control-two-way button {
+  min-height: 58px !important;
+  color: #fff5d7 !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.09) 3px 4px),
+    linear-gradient(180deg, #ef9c19, #c86609) !important;
+}
+
+/* The draw pile is only the card back and its remaining-card count. The
+ * detailed composition remains available after tapping it, but its idle dock
+ * intentionally has no enclosing box, label, hint, or decorative chrome. */
+.deck-run-view-playing .deck-pile-draw .deck-pile-button {
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: auto auto !important;
+  justify-items: center;
+  gap: 5px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-button::before,
+.deck-run-view-playing .deck-pile-draw .deck-pile-button::after,
+.deck-run-view-playing .deck-pile-draw .deck-pile-button-label,
+.deck-run-view-playing .deck-pile-draw .deck-pile-open-hint {
+  display: none !important;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-card {
+  grid-row: 1;
+  margin: 0 !important;
+  box-shadow: 6px 7px 0 #020504 !important;
+}
+
+.deck-run-view-playing .deck-pile-draw .deck-pile-count {
+  position: static !important;
+  grid-row: 2;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: #f4d265 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: 900 clamp(16px, 1.27vw, 22px)/1 "Galmuri11", ui-monospace, monospace !important;
+  text-shadow: 2px 2px 0 #171209;
+}
+
+/* Preserve the fan's reading order: selecting a card may lift it, but it
+ * never jumps above cards to its right. The rightmost card always owns the
+ * foreground, even while the clicked card keeps keyboard focus. */
+.deck-hand-stage .deck-hand-card[data-selected="true"],
+.deck-hand-stage .deck-hand-card[data-selected="true"]:focus-within {
+  --hand-card-active-z: var(--hand-card-z) !important;
+}
+
+/* Hand callout slot ---------------------------------------------------------
+ * Keep this part of the rail quiet until a selection forms a real hand. It
+ * replaces the old always-on POWER × HYPE readout with one centered hand-name
+ * capsule, so the result arrives as a clean reveal instead of dashboard noise. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  display: grid !important;
+  grid-template: auto minmax(0, 1fr) / 1fr !important;
+  align-items: stretch !important;
+  gap: clamp(10px, 1vh, 14px) !important;
+  padding: clamp(8px, .9vw, 13px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-hand-name[data-has-hand="true"] {
+  width: 100%;
+  min-height: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  margin: 0 !important;
+  text-align: center;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name:not([data-has-hand="true"]) {
+  visibility: hidden;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name[data-has-hand="true"] b {
+  width: max-content;
+  max-width: 100%;
+  padding: clamp(6px, .65vw, 10px) clamp(10px, 1vw, 16px);
+  border: 3px solid #947127;
+  border-radius: 9px;
+  color: #ffd85c !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.055) 3px 4px),
+    #312717;
+  box-shadow: inset 0 -4px 0 #1e180d, 4px 5px 0 #020504;
+  font: 900 clamp(18px, 1.6vw, 29px)/1 "Galmuri11", ui-monospace, monospace !important;
+  letter-spacing: -.04em;
+  text-shadow: 3px 3px 0 #705018;
+  animation: dm-hand-callout-in 170ms steps(4, end) both;
+}
+
+/* Keep the calculator anchored to the bottom even before a card is selected.
+ * The top slot stays empty until a valid hand appears; it never pushes the
+ * blue/red values upward. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  grid-template-rows: minmax(0, 1fr) auto !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation {
+  align-self: end !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name[data-score-transfer="true"] {
+  visibility: visible !important;
+  overflow: visible;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name .mobile-run-rail-transfer-score {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: #f3eee0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  text-shadow: 3px 3px 0 #101817;
+  animation: none !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation {
+  min-height: 0;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  padding-top: clamp(5px, .7vh, 9px);
+  gap: clamp(7px, .8vw, 11px);
+}
+
+.deck-run-view-playing .mobile-run-rail-chips,
+.deck-run-view-playing .mobile-run-rail-mult {
+  min-width: 0;
+  display: grid !important;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.deck-run-view-playing .mobile-run-rail-chips span,
+.deck-run-view-playing .mobile-run-rail-mult span {
+  display: none !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation strong {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border: 3px solid;
+  border-radius: 9px;
+  color: #fff !important;
+  font: 900 clamp(26px, 3.5vh, 47px)/1 "Galmuri11", ui-monospace, monospace !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-chips strong {
+  border-color: #12b5ff;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px),
+    #078ee0;
+  box-shadow: inset 0 -7px 0 #03598f, 4px 5px 0 #020504;
+  text-shadow: 3px 3px 0 #034b77;
+}
+
+.deck-run-view-playing .mobile-run-rail-mult strong {
+  border-color: #ff7274;
+  background:
+    repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px),
+    #ef4548;
+  box-shadow: inset 0 -7px 0 #922529, 4px 5px 0 #020504;
+  text-shadow: 3px 3px 0 #761e22;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation-sign {
+  align-self: end;
+  padding-bottom: clamp(8px, 1vh, 14px);
+  color: #ef4548 !important;
+  font: 900 clamp(22px, 2.2vw, 35px)/1 "Galmuri11", ui-monospace, monospace !important;
+  text-shadow: 3px 3px 0 #57171a;
+}
+
+@keyframes dm-hand-callout-in {
+  0% { opacity: 0; transform: translateY(7px) scale(.84); }
+  65% { opacity: 1; transform: translateY(-2px) scale(1.045); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 560px) {
+  .deck-run-view-playing .mobile-run-rail-score {
+    height: calc(100% - 8px) !important;
+    margin-top: 8px;
+  }
+}
+
+/* Keep the compact HUD's labels optically centred inside the space they own.
+ * Earlier cabinet rules used start alignment for the old wide rail, which
+ * made the current two-column score strip and menu buttons look lopsided. */
+.deck-run-view-playing .mobile-run-rail-current span {
+  place-content: center !important;
+  text-align: center !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong {
+  font-size: clamp(36px, 3.2vw, 54px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding-inline: 0 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary b {
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  text-align: center !important;
+  transform: none !important;
+}
+
+/* Cabinet idle life ----------------------------------------------------------
+ * Balatro's table never reads as a frozen dashboard: objects hold their pose
+ * but make tiny stepped adjustments. Keep this deliberately restrained so it
+ * adds tactility without competing with scoring, selection or readability. */
+@media (prefers-reduced-motion: no-preference) {
+  .deck-game-view:not(.reduced-motion) .deck-hand-card:not([data-selected="true"]):not([data-discarding="true"]) .number-card {
+    animation: dm-card-idle-life 2.8s steps(5, end) infinite;
+    animation-delay: var(--hand-card-idle-delay, 0ms);
+  }
+
+  .deck-game-view:not(.reduced-motion) .deck-stage-header,
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-round,
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-score,
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-preview,
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-lower,
+  .deck-game-view:not(.reduced-motion) .modifier-rail-section {
+    animation: dm-cabinet-idle-life 3.7s steps(6, end) infinite;
+  }
+
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-score,
+  .deck-game-view:not(.reduced-motion) .modifier-rail-section:nth-child(2) {
+    animation-delay: -1.15s;
+  }
+
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-preview,
+  .deck-game-view:not(.reduced-motion) .deck-stage-header {
+    animation-delay: -2.05s;
+  }
+
+  .deck-game-view:not(.reduced-motion) .deck-stage-header strong,
+  .deck-game-view:not(.reduced-motion) .modifier-rail-section-header,
+  .deck-game-view:not(.reduced-motion) .deck-sort-control-two-way > span,
+  .deck-game-view:not(.reduced-motion) .deck-pile-button-label,
+  .deck-game-view:not(.reduced-motion) .mobile-run-rail-blind-copy h2 {
+    animation: dm-pixel-label-life 2.35s steps(4, end) infinite;
+  }
+
+  .deck-game-view:not(.reduced-motion) .deck-hand-stage--clean .table-action:not(:disabled),
+  .deck-game-view:not(.reduced-motion) .deck-hand-stage--clean .deck-sort-control-two-way,
+  .deck-game-view:not(.reduced-motion) .deck-pile-button {
+    animation: dm-control-idle-life 3.1s steps(5, end) infinite;
+  }
+
+  .deck-game-view:not(.reduced-motion) .deck-hand-stage--clean .table-action:nth-child(3) {
+    animation-delay: -1.3s;
+  }
+}
+
+@keyframes dm-card-idle-life {
+  0%, 100% { translate: 0 0; rotate: 0deg; filter: brightness(1); }
+  26% { translate: 0 -1px; rotate: -.12deg; filter: brightness(1.018); }
+  54% { translate: 1px 0; rotate: .1deg; filter: brightness(1.006); }
+  76% { translate: 0 1px; rotate: 0deg; filter: brightness(1.015); }
+}
+
+@keyframes dm-cabinet-idle-life {
+  0%, 100% { filter: brightness(1); }
+  43% { filter: brightness(1.018); }
+  65% { filter: brightness(1.006); }
+}
+
+@keyframes dm-pixel-label-life {
+  0%, 100% { translate: 0 0; }
+  35% { translate: 1px 0; }
+  62% { translate: 0 -1px; }
+}
+
+@keyframes dm-control-idle-life {
+  0%, 100% { translate: 0 0; filter: brightness(1); }
+  40% { translate: 0 -1px; filter: brightness(1.025); }
+  67% { translate: 1px 0; filter: brightness(1.008); }
+}
+
+/* Final hand-preview placement: later desktop HUD rules used to right-align
+ * this badge. The active hand result must always read from the centre. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] {
+  display: grid !important;
+  justify-content: normal !important;
+  justify-items: center !important;
+  align-items: center !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] b {
+  justify-self: center !important;
+  margin-inline: auto !important;
+}
+
+/* Hand-result cassette proportions.  The result title owns the upper half and
+ * the two score values own the lower half, rather than leaving a tall blank
+ * area above two small buttons. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .mobile-run-rail.pixel-panel {
+    grid-template-rows:
+      minmax(220px, 26vh)
+      minmax(88px, 10vh)
+      minmax(190px, 22vh)
+      minmax(220px, 25vh) !important;
+  }
+}
+
+.deck-run-view-playing .mobile-run-rail-preview {
+  grid-template-rows: minmax(52px, .88fr) minmax(78px, 1.12fr) !important;
+  gap: clamp(7px, .65vw, 11px) !important;
+  padding: clamp(8px, .75vw, 12px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation {
+  height: 100% !important;
+  width: min(92%, 390px) !important;
+  align-items: stretch !important;
+  align-self: stretch !important;
+  justify-self: center !important;
+  padding-top: 0 !important;
+  gap: clamp(14px, 1.3vw, 20px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation-sign {
+  align-self: center !important;
+  padding-bottom: 0 !important;
+  font-size: clamp(28px, 2.35vw, 40px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation strong {
+  min-height: clamp(64px, 7.2vh, 80px) !important;
+  font-size: clamp(35px, 3.55vw, 52px) !important;
+}
+
+/* Final calculator anchoring: this must follow the ratio rule above so idle
+ * and selected states share the same bottom baseline. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  grid-template-rows: minmax(0, 1fr) auto !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-equation {
+  height: auto !important;
+  align-self: end !important;
+}
+
+/* While points are being deposited, the counter owns the empty upper half of
+ * the calculator.  Give it the same visual weight as the equation below
+ * instead of leaving a tiny floating +number in that space. */
+.deck-run-view-playing .mobile-run-rail-hand-name[data-score-transfer="true"] {
+  display: grid !important;
+  min-height: 0 !important;
+  place-items: center !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-name[data-score-transfer="true"] .mobile-run-rail-transfer-score {
+  display: block !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  font-size: clamp(22px, 2.4vw, 40px) !important;
+  line-height: .88 !important;
+  letter-spacing: -.055em !important;
+  font-variant-numeric: tabular-nums !important;
+  text-shadow: 4px 4px 0 #101817 !important;
+}
+
+/* Round target keeps its existing three tiers, but the two helper lines need
+ * enough weight to balance the large red target value on compact HUDs. */
+.deck-run-view-playing .mobile-run-rail-round-reward span {
+  font-size: clamp(15px, 4.15vw, 20px) !important;
+  line-height: 1.05 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-round-reward small {
+  font-size: clamp(15px, 3.95vw, 19px) !important;
+  line-height: 1.05 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-round-reward small b {
+  font-size: 1.34em !important;
+}
+
+/* Centre the score strip as a single label/value unit instead of leaving the
+ * label optically pinned to the upper-left corner of its column. */
+.deck-run-view-playing .mobile-run-rail-score {
+  padding: clamp(7px, 1.65vw, 11px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current {
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1.58fr) !important;
+  align-items: center !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current span {
+  width: 100% !important;
+  height: 100% !important;
+  place-items: center !important;
+  align-content: center !important;
+  padding: 0 !important;
+}
+
+/* Keep the round counter a short, wide cassette: the label can carry a little
+ * more weight, while multi-digit totals do not overwhelm the compact rail. */
+.deck-run-view-playing .mobile-run-rail-score {
+  min-height: clamp(66px, 7.25vh, 78px) !important;
+  height: auto !important;
+  margin-top: clamp(4px, .5vh, 6px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current span {
+  font-size: clamp(20px, 1.38vw, 25px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current strong {
+  font-size: clamp(31px, 2.65vw, 45px) !important;
+}
+
+/* Compact desktop resource cassette -----------------------------------------
+ * The run controls occupy a fixed slim column while the values form a dense
+ * three-row cassette. Keeping this landscape-only prevents portrait HUD flow
+ * from being forced into a desktop grid. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 560px) {
+  .deck-run-view-playing .mobile-run-rail-lower {
+    grid-template-columns: clamp(104px, 7.2vw, 126px) minmax(0, 1fr) !important;
+    gap: clamp(6px, .45vw, 9px) !important;
+    padding: clamp(6px, .45vw, 9px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-actions {
+    gap: clamp(3px, .25vw, 5px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+    min-height: 0 !important;
+    padding: 5px !important;
+    border-width: 3px !important;
+    border-radius: 9px !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-tools b {
+    display: grid !important;
+    width: 100% !important;
+    height: 100% !important;
+    place-items: center !important;
+    font-size: clamp(22px, 1.45vw, 29px) !important;
+    line-height: 1.05 !important;
+    text-align: center !important;
+    transform: none !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-stats {
+    grid-template-rows: minmax(66px, 1fr) minmax(52px, .72fr) minmax(66px, 1fr) !important;
+    gap: clamp(5px, .35vw, 7px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources {
+    gap: clamp(5px, .35vw, 7px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources dt,
+  .deck-run-view-playing .mobile-run-rail-run-meta dt {
+    font-size: clamp(14px, .95vw, 18px) !important;
+    line-height: 1 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources dd {
+    width: 100% !important;
+    min-height: clamp(44px, 3.6vw, 56px) !important;
+    border-width: 3px !important;
+    border-radius: 10px !important;
+    font-size: clamp(30px, 2.75vw, 43px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet {
+    padding: 2px !important;
+    border-width: 3px !important;
+    border-radius: 10px !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet strong {
+    font-size: clamp(34px, 3.1vw, 48px) !important;
+    line-height: .9 !important;
+  }
+
+.deck-run-view-playing .mobile-run-rail-run-meta dd {
+    width: 100% !important;
+    min-height: clamp(42px, 3.4vw, 52px) !important;
+    border-width: 3px !important;
+    border-radius: 10px !important;
+    font-size: clamp(27px, 2.55vw, 39px) !important;
+  }
+}
+
+/* Compact hand-result panel -------------------------------------------------
+ * Keep the existing calculator colours and outer cabinet, but make the hand
+ * readout a short, single-purpose strip: a white hand name with a deliberately
+ * quieter level marker, then the existing blue × red score line. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  min-height: clamp(150px, 17vh, 180px) !important;
+  padding: clamp(7px, .65vw, 10px) !important;
+  grid-template-rows: auto auto !important;
+  align-content: center !important;
+  gap: clamp(5px, .55vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] {
+  min-height: 0 !important;
+  align-self: center !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] b {
+  display: inline-flex !important;
+  width: auto !important;
+  max-width: 100% !important;
+  align-items: baseline !important;
+  justify-content: center !important;
+  gap: .34em !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  color: #f7f4ea !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font: 900 clamp(21px, 2vw, 30px)/1 "Galmuri11", ui-monospace, monospace !important;
+  letter-spacing: -.045em !important;
+  text-shadow: 3px 3px 0 #101817 !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-title {
+  color: inherit;
+}
+
+.deck-run-view-playing .mobile-run-rail-hand-level {
+  color: #d6bd67 !important;
+  font: 900 .52em/1 "Galmuri11", ui-monospace, monospace !important;
+  letter-spacing: -.03em !important;
+  text-shadow: 2px 2px 0 #3a2e10 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation {
+  width: min(88%, 340px) !important;
+  min-height: 0 !important;
+  justify-self: center !important;
+  gap: clamp(10px, 1vw, 15px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation strong {
+  min-height: clamp(54px, 6.1vh, 66px) !important;
+  font-size: clamp(30px, 3vw, 43px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation-sign {
+  font-size: clamp(24px, 2vw, 32px) !important;
+}
+
+/* Hand name / calculator final placement.  Reserve the bottom edge for the
+ * blue × red calculator, then let the detected hand settle just above it so
+ * both pieces read as one compact result instead of floating in the panel. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-content: stretch !important;
+  padding: clamp(8px, .8vw, 12px) clamp(8px, .8vw, 12px) clamp(10px, 1vw, 15px) !important;
+  gap: clamp(7px, .65vw, 10px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] {
+  align-self: end !important;
+  padding-bottom: clamp(4px, .45vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] b {
+  font-size: clamp(25px, 2.35vw, 36px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-level {
+  font-size: .58em !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation {
+  width: min(94%, 360px) !important;
+  align-self: end !important;
+  margin-bottom: 0 !important;
+}
+
+/* Keep the two score values visually coupled to the multiplication mark:
+ * POWER settles toward the right edge and HYPE toward the left, while the
+ * shared inner padding keeps both values inside their coloured boxes. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  box-sizing: border-box;
+  padding-inline: clamp(10px, 1vw, 16px);
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong {
+  place-items: center end;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  place-items: center start;
+}
+
+/* Keep the score boxes mounted while a value changes.  The former key sat on
+ * the whole blue/red box, which made the newly-mounted box briefly use the
+ * default grid alignment at the top-left before the score animation settled.
+ * Only the inner glyph is now remounted/punched. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  overflow: visible;
+  animation: none !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-score-value {
+  /* The old HUD hides label spans inside these boxes. This is the numeric
+     glyph, so it must opt back in explicitly. */
+  display: block !important;
+  width: 100%;
+  text-align: center;
+  font: inherit;
+  line-height: 1;
+  transform-origin: 50% 50%;
+}
+
+.mobile-run-rail-preview[data-score-pulse="power"] .mobile-run-rail-chips .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-chips .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="hype"] .mobile-run-rail-mult .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-mult .mobile-run-rail-score-value {
+  animation: dm-hud-score-glyph-punch 290ms cubic-bezier(.12, .86, .16, 1) both;
+}
+
+@keyframes dm-hud-score-glyph-punch {
+  0% { opacity: .66; transform: scale(.7) rotate(-3deg); }
+  22% { opacity: 1; transform: scale(1.32) rotate(3deg); filter: brightness(1.75); }
+  38% { transform: scale(1.13) rotate(-2deg); }
+  58% { transform: scale(.97) rotate(1deg); }
+  76% { transform: scale(1.06) rotate(-1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); filter: brightness(1); }
+}
+
+/* Keep the effect racks quiet when slots are empty.  An empty MOD/MAYHEM
+ * space is a single continuous bay, not a separate card with a + or M label. */
+.deck-run-view .deck-play-table .modifier-rail-empty-slot,
+.deck-run-view-shop .deck-play-table .modifier-rail-empty-slot {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-empty-slot > *,
+.deck-run-view-shop .deck-play-table .modifier-rail-empty-slot > * {
+  display: none !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-uno-slots,
+.deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+  grid-template-columns: 1fr !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+.deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+  max-width: none !important;
+}
+
+/* The supplied deck back is deliberately rendered as a whole pixel card.
+ * Do not crop it into the dock: preserve its source aspect ratio and keep
+ * nearest-neighbour sampling at every displayed pile size. */
+.deck-pile-card-back {
+  background-image: url("/art/card-back.png") !important;
+  background-size: contain !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  image-rendering: pixelated;
+}
+
+/* The desktop dock inherited the old draw/discard two-column grid even
+ * though the playing table now renders only the draw pile. Let the inspector
+ * consume the reserved lane so its larger card back is centred instead of
+ * overflowing into the table's clipped right edge. */
+.deck-run-view-playing .deck-pile-dock {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.deck-run-view-playing .deck-pile-draw,
+.deck-run-view-playing .deck-pile-draw .deck-pile-button {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Score bubbles are attached to a played card, never to the table.  Legacy
+ * feedback rules used a custom property that is absent on the new 2:3 card
+ * assets, briefly resolving `top` to `auto` and placing the number at the
+ * resolve area's top-left corner. */
+.deck-played-card {
+  position: absolute !important;
+  isolation: isolate;
+}
+
+.deck-played-card > .deck-card-score-popup {
+  position: absolute !important;
+  left: 50% !important;
+  top: -72px !important;
+  transform: translateX(-50%) !important;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+@media (orientation: landscape) and (max-width: 1000px) {
+  .deck-played-card > .deck-card-score-popup {
+    top: -42px !important;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .mobile-run-rail.pixel-panel {
+    grid-template-rows:
+      minmax(220px, 26vh)
+      minmax(88px, 10vh)
+      minmax(138px, 15vh)
+      minmax(220px, 25vh) !important;
+  }
+}
+
+/* The selected-hand cassette should fit its contents, not reserve an empty
+ * heading area above the pattern name. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  min-height: clamp(134px, 15vh, 158px) !important;
+  grid-template-rows: auto auto !important;
+  align-content: center !important;
+  gap: clamp(4px, .45vw, 7px) !important;
+  padding: clamp(7px, .6vw, 9px) clamp(8px, .7vw, 11px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation {
+  align-self: center !important;
+  margin: 0 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name {
+  padding-bottom: 0 !important;
+}
+
+/* POWER and HYPE are deliberately two separate hit boxes.  Keep the values
+ * facing the multiplication sign, while preserving enough inset that a
+ * multi-digit score never crosses the box edge. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation {
+  width: min(94%, 360px) !important;
+  grid-template-columns: minmax(0, 1fr) clamp(34px, 3.2vw, 46px) minmax(0, 1fr) !important;
+  gap: clamp(6px, .65vw, 10px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult {
+  display: block !important;
+  min-width: 0 !important;
+  overflow: visible;
+  transform-origin: 50% 50%;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  display: grid !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: clamp(54px, 6.1vh, 66px) !important;
+  overflow: visible;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong {
+  place-items: center end !important;
+  padding-right: clamp(13px, 1.15vw, 18px) !important;
+  padding-left: clamp(8px, .75vw, 12px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  place-items: center start !important;
+  padding-left: clamp(13px, 1.15vw, 18px) !important;
+  padding-right: clamp(8px, .75vw, 12px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-score-value {
+  display: block !important;
+  width: auto !important;
+  max-width: 100%;
+  font: inherit !important;
+  font-size: inherit !important;
+  line-height: 1 !important;
+  text-align: inherit !important;
+  white-space: nowrap;
+  transform-origin: 50% 50%;
+}
+
+/* Restore the scoring impact: the colour box does a short cabinet shake and
+ * its newly-applied number punches independently at the exact same beat. */
+.mobile-run-rail-preview[data-score-pulse="power"] .mobile-run-rail-chips,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-chips,
+.mobile-run-rail-preview[data-score-pulse="hype"] .mobile-run-rail-mult,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-mult {
+  animation: dm-hud-score-panel-flash 290ms steps(5, end) both !important;
+}
+
+.mobile-run-rail-preview[data-score-pulse="power"] .mobile-run-rail-chips .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-chips .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="hype"] .mobile-run-rail-mult .mobile-run-rail-score-value,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-mult .mobile-run-rail-score-value {
+  animation: dm-hud-score-glyph-punch 290ms cubic-bezier(.12, .86, .16, 1) both !important;
+}
+
+/* The multiplication mark is deliberately floating.  Do not let a legacy
+ * equation divider or pseudo-element draw rails between the two score boxes. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation::before,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation::after,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation-sign::before,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation-sign::after {
+  content: none !important;
+  display: none !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation-sign {
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Compact, anchored POWER × HYPE readout.  The boxes stay at the bottom of
+ * the hand panel and the digits retain the large pixel weight from the HUD. */
+.deck-run-view-playing .mobile-run-rail-preview {
+  grid-template-rows: minmax(0, 1fr) auto !important;
+  align-content: stretch !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-hand-name[data-has-hand="true"] {
+  align-self: end !important;
+  padding-bottom: clamp(4px, .45vw, 7px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation {
+  width: min(90%, 380px) !important;
+  align-self: end !important;
+  margin-bottom: 0 !important;
+  grid-template-columns: minmax(0, 1fr) clamp(28px, 2.6vw, 38px) minmax(0, 1fr) !important;
+  gap: clamp(5px, .5vw, 8px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation strong {
+  min-height: clamp(58px, 6.7vh, 72px) !important;
+  font-size: clamp(40px, 3.7vw, 54px) !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-equation-sign {
+  font-size: clamp(28px, 2.35vw, 36px) !important;
+  display: grid !important;
+  place-self: center !important;
+  place-items: center !important;
+  justify-self: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+
+@media (orientation: portrait) and (max-width: 1100px) {
+  .deck-run-view-playing .mobile-run-rail-preview {
+    min-height: 172px !important;
+  }
+}
+
+/* Home exit and new-run confirmation share the in-run pixel HUD language.
+ * Keep the progress summary deliberately short: this is a confirmation, not
+ * a second run-information screen. */
+.modal-backdrop:has(.run-confirm-sheet) {
+  background: rgba(0, 8, 10, .78);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.run-confirm-sheet.modal-panel {
+  width: min(620px, calc(100vw - 36px));
+  overflow: hidden;
+  border: 3px solid #477176;
+  border-radius: 9px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .018) 0 1px, transparent 1px 4px),
+    #07181c;
+  box-shadow: 8px 9px 0 rgba(0, 0, 0, .54), 0 0 0 2px #0b292d;
+}
+
+.run-confirm-sheet.modal-panel > header {
+  min-height: 78px;
+  padding: 15px 19px;
+  border-bottom: 2px solid #456c70;
+  background: linear-gradient(90deg, #092229, #0b171c 74%);
+}
+
+.run-confirm-sheet.modal-panel > header .kicker {
+  color: #ff625f;
+  font-size: 12px;
+  letter-spacing: .12em;
+}
+
+.run-confirm-sheet.modal-panel > header h2 {
+  margin-top: 4px;
+  color: #f4f4e8;
+  font-size: clamp(25px, 3vw, 34px);
+  line-height: 1;
+}
+
+.run-confirm-sheet .run-confirm-body {
+  gap: 21px;
+  padding: 25px;
+}
+
+.run-confirm-sheet .run-confirm-body > p {
+  margin: 0;
+  color: #d1dcda;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.run-confirm-sheet .run-confirm-body > p strong {
+  color: #ffd443;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  font-size: 18px;
+}
+
+.run-save-card {
+  display: grid;
+  gap: 8px;
+  min-height: 102px;
+  padding: 17px 20px;
+  border: 2px solid #526b78;
+  border-radius: 7px;
+  background: linear-gradient(105deg, #172238, #202a3b);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .035), 3px 4px 0 rgba(0, 0, 0, .36);
+}
+
+.run-save-card span {
+  color: #a9b7c3;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.run-save-card b {
+  color: #f5f2e7;
+  font-size: clamp(25px, 3vw, 33px);
+  letter-spacing: .035em;
+  line-height: 1;
+  text-shadow: 3px 3px 0 #071014;
+}
+
+.run-confirm-sheet .confirm-actions {
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.run-confirm-sheet .confirm-actions button {
+  min-height: 52px;
+  padding: 11px 19px;
+  border-radius: 2px;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.run-confirm-sheet .confirm-actions .secondary-button {
+  border: 2px solid #56606d;
+  background: linear-gradient(#303946, #1e2631);
+  box-shadow: 4px 4px 0 #10151b;
+  color: #f2f3ed;
+}
+
+.run-confirm-sheet .confirm-actions .primary-button {
+  border: 2px solid #ff8278;
+  background: linear-gradient(#ff6b62, #e83e3f);
+  box-shadow: 4px 4px 0 #741d28;
+  color: #fff8e7;
+}
+
+.run-confirm-sheet .confirm-actions button:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #10151b;
+}
+
+@media (max-width: 620px) {
+  .run-confirm-sheet.modal-panel > header {
+    min-height: 68px;
+    padding: 13px 15px;
+  }
+
+  .run-confirm-sheet .run-confirm-body {
+    gap: 17px;
+    padding: 19px;
+  }
+
+  .run-confirm-sheet .confirm-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Direct discard happens in the hand itself. This rule intentionally lives
+   after selection/sort styling: those later legacy selectors previously won
+   the animation cascade, so the cards disappeared with no visible send-off. */
+.deck-game-view:not(.reduced-motion) .deck-hand-card[data-discarding="true"] {
+  --hand-card-active-z: 240;
+  pointer-events: none;
+  animation: dm-hand-discard-sweep 440ms cubic-bezier(.13,.82,.2,1) both !important;
+  animation-delay: calc(var(--hand-discard-index, 0) * 42ms) !important;
+  will-change: transform, opacity;
+}
+
+@keyframes dm-hand-discard-sweep {
+  0% {
+    opacity: 1;
+    filter: brightness(1.08) saturate(1.05);
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-selected-lift, -35px)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(var(--hand-selected-scale, 1.025));
+  }
+  18% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-selected-lift, -35px) - 10px), 0)
+      rotate(calc(var(--hand-card-rotation) + 1deg))
+      scale(1.035);
+  }
+  100% {
+    opacity: 0;
+    filter: brightness(.72) saturate(.72);
+    transform:
+      translate3d(var(--hand-discard-target-x, 61%), calc(var(--hand-card-y) - min(7vh, 58px)), 0)
+      rotate(calc(var(--hand-card-rotation) + 6deg))
+      scale(.72);
+  }
+}
+
+/* Card motion choreography -------------------------------------------------
+ * Play: a compact upward table lift. Discard: cards pass through the right
+ * deck lane and exit the screen. Draw: replacements peel from that lane and
+ * settle into their hand slots one by one. */
+.deck-hand-layout {
+  container-type: inline-size;
+  --hand-discard-target-x: calc(100cqw + clamp(120px, 12vw, 210px));
+  --hand-draw-source-x: calc(100cqw + clamp(52px, 7vw, 122px));
+  --hand-draw-source-y: calc(var(--hand-card-y) + clamp(44px, 6vh, 78px));
+}
+
+.deck-game-view:not(.reduced-motion) .deck-hand-card[data-dealing="true"] {
+  animation: dm-hand-deal-in 460ms cubic-bezier(.16,.78,.2,1) both !important;
+  animation-delay: calc(var(--hand-deal-index, 0) * 62ms) !important;
+  will-change: transform, opacity;
+}
+
+.deck-played-layout[data-score-phase="moving"] .deck-played-card {
+  animation: dm-play-card-to-table 380ms cubic-bezier(.16,.78,.2,1) both !important;
+  animation-delay: calc(var(--hand-card-index) * 34ms) !important;
+}
+
+.deck-played-layout[data-score-phase="discarding"] .deck-played-card {
+  animation: dm-played-card-sweep 460ms cubic-bezier(.16,.78,.2,1) both !important;
+  animation-delay: calc(var(--hand-card-index) * 32ms) !important;
+}
+
+.deck-played-layout {
+  container-type: inline-size;
+}
+
+@keyframes dm-play-card-to-table {
+  0% {
+    opacity: .18;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + min(26vh, 230px)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(.92);
+  }
+  74% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) - 5px), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1.018);
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+}
+
+@keyframes dm-played-card-sweep {
+  0% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate3d(calc(100cqw + clamp(120px, 12vw, 210px)), calc(var(--hand-card-y) + min(4vh, 34px)), 0)
+      rotate(calc(var(--hand-card-rotation) + 5deg))
+      scale(.72);
+  }
+}
+
+/* Clicking keeps focus on the card after it is deselected. Focus used to give
+   that card z-index 110, which left a former left-side card painted over the
+   cards to its right. Only an actively selected card may alter the fan order. */
+.deck-hand-stage .deck-hand-card:not([data-selected="true"]):focus-within {
+  --hand-card-active-z: var(--hand-card-z) !important;
+}
+
+/* Locked-card UI skin -------------------------------------------------------
+ * This is deliberately a chrome-only layer. It does not target card faces,
+ * card backs, hand geometry, the draw-pile artwork, or any layout metric.
+ * The surrounding cabinet borrows the cards' restrained gold circuit corners
+ * and dark green scanline field so all of the play-screen UI reads as one set.
+ */
+.deck-run-view-playing {
+  --locked-card-gold: #b69235;
+  --locked-card-gold-hi: #e0bd60;
+  --locked-card-gold-deep: #5c471a;
+  --locked-card-ink: #04100d;
+  --locked-card-ink-hi: #0a2119;
+  --locked-card-line: #345a49;
+  --locked-card-pixel: rgba(224, 189, 96, .54);
+}
+
+.deck-run-view-playing .mobile-run-rail.pixel-panel {
+  position: relative;
+  isolation: isolate;
+  border-color: #314f40 !important;
+  background:
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) 9px 8px / 32px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) 8px 8px / 1px 17px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) calc(100% - 41px) 8px / 32px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) calc(100% - 9px) 8px / 1px 17px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) 9px calc(100% - 9px) / 32px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) 8px calc(100% - 25px) / 1px 17px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) calc(100% - 41px) calc(100% - 9px) / 32px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold), var(--locked-card-gold)) calc(100% - 9px) calc(100% - 25px) / 1px 17px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(222, 244, 229, .02) 4px 5px),
+    linear-gradient(135deg, #0a1d17 0%, #04110d 56%, #071812 100%) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(182, 146, 53, .45),
+    inset 0 0 0 4px rgba(4, 16, 13, .72),
+    0 6px 0 #020605 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail.pixel-panel::before,
+.deck-run-view-playing .mobile-run-rail.pixel-panel::after {
+  content: "M";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  color: var(--locked-card-gold-hi);
+  background: transparent;
+  opacity: .78;
+  font: 900 10px/1 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: -2px;
+  text-shadow: 1px 1px 0 #171209;
+  transform: translateX(-50%);
+}
+
+.deck-run-view-playing .mobile-run-rail.pixel-panel::before {
+  top: 5px;
+  left: 50%;
+}
+
+.deck-run-view-playing .mobile-run-rail.pixel-panel::after {
+  bottom: 5px;
+  left: 50%;
+}
+
+.deck-run-view-playing .mobile-run-rail-round,
+.deck-run-view-playing .mobile-run-rail-score,
+.deck-run-view-playing .mobile-run-rail-preview,
+.deck-run-view-playing .mobile-run-rail-lower,
+.deck-run-view-playing .deck-play-table .modifier-rail-section,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way {
+  border-color: var(--locked-card-line) !important;
+  border-radius: 3px !important;
+  background:
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) 5px 5px / 15px 1px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) 5px 5px / 1px 11px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) calc(100% - 20px) 5px / 15px 1px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) calc(100% - 6px) 5px / 1px 11px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) 5px calc(100% - 6px) / 15px 1px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) 5px calc(100% - 15px) / 1px 11px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) calc(100% - 20px) calc(100% - 6px) / 15px 1px no-repeat,
+    linear-gradient(var(--locked-card-pixel), var(--locked-card-pixel)) calc(100% - 6px) calc(100% - 15px) / 1px 11px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(238, 255, 246, .025) 4px 5px),
+    linear-gradient(145deg, var(--locked-card-ink-hi), var(--locked-card-ink)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(3, 8, 7, .9),
+    inset 0 0 0 3px rgba(99, 130, 103, .1),
+    0 5px 0 #020605 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-round::before,
+.deck-run-view-playing .mobile-run-rail-score::before,
+.deck-run-view-playing .mobile-run-rail-preview::before,
+.deck-run-view-playing .mobile-run-rail-lower::before,
+.deck-run-view-playing .deck-play-table .modifier-rail-section::before,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  border: 1px solid rgba(182, 146, 53, .12);
+  border-radius: 1px;
+}
+
+.deck-run-view-playing .mobile-run-rail-round,
+.deck-run-view-playing .mobile-run-rail-score,
+.deck-run-view-playing .mobile-run-rail-preview,
+.deck-run-view-playing .mobile-run-rail-lower,
+.deck-run-view-playing .deck-play-table .modifier-rail-section,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way {
+  position: relative;
+  isolation: isolate;
+}
+
+.deck-run-view-playing .mobile-run-rail-blind,
+.deck-run-view-playing .mobile-run-rail-current,
+.deck-run-view-playing .mobile-run-rail-scoreboard,
+.deck-run-view-playing .mobile-run-rail-equation,
+.deck-run-view-playing .mobile-run-rail-lower-stats > *,
+.deck-run-view-playing .deck-play-table .modifier-rail-slot-trigger,
+.deck-run-view-playing .deck-play-table .modifier-rail-empty-slot {
+  border-color: #365c4b !important;
+  border-radius: 3px !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, .02) 3px 4px),
+    linear-gradient(135deg, #0b211a, #06130f) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(183, 147, 53, .21),
+    inset 0 -3px 0 rgba(0, 0, 0, .25),
+    2px 3px 0 #020605 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-current,
+.deck-run-view-playing .mobile-run-rail-scoreboard {
+  border-color: var(--locked-card-gold-deep) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 189, 96, .28),
+    inset 0 -3px 0 rgba(0, 0, 0, .25),
+    2px 3px 0 #020605 !important;
+}
+
+.deck-run-view-playing .deck-play-table .modifier-rail-section-header {
+  position: relative;
+  border-bottom: 1px solid rgba(182, 146, 53, .35);
+  box-shadow: 0 3px 0 -2px rgba(58, 105, 79, .65);
+}
+
+.deck-run-view-playing .deck-play-table .modifier-rail-section-header h2,
+.deck-run-view-playing .deck-play-table .modifier-rail-slot-copy strong {
+  color: #ecf2dd !important;
+  text-shadow: 2px 2px 0 #040b09, 0 0 7px rgba(224, 189, 96, .12);
+}
+
+.deck-run-view-playing .deck-play-table .modifier-rail-section-header span {
+  color: #d7a5e9 !important;
+  text-shadow: 1px 1px 0 #190e1d;
+}
+
+.deck-run-view-playing .deck-play-table .modifier-rail-slot-trigger:hover,
+.deck-run-view-playing .deck-play-table .modifier-rail-slot-trigger:focus-visible {
+  border-color: var(--locked-card-gold-hi) !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, .035) 3px 4px),
+    linear-gradient(135deg, #163127, #081b14) !important;
+}
+
+/* Retain the functional color language, then give each control the same thin
+ * inner brass keyline and pixel-cut corners as the surrounding cards. */
+.deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary,
+.deck-run-view-playing .deck-hand-stage--clean .table-action,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way button {
+  border-radius: 3px !important;
+  outline: 1px solid rgba(224, 189, 96, .4);
+  outline-offset: -5px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 245, 203, .18),
+    inset 0 -4px 0 rgba(0, 0, 0, .2),
+    3px 4px 0 #020605 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary::before,
+.deck-run-view-playing .deck-hand-stage--clean .table-action::before,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way button::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border-block: 1px solid rgba(255, 249, 222, .22);
+}
+
+.deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary,
+.deck-run-view-playing .deck-hand-stage--clean .table-action,
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way button {
+  position: relative;
+  isolation: isolate;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .table-action:disabled {
+  color: #71847c !important;
+  border-color: #2d4940 !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .018) 4px 5px),
+    linear-gradient(145deg, #0b1c16, #06100d) !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .play-action:not(:disabled) {
+  border-color: #1ba6d3 !important;
+  background:
+    linear-gradient(rgba(226, 192, 96, .62), rgba(226, 192, 96, .62)) 7px 5px / 18px 1px no-repeat,
+    linear-gradient(rgba(226, 192, 96, .62), rgba(226, 192, 96, .62)) calc(100% - 25px) calc(100% - 6px) / 18px 1px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .07) 4px 5px),
+    linear-gradient(180deg, #168ec2, #075878) !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .discard-action:not(:disabled) {
+  border-color: #e26158 !important;
+  background:
+    linear-gradient(rgba(226, 192, 96, .62), rgba(226, 192, 96, .62)) 7px 5px / 18px 1px no-repeat,
+    linear-gradient(rgba(226, 192, 96, .62), rgba(226, 192, 96, .62)) calc(100% - 25px) calc(100% - 6px) / 18px 1px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .06) 4px 5px),
+    linear-gradient(180deg, #b9473e, #762722) !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way button {
+  border-color: #ca8619 !important;
+  background:
+    linear-gradient(rgba(255, 235, 158, .65), rgba(255, 235, 158, .65)) 6px 5px / 12px 1px no-repeat,
+    linear-gradient(rgba(255, 235, 158, .65), rgba(255, 235, 158, .65)) calc(100% - 18px) calc(100% - 6px) / 12px 1px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, .09) 3px 4px),
+    linear-gradient(180deg, #ef9c19, #c86609) !important;
+}
+
+.deck-run-view-playing .deck-hand-stage--clean .deck-sort-control-two-way > span,
+.deck-run-view-playing .deck-pile-draw .deck-pile-count {
+  color: var(--locked-card-gold-hi) !important;
+  text-shadow: 2px 2px 0 #171209, 0 0 8px rgba(224, 189, 96, .16);
+}
+
+/* Card-face typography and cabinet finish.  This intentionally contains no
+ * layout or font-size declarations: the HUD, cards, draw pile, and all click
+ * targets retain their current dimensions. */
+.deck-run-view-playing .deck-stage-header,
+.deck-run-view-playing .deck-play-table > .modifier-rail-root,
+.deck-run-view-playing .deck-pile-compact-popover,
+.deck-run-view-playing .run-info-modal__panel {
+  position: relative;
+  isolation: isolate;
+  border-color: #466347 !important;
+  background:
+    linear-gradient(var(--locked-card-gold-deep), var(--locked-card-gold-deep)) 7px 6px / 20px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold-deep), var(--locked-card-gold-deep)) 6px 6px / 1px 12px no-repeat,
+    linear-gradient(var(--locked-card-gold-deep), var(--locked-card-gold-deep)) calc(100% - 27px) calc(100% - 7px) / 20px 1px no-repeat,
+    linear-gradient(var(--locked-card-gold-deep), var(--locked-card-gold-deep)) calc(100% - 7px) calc(100% - 18px) / 1px 12px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(245, 237, 194, .025) 4px 5px),
+    linear-gradient(135deg, #0a2119, #040f0c 60%, #081811) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(221, 185, 92, .17),
+    inset 0 0 0 3px rgba(3, 11, 8, .74),
+    0 4px 0 #020605 !important;
+}
+
+.deck-run-view-playing .deck-stage-header::after,
+.deck-run-view-playing .deck-play-table > .modifier-rail-root::after,
+.deck-run-view-playing .deck-pile-compact-popover::after,
+.deck-run-view-playing .run-info-modal__panel::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  pointer-events: none;
+  border: 1px solid rgba(224, 189, 96, .16);
+  box-shadow: inset 0 0 11px rgba(1, 7, 5, .42);
+}
+
+.deck-run-view-playing :is(
+  .deck-stage-header,
+  .mobile-run-rail,
+  .deck-play-table > .modifier-rail-root,
+  .deck-pile-compact-popover,
+  .run-info-modal__panel,
+  .deck-hand-stage--clean .table-action,
+  .deck-hand-stage--clean .deck-sort-control-two-way
+) :is(h1, h2, h3, h4, strong, b, button, dt, dd, span, small, p) {
+  font-family: "Galmuri11", ui-monospace, monospace;
+  font-synthesis: none;
+}
+
+.deck-run-view-playing :is(
+  .deck-stage-header,
+  .mobile-run-rail,
+  .deck-play-table > .modifier-rail-root,
+  .deck-pile-compact-popover,
+  .run-info-modal__panel,
+  .deck-hand-stage--clean .table-action,
+  .deck-hand-stage--clean .deck-sort-control-two-way
+) :is(h1, h2, h3, h4, strong, b, button, dt, dd) {
+  font-weight: 700;
+  letter-spacing: .01em;
+  text-shadow: 1px 1px 0 #020605;
+}
+
+.deck-run-view-playing .deck-stage-header > strong,
+.deck-run-view-playing .deck-play-table > .modifier-rail-root > :is(h1, h2, h3, strong),
+.deck-run-view-playing .deck-pile-compact-popover > header strong,
+.deck-run-view-playing .run-info-modal__panel > :is(h1, h2) {
+  color: #f1e3b5 !important;
+  text-shadow: 1px 1px 0 #171209, 0 0 7px rgba(224, 189, 96, .15);
+}
+
+/* Options sheet -------------------------------------------------------------
+ * The pause menu is a stack of selectable panels, so give every panel a clear
+ * rounded capsule edge and keep every Korean/English label on the same pixel
+ * typeface as the play screen. No menu dimensions or spacing change here. */
+.options-sheet,
+.options-sheet :is(button, b, h2, span, small, label) {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-style: normal;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.options-sheet :is(h2, b, button, label) {
+  font-weight: 700 !important;
+}
+
+.app-shell .options-sheet .options-menu-actions > button:not(.number-card):not(.toggle):not(.brand):not(.star-rating-button),
+.app-shell .options-sheet .options-sheet-back:not(.number-card):not(.toggle):not(.brand):not(.star-rating-button) {
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+.options-menu-actions button b {
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+
+.options-setting-card,
+.options-setting-row {
+  border-radius: 11px !important;
+  overflow: hidden;
+}
+
+.options-setting-card .options-setting-row {
+  border-radius: 9px !important;
+}
+
+.options-settings-list .toggle {
+  border-radius: 14px !important;
+}
+
+.options-settings-list .toggle i {
+  border-radius: 50% !important;
+}
+
+/* Deck inspector -----------------------------------------------------------
+ * The inspector is now a focused card browser: its old pile/distribution
+ * dashboards are intentionally absent, leaving the sort bar directly above
+ * the live deck. Keep chrome copy on the play screen's pixel typeface without
+ * touching the rendered card faces in the grid. */
+.deck-inspector-modal > header :is(.kicker, h2),
+.deck-inspector-modal .dm-card-browser__toolbar :is(span, strong, button),
+.deck-inspector-modal .dm-card-browser__empty,
+.deck-inspector-modal .dm-card-browser__reason {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-style: normal;
+  font-synthesis: none;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.deck-inspector-modal > header h2,
+.deck-inspector-modal .dm-card-browser__toolbar :is(strong, button) {
+  font-weight: 700 !important;
+}
+
+.deck-inspector-layout--cards-only {
+  gap: 0 !important;
+}
+
+/* Keep the rack labels inside their card-like header strip, while the capacity
+ * readout hangs beneath the actual rack just like a physical cartridge label.
+ * This is presentation only: it does not change the rack/card dimensions. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view-playing .deck-play-table .modifier-rail-section {
+    position: relative;
+    overflow: visible;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header {
+    position: static;
+    align-self: stretch;
+    overflow: visible;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header h2 {
+    position: relative;
+    top: 3px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section-header span {
+    position: absolute !important;
+    top: auto !important;
+    left: 7px !important;
+    bottom: -17px !important;
+    z-index: 2;
+    line-height: 1;
+    color: #d7a5e9 !important;
+    text-shadow: 1px 1px 0 #190e1d;
+  }
+}
+
+/* Score calculator: use the same low-resolution metal/scanline treatment as
+ * the cards instead of the old glossy diagonal button skin. The two values
+ * retain their blue/red meaning and the existing hit areas. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong,
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  border-radius: 9px !important;
+  border-width: 2px !important;
+  image-rendering: pixelated;
+  box-shadow:
+    inset 0 0 0 1px rgba(3, 11, 9, .82),
+    inset 0 -4px 0 rgba(0, 0, 0, .32),
+    3px 4px 0 #020504 !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-chips strong {
+  border-color: #149dca !important;
+  background:
+    linear-gradient(rgba(132, 229, 248, .72), rgba(132, 229, 248, .72)) 5px 4px / 15px 1px no-repeat,
+    linear-gradient(rgba(132, 229, 248, .72), rgba(132, 229, 248, .72)) 4px 4px / 1px 11px no-repeat,
+    linear-gradient(rgba(24, 142, 179, .55), rgba(24, 142, 179, .55)) calc(100% - 20px) calc(100% - 5px) / 15px 1px no-repeat,
+    linear-gradient(rgba(24, 142, 179, .55), rgba(24, 142, 179, .55)) calc(100% - 5px) calc(100% - 15px) / 1px 11px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(223, 250, 255, .075) 3px 4px),
+    linear-gradient(135deg, #0a759b, #043e54 72%, #062e3f) !important;
+  text-shadow: 2px 2px 0 #032b3b !important;
+}
+
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-mult strong {
+  border-color: #d84d52 !important;
+  background:
+    linear-gradient(rgba(255, 179, 170, .7), rgba(255, 179, 170, .7)) 5px 4px / 15px 1px no-repeat,
+    linear-gradient(rgba(255, 179, 170, .7), rgba(255, 179, 170, .7)) 4px 4px / 1px 11px no-repeat,
+    linear-gradient(rgba(177, 50, 53, .58), rgba(177, 50, 53, .58)) calc(100% - 20px) calc(100% - 5px) / 15px 1px no-repeat,
+    linear-gradient(rgba(177, 50, 53, .58), rgba(177, 50, 53, .58)) calc(100% - 5px) calc(100% - 15px) / 1px 11px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 239, 224, .07) 3px 4px),
+    linear-gradient(135deg, #a93639, #5b1b22 72%, #3e1218) !important;
+  text-shadow: 2px 2px 0 #310d13 !important;
+}
+
+/* During settlement the hand-name slot carries the score that is travelling
+ * into the round total. It is the main feedback beat, so make it legible
+ * without changing the calculator panel's size or the resting numbers. */
+.deck-run-view-playing .mobile-run-rail-preview .mobile-run-rail-transfer-score {
+  font-size: clamp(34px, 3.55vw, 52px) !important;
+  line-height: .9 !important;
+  text-shadow: 3px 3px 0 #101817, 0 0 7px rgba(241, 227, 181, .2) !important;
 }

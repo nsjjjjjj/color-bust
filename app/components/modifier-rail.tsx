@@ -244,21 +244,18 @@ export function ModifierRail({
           })}
 
           {run.jokers.length < JOKER_SLOT_LIMIT && (
-              <div
-                className="modifier-rail-slot modifier-rail-empty-slot"
-                role="img"
-                aria-label={`빈 MOD 슬롯 ${JOKER_SLOT_LIMIT - run.jokers.length}개`}
-              >
-                <span aria-hidden="true">+</span>
-                <small>{JOKER_SLOT_LIMIT - run.jokers.length}칸</small>
-              </div>
+            <div
+              className="modifier-rail-slot modifier-rail-empty-slot"
+              role="img"
+              aria-label={`빈 MOD 슬롯 ${JOKER_SLOT_LIMIT - run.jokers.length}개`}
+            />
           )}
         </div>
       </section>
 
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-uno-title`}>
         <header className="modifier-rail-section-header">
-          <h2 id={`${reactId}-uno-title`}>메이헴 카드</h2>
+          <h2 id={`${reactId}-uno-title`}>MAYHEM CARDS</h2>
           <span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-uno-slots">
@@ -407,14 +404,11 @@ export function ModifierRail({
           })}
 
           {run.communityUno.length < UNO_SLOT_LIMIT && (
-              <div
-                className="modifier-rail-slot modifier-rail-empty-slot modifier-rail-empty-uno-slot"
-                role="img"
-                aria-label={`빈 메이헴 카드 슬롯 ${UNO_SLOT_LIMIT - run.communityUno.length}개`}
-              >
-                <span aria-hidden="true">M</span>
-                <small>{UNO_SLOT_LIMIT - run.communityUno.length}칸</small>
-              </div>
+            <div
+              className="modifier-rail-slot modifier-rail-empty-slot modifier-rail-empty-uno-slot"
+              role="img"
+              aria-label={`빈 메이헴 카드 슬롯 ${UNO_SLOT_LIMIT - run.communityUno.length}개`}
+            />
           )}
         </div>
       </section>

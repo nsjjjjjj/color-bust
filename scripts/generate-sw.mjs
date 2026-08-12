@@ -10,12 +10,13 @@ const nextStaticRoot = join(root, ".next", "static");
 const publicFiles = await walk(publicRoot);
 const staticFiles = await walk(nextStaticRoot);
 const ignoredPublicFiles = new Set(["sw.js", "README.md", "audio/README.md"]);
+const legacyCardFace = /^art\/cards\/core\//;
 
 const assets = [
   "/",
   ...publicFiles
     .map((path) => slash(relative(publicRoot, path)))
-    .filter((path) => !ignoredPublicFiles.has(path))
+    .filter((path) => !ignoredPublicFiles.has(path) && !legacyCardFace.test(path))
     .map((path) => `/${path}`),
   ...staticFiles.map((path) => `/_next/static/${slash(relative(nextStaticRoot, path))}`),
 ].filter((value, index, values) => values.indexOf(value) === index).sort();
