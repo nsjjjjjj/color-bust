@@ -74,9 +74,9 @@ export function GameLeftRail({
         </header>
         {phase !== "shop" && (
           <div className="mobile-run-rail-round-reward">
-            <span>라운드 목표</span>
+            <span>목표 점수</span>
             <strong>{run.target.toLocaleString()}</strong>
-            <small>기본 보상 +{ROUND_REWARDS[run.round]}¢</small>
+            <small>보상 +{ROUND_REWARDS[run.round]}¢</small>
           </div>
         )}
       </section>
@@ -86,9 +86,9 @@ export function GameLeftRail({
         aria-label="현재 라운드 점수"
         data-score-receiving={isTransferring || undefined}
       >
-        <div className="mobile-run-rail-scoreboard">
+          <div className="mobile-run-rail-scoreboard">
           <div className="mobile-run-rail-current">
-            <span>라운드 점수</span>
+            <span>라운드<br />점수</span>
             <strong>{visibleRoundScore.toLocaleString()}</strong>
           </div>
         </div>
@@ -111,9 +111,8 @@ export function GameLeftRail({
         data-score-pulse={scorePulse ?? undefined}
         data-score-event={scoreEventKey ?? undefined}
       >
-        <span className="mobile-run-rail-hand-name">
-          <small>{handName ? "현재 족보" : "현재 핸드 계산"}</small>
-          <b>{handName ? `${handName} Lv.${handLevel ?? 1}` : "POWER × HYPE"}</b>
+        <span className="mobile-run-rail-hand-name" data-has-hand={handName ? "true" : undefined}>
+          {handName ? <b>{handName} Lv.{handLevel ?? 1}</b> : null}
         </span>
         <div className="mobile-run-rail-equation">
           <div className="mobile-run-rail-chips" key={scorePulse === "power" || scorePulse === "both" ? `power-${scoreEventKey}` : "power-static"}><span>POWER</span><strong>{power.toLocaleString()}</strong></div>
@@ -143,7 +142,6 @@ export function GameLeftRail({
           </dl>
 
           <section className="mobile-run-rail-wallet" aria-label="보유 코인">
-            <span>COIN</span>
             <strong>{run.coins}¢</strong>
           </section>
 
@@ -162,7 +160,7 @@ export function GameLeftRail({
         <div className="mobile-run-rail-lower-actions">
           <nav className="mobile-run-rail-tools mobile-run-rail-run-info" aria-label="런 정보">
             <button type="button" className="rail-tool-primary" onClick={onOpenRunInfo}>
-              <span aria-hidden="true">▤</span><b>런 정보</b>
+              <span aria-hidden="true">▤</span><b>런<br />정보</b>
             </button>
           </nav>
           <nav className="mobile-run-rail-tools mobile-run-rail-options" aria-label="옵션">

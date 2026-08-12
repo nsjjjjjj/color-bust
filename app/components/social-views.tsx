@@ -131,7 +131,7 @@ export function GuestbookView({ signedIn }: { signedIn: boolean }) {
                   key={value}
                   aria-checked={rating === value}
                   aria-label={`별 ${value}개, ${RATING_LABELS[value]}`}
-                  className={value <= visibleRating ? "active" : ""}
+                  className={`star-rating-button${value <= visibleRating ? " active" : ""}`}
                   onPointerEnter={() => setPreviewRating(value)}
                   onFocus={() => setPreviewRating(value)}
                   onBlur={() => setPreviewRating(0)}

@@ -6968,3 +6968,920 @@
   outline-offset: 0;
   box-shadow: 7px 12px var(--dm-shadow) !important;
 }
+
+/* Reference cabinet alignment ------------------------------------------------
+ * Keep the desktop cabinet proportion stable when browser chrome changes the
+ * available height. The previous height-only breakpoint narrowed the run HUD
+ * outside fullscreen even though the horizontal composition had not changed. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  :root {
+    --dm-hud-width: clamp(270px, 23.6vw, 470px);
+    --dm-pile-reserve: clamp(118px, 9vw, 188px);
+  }
+
+  .deck-game-shell {
+    grid-template-columns: var(--dm-hud-width) minmax(0, 1fr) !important;
+  }
+
+  .deck-play-table {
+    background:
+      linear-gradient(180deg, rgba(13, 58, 45, .72), rgba(5, 31, 25, .9)),
+      repeating-linear-gradient(0deg, rgba(216, 255, 229, .022) 0 1px, transparent 1px 5px),
+      #0a342a;
+    box-shadow:
+      inset 0 0 0 3px rgba(26, 95, 74, .72),
+      inset 0 0 88px rgba(0, 16, 11, .62);
+  }
+
+  .deck-play-table .felt-watermark { opacity: .055; }
+
+  .deck-stage-header {
+    border-color: rgba(130, 203, 170, .18);
+    background: rgba(4, 31, 24, .58);
+  }
+
+  .deck-game-view .mobile-run-rail.pixel-panel {
+    background: linear-gradient(180deg, #102821, #091813);
+  }
+}
+
+.fullscreen-prompt small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Shared cabinet treatment --------------------------------------------------
+ * The resource section uses one family of recessed pixel panels. Functional
+ * colors remain distinct, but every block now shares the same frame, inner
+ * bevel, shadow, and type hierarchy. */
+.mobile-run-rail-wallet > span { display: none; }
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .mobile-run-rail-lower-actions .rail-tool-primary,
+  .deck-run-view-playing .mobile-run-rail-resources > .mobile-run-resource,
+  .deck-run-view-playing .mobile-run-rail-wallet,
+  .deck-run-view-playing .mobile-run-rail-run-meta {
+    border-width: 3px;
+    box-shadow:
+      4px 4px 0 #020405,
+      inset 0 0 0 2px rgba(222, 248, 241, .08);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-actions .rail-tool-primary {
+    color: #f3eee0;
+    text-shadow: 2px 2px 0 rgba(0, 0, 0, .35);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-info .rail-tool-primary {
+    border-color: #8b3a30;
+    background: linear-gradient(180deg, #bd4434, #8f2c25);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-options .rail-tool-primary {
+    border-color: #b27617;
+    background: linear-gradient(180deg, #e29b20, #b97411);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet {
+    display: grid;
+    place-items: center;
+    background:
+      linear-gradient(180deg, rgba(242, 189, 50, .07), transparent 50%),
+      #0a1114;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet strong {
+    color: #f2c23c;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #4d3510;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta {
+    background: #0a1114;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div {
+    background: linear-gradient(180deg, rgba(121, 179, 168, .06), transparent);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta dt { color: #c2d0ce; }
+  .deck-run-view-playing .mobile-run-rail-run-meta dd {
+    color: #f3eee0;
+    text-shadow: 2px 2px 0 #1c2525;
+  }
+}
+
+/* Reference hand geometry: one centered fan with fixed-size cards and a
+ * compact sort cassette directly beneath it. The cards intentionally overlap
+ * by roughly 14%; their edges remain individually selectable. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .mobile-run-rail.pixel-panel {
+    grid-template-rows:
+      minmax(220px, 26vh)
+      minmax(88px, 10vh)
+      minmax(150px, 18vh)
+      minmax(220px, 25vh);
+    gap: 10px;
+    padding-top: clamp(72px, 8.4vh, 96px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round { grid-row: 1; }
+  .deck-run-view-playing .mobile-run-rail-score { grid-row: 2; }
+  .deck-run-view-playing .mobile-run-rail-preview { grid-row: 3; }
+  .deck-run-view-playing .mobile-run-rail-lower { grid-row: 4; }
+
+  .deck-run-view-playing .mobile-run-rail-score,
+  .deck-run-view-playing .mobile-run-rail-preview {
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-score {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 0;
+    padding: 7px;
+    border-color: #40565d;
+    background: #0b1114;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current {
+    min-height: 0;
+    height: auto;
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    align-items: stretch;
+    gap: 9px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current span {
+    display: grid;
+    place-content: center start;
+    color: #f3eee0;
+    font-size: 22px !important;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -.04em;
+    text-shadow: 2px 2px 0 #172326;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current strong {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    border: 2px solid #2f4147;
+    color: #f3eee0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.025) 4px 5px),
+      #202a2d;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.035), 3px 3px 0 #020405;
+    font-size: clamp(34px, 2.6vw, 52px);
+    line-height: 1;
+    text-shadow: 3px 3px 0 #101718;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current strong::before {
+    content: "";
+    width: .68em;
+    aspect-ratio: 1;
+    margin-right: .18em;
+    border: .13em dotted #d8e4e0;
+    border-radius: 50%;
+    background: radial-gradient(circle, #eef5ef 0 26%, transparent 29%);
+    box-shadow: inset 0 0 0 .12em #eef5ef;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-progress,
+  .deck-run-view-playing .mobile-run-rail-score-target { display: none; }
+
+  .deck-run-view-playing .mobile-run-rail-chips,
+  .deck-run-view-playing .mobile-run-rail-mult { min-height: 0; }
+
+  .deck-hand-stage--clean .deck-hand-layout {
+    width: min(100%, 1180px);
+    justify-self: center;
+  }
+
+  .deck-hand-stage--clean .table-action-dock {
+    width: min(700px, 74%);
+    min-width: 560px;
+    height: 96px;
+    min-height: 96px;
+    grid-template-columns: minmax(200px, 1fr) 190px minmax(200px, 1fr) !important;
+  }
+
+  .deck-hand-stage--clean .table-action,
+  .deck-hand-stage--clean .discard-action,
+  .deck-hand-stage--clean .deck-sort-control-two-way {
+    height: 90px !important;
+    min-height: 90px;
+  }
+
+  .deck-hand-stage--clean .deck-sort-control-two-way {
+    grid-template-rows: 23px 1fr;
+    padding: 5px;
+  }
+
+  .deck-hand-stage--clean .deck-sort-control-two-way button {
+    min-height: 52px;
+  }
+
+  /* Resource cabinet below the score: reference layout uses a left action
+     column and a three-tier status stack on the right. */
+  .deck-run-view-playing .mobile-run-rail-lower {
+    display: grid;
+    grid-template-columns: minmax(92px, .62fr) minmax(0, 1.38fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    gap: 8px !important;
+    min-height: 0 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-actions {
+    grid-column: 1;
+    grid-row: 1;
+    display: grid;
+    grid-template-rows: 1fr 1fr !important;
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-info {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-options {
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-stats {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(56px, .9fr) minmax(56px, .9fr) minmax(56px, .9fr) !important;
+    gap: 8px;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    height: auto !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 0;
+    height: auto !important;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    height: auto !important;
+  }
+
+  /* Keep each progress readout as a true label/value stack:
+     STAGE (or ROUND), divider, then the current fraction. */
+  .deck-run-view-playing .mobile-run-rail-run-meta > div {
+    display: grid;
+    grid-template-rows: auto 1px auto;
+    justify-items: center;
+    align-content: center;
+    gap: 5px;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div::after {
+    content: "";
+    grid-column: 1;
+    grid-row: 2;
+    width: 78%;
+    height: 1px;
+    background: var(--dm-line-soft);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta dt { grid-column: 1; grid-row: 1; }
+  .deck-run-view-playing .mobile-run-rail-run-meta dd { grid-column: 1; grid-row: 3; }
+
+  .deck-run-view-playing .mobile-run-rail-tools,
+  .deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+    display: grid;
+    place-content: center;
+    padding: 8px;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-tools button > span { display: none; }
+  .deck-run-view-playing .mobile-run-rail-tools b { font-size: 16px; }
+  .deck-run-view-playing .mobile-run-rail-resources dd { font-size: 30px; }
+  .deck-run-view-playing .mobile-run-rail-wallet strong { font-size: 36px; }
+  .deck-run-view-playing .mobile-run-rail-run-meta dd { font-size: 22px !important; }
+}
+
+/* Rounded pixel HUD ---------------------------------------------------------
+ * One visual grammar for the complete play HUD: dark rounded parent panels,
+ * scanline texture, stepped shadows, and compact fixed value capsules. This
+ * applies in both windowed and fullscreen desktop layouts. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 560px) {
+  .deck-run-view-playing .mobile-run-rail.pixel-panel {
+    --hud-surface: #111b1a;
+    --hud-surface-deep: #091210;
+    --hud-inset: #263330;
+    --hud-line: #293b38;
+    --hud-line-bright: #49615d;
+    --hud-cream: #f3efe2;
+    --hud-muted: #c1ceca;
+    --hud-blue: #078ee0;
+    --hud-blue-dark: #03598f;
+    --hud-red: #ef4548;
+    --hud-red-dark: #922529;
+    --hud-gold: #f1b927;
+    --hud-orange: #e88918;
+    --hud-radius: clamp(7px, .65vw, 12px);
+    display: grid;
+    grid-template-rows:
+      clamp(142px, 25vh, 270px)
+      clamp(64px, 10vh, 100px)
+      clamp(96px, 17vh, 190px)
+      clamp(180px, 32vh, 300px) !important;
+    align-content: start;
+    gap: clamp(6px, 1vh, 12px);
+    padding:
+      clamp(44px, 8vh, 96px)
+      clamp(8px, 1.1vw, 16px)
+      clamp(8px, 1.2vh, 16px) !important;
+    font-family: "Galmuri11", ui-monospace, monospace !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .018) 4px 5px),
+      linear-gradient(90deg, #10231e, #091a16) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round,
+  .deck-run-view-playing .mobile-run-rail-score,
+  .deck-run-view-playing .mobile-run-rail-preview,
+  .deck-run-view-playing .mobile-run-rail-lower {
+    min-width: 0;
+    min-height: 0 !important;
+    height: 100% !important;
+    border: 3px solid var(--hud-line) !important;
+    border-radius: var(--hud-radius) !important;
+    clip-path: none !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .025) 4px 5px),
+      var(--hud-surface) !important;
+    box-shadow:
+      inset 0 0 0 2px rgba(255, 255, 255, .025),
+      0 5px 0 #020504 !important;
+    overflow: hidden;
+  }
+
+  /* Blind/round: title bar, emblem, then one compact target capsule. */
+  .deck-run-view-playing .mobile-run-rail-round {
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(62px, .74fr) minmax(0, 1.46fr);
+    grid-template-rows: clamp(32px, 5vh, 54px) minmax(0, 1fr);
+    gap: clamp(5px, .8vh, 9px);
+    padding: clamp(6px, .8vw, 10px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind,
+  .deck-run-view-playing .mobile-run-rail-blind-copy {
+    display: contents;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-copy > span,
+  .deck-run-view-playing .mobile-run-rail-blind-copy > small {
+    display: none;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-copy h2 {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    margin: 0;
+    padding: 4px 8px;
+    border: 3px solid #056aa5;
+    border-radius: var(--hud-radius);
+    color: #fff;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.08) 3px 4px),
+      linear-gradient(180deg, #079be9, #0574bd);
+    box-shadow: inset 0 -4px 0 rgba(0, 40, 78, .42), 0 4px 0 #020504;
+    font-family: inherit !important;
+    font-size: clamp(17px, 1.55vw, 30px) !important;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #06496d;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-blind-mark {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: center;
+    justify-self: center;
+    width: clamp(54px, 6.2vw, 108px) !important;
+    height: auto !important;
+    aspect-ratio: 1;
+    margin: 0 !important;
+    display: grid;
+    place-items: center;
+    border: 3px solid #235e82;
+    border-radius: 50% !important;
+    color: #75d9f0;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.05) 6px 8px),
+      #123d60;
+    box-shadow: inset 0 -6px 0 #092b49, 4px 5px 0 #020504;
+    font-family: inherit !important;
+    font-size: clamp(22px, 2.7vw, 50px) !important;
+    text-shadow: 3px 3px 0 #061d31;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr;
+    align-items: center;
+    gap: 4px 7px;
+    padding: clamp(6px, .7vw, 10px);
+    border: 3px solid #273532;
+    border-radius: var(--hud-radius);
+    color: var(--hud-cream);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.03) 4px 5px),
+      #1e2926;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.025), 0 4px 0 #020504;
+    text-align: left;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward span,
+  .deck-run-view-playing .mobile-run-rail-round-reward small {
+    grid-column: 1;
+    color: var(--hud-cream);
+    font: 700 clamp(10px, .8vw, 14px)/1.15 "Galmuri11", ui-monospace, monospace !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward small {
+    align-self: end;
+    color: var(--hud-gold);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward strong {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    display: grid;
+    place-items: center;
+    min-width: clamp(62px, 7.5vw, 132px);
+    min-height: clamp(44px, 7vh, 78px);
+    padding: 3px 8px;
+    border: 3px solid #394944;
+    border-radius: calc(var(--hud-radius) - 2px);
+    color: var(--hud-gold);
+    background: #2a3531;
+    box-shadow: inset 0 -5px 0 #1b2421, 3px 4px 0 #020504;
+    font-family: inherit !important;
+    font-size: clamp(25px, 2.7vw, 48px) !important;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #5b4210;
+  }
+
+  /* Round score: one label, one stable high-contrast number capsule. */
+  .deck-run-view-playing .mobile-run-rail-score {
+    grid-row: 2;
+    display: grid;
+    padding: clamp(5px, .65vw, 8px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-scoreboard,
+  .deck-run-view-playing .mobile-run-rail-current {
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-scoreboard {
+    display: block;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current {
+    display: grid;
+    grid-template-columns: clamp(70px, 7.4vw, 126px) minmax(0, 1fr) !important;
+    align-items: stretch;
+    gap: clamp(5px, .7vw, 9px);
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current span {
+    display: grid;
+    place-content: center start;
+    color: var(--hud-cream) !important;
+    font: 800 clamp(15px, 1.15vw, 22px)/1.08 "Galmuri11", ui-monospace, monospace !important;
+    letter-spacing: -.04em;
+    text-shadow: 2px 2px 0 #101817;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current strong {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border: 3px solid #3c4c48;
+    border-radius: calc(var(--hud-radius) - 2px);
+    color: var(--hud-cream) !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.035) 4px 5px),
+      #29332f !important;
+    box-shadow: inset 0 -5px 0 #1d2522, 3px 4px 0 #020504;
+    font-family: inherit !important;
+    font-size: clamp(28px, 3vw, 54px) !important;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #0e1513;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-current strong::before {
+    flex: 0 0 auto;
+    width: .62em;
+    margin-right: .2em;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-progress,
+  .deck-run-view-playing .mobile-run-rail-score-target {
+    display: none !important;
+  }
+
+  /* Hand equation: labels sit in the parent; only numbers get color. */
+  .deck-run-view-playing .mobile-run-rail-preview {
+    grid-row: 3;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: clamp(4px, .6vh, 7px);
+    padding: clamp(7px, .8vw, 12px) !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-preview:not(:has(.mobile-run-rail-hand-name[data-has-hand="true"])) {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-hand-name {
+    display: none;
+    min-height: 0 !important;
+    margin: 0 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-hand-name[data-has-hand="true"] {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-hand-name b {
+    width: max-content;
+    max-width: 100%;
+    padding: 3px 7px;
+    border: 2px solid #5a4c21;
+    border-radius: calc(var(--hud-radius) - 3px);
+    color: var(--hud-gold) !important;
+    background: #292717;
+    font: 800 clamp(9px, .82vw, 14px)/1.1 "Galmuri11", ui-monospace, monospace !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-equation {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: clamp(5px, .75vw, 10px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-chips,
+  .deck-run-view-playing .mobile-run-rail-mult {
+    min-width: 0;
+    min-height: 0 !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 4px;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-chips span,
+  .deck-run-view-playing .mobile-run-rail-mult span {
+    color: var(--hud-cream) !important;
+    font: 800 clamp(9px, .8vw, 14px)/1 "Galmuri11", ui-monospace, monospace !important;
+    text-align: center;
+    text-shadow: 2px 2px 0 #101817;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-equation strong {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    border: 3px solid;
+    border-radius: var(--hud-radius);
+    color: #fff !important;
+    font-family: inherit !important;
+    font-size: clamp(30px, 4.2vh, 54px) !important;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-chips strong {
+    border-color: #12b5ff;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px),
+      var(--hud-blue) !important;
+    box-shadow: inset 0 -7px 0 var(--hud-blue-dark), 4px 5px 0 #020504;
+    text-shadow: 3px 3px 0 #034b77;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-mult strong {
+    border-color: #ff7274;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 8px, rgba(255,255,255,.08) 8px 10px),
+      var(--hud-red) !important;
+    box-shadow: inset 0 -7px 0 var(--hud-red-dark), 4px 5px 0 #020504;
+    text-shadow: 3px 3px 0 #761e22;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-equation-sign {
+    align-self: center;
+    color: var(--hud-red) !important;
+    font: 900 clamp(20px, 2.3vw, 38px)/1 "Galmuri11", ui-monospace, monospace !important;
+    text-shadow: 3px 3px 0 #57171a;
+  }
+
+  /* Bottom cabinet: one large parent panel with actions and value capsules. */
+  .deck-run-view-playing .mobile-run-rail-lower {
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: minmax(76px, .64fr) minmax(0, 1.36fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    gap: clamp(6px, .8vw, 10px) !important;
+    padding: clamp(7px, .8vw, 11px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-actions {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+    gap: clamp(6px, .8vh, 9px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-info,
+  .deck-run-view-playing .mobile-run-rail-options,
+  .deck-run-view-playing .mobile-run-rail-tools,
+  .deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+    min-width: 0;
+    min-height: 0 !important;
+    width: 100%;
+    height: 100% !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-info { grid-row: 1 !important; }
+  .deck-run-view-playing .mobile-run-rail-options { grid-row: 2 !important; }
+
+  .deck-run-view-playing .mobile-run-rail-tools .rail-tool-primary {
+    display: grid;
+    place-items: center;
+    padding: 6px;
+    border: 3px solid;
+    border-radius: var(--hud-radius);
+    color: #fff;
+    box-shadow: inset 0 -7px 0 rgba(0,0,0,.2), 4px 5px 0 #020504 !important;
+    font-family: inherit !important;
+    text-shadow: 2px 2px 0 rgba(0,0,0,.4);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-info .rail-tool-primary {
+    border-color: #ff665a;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.07) 4px 5px),
+      #ed4d41;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-options .rail-tool-primary {
+    border-color: #ffb52d;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.07) 4px 5px),
+      #e88c0d;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-tools button > span { display: none; }
+  .deck-run-view-playing .mobile-run-rail-tools b {
+    font: 800 clamp(11px, 1.05vw, 18px)/1.25 "Galmuri11", ui-monospace, monospace !important;
+    text-align: center;
+    white-space: normal;
+    word-break: keep-all;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-lower-stats {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+    gap: clamp(5px, .65vh, 7px);
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(5px, .65vw, 8px);
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources > .mobile-run-resource {
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 2px;
+    padding: 3px !important;
+    border: 2px solid var(--hud-line) !important;
+    border-radius: calc(var(--hud-radius) - 2px);
+    background: #17211f !important;
+    box-shadow: 3px 4px 0 #020504 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources > .mobile-run-resource::before {
+    display: none;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources dt {
+    color: var(--hud-cream) !important;
+    font: 800 clamp(10px, .72vw, 13px)/1 "Galmuri11", ui-monospace, monospace !important;
+    text-align: center;
+    text-shadow: 2px 2px 0 #0a100f !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-resources dd {
+    width: 72%;
+    min-width: 38px;
+    min-height: 0;
+    margin: 0 auto !important;
+    display: grid;
+    place-items: center;
+    border: 2px solid;
+    border-radius: calc(var(--hud-radius) - 3px);
+    color: #fff !important;
+    font-family: inherit !important;
+    font-size: clamp(16px, 1.8vw, 30px) !important;
+    line-height: 1;
+  }
+
+  .deck-run-view-playing .mobile-run-resource-hands dd {
+    border-color: #16b9ff;
+    background: var(--hud-blue);
+    box-shadow: inset 0 -5px 0 var(--hud-blue-dark), 2px 3px 0 #020504;
+    text-shadow: 2px 2px 0 #034b77 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-resource-discards dd {
+    border-color: #ff7476;
+    background: var(--hud-red);
+    box-shadow: inset 0 -5px 0 var(--hud-red-dark), 2px 3px 0 #020504;
+    text-shadow: 2px 2px 0 #761e22 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+    display: grid;
+    place-items: center;
+    padding: 3px !important;
+    border: 2px solid var(--hud-line) !important;
+    border-radius: calc(var(--hud-radius) - 2px);
+    background: #1a211d !important;
+    box-shadow: inset 0 -4px 0 #101512, 3px 4px 0 #020504 !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-wallet strong {
+    color: var(--hud-gold) !important;
+    font-family: inherit !important;
+    font-size: clamp(22px, 2.35vw, 40px) !important;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #5a3a08;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-width: 0;
+    min-height: 0;
+    height: auto !important;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div {
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    gap: 2px;
+    padding: 3px !important;
+    border: 2px solid var(--hud-line) !important;
+    border-right-width: 1px !important;
+    border-radius: calc(var(--hud-radius) - 2px) 0 0 calc(var(--hud-radius) - 2px);
+    background: #17211f !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div:last-child {
+    border-right-width: 2px !important;
+    border-left-width: 1px !important;
+    border-radius: 0 calc(var(--hud-radius) - 2px) calc(var(--hud-radius) - 2px) 0;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div::after { display: none; }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta dt {
+    grid-column: 1;
+    grid-row: 1;
+    color: var(--hud-cream) !important;
+    font: 800 clamp(9px, .7vw, 12px)/1 "Galmuri11", ui-monospace, monospace !important;
+    text-align: center;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta dd {
+    grid-column: 1;
+    grid-row: 2;
+    width: 78%;
+    min-height: 0;
+    margin: 0 auto !important;
+    display: grid;
+    place-items: center;
+    border: 2px solid #4d5d58;
+    border-radius: calc(var(--hud-radius) - 3px);
+    color: var(--hud-cream) !important;
+    background: #303b37;
+    box-shadow: inset 0 -4px 0 #202925, 2px 3px 0 #020504;
+    font-family: inherit !important;
+    font-size: clamp(13px, 1.25vw, 22px) !important;
+    line-height: 1;
+    text-shadow: 2px 2px 0 #101614;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-run-meta > div:first-child dd {
+    color: #ffb42b !important;
+  }
+}

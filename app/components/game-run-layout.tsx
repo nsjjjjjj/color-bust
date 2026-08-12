@@ -33,7 +33,6 @@ export interface GameRunLayoutProps {
   readonly onOpenSettings: () => void;
   readonly onOpenDeck: () => void;
   readonly drawPile?: readonly GameCard[];
-  readonly discardPile?: readonly GameCard[];
   readonly referenceCards?: readonly GameCard[];
   readonly deckDisabled?: boolean;
   readonly sidebarExtra?: ReactNode;
@@ -61,7 +60,6 @@ export function GameRunLayout({
   onOpenSettings,
   onOpenDeck,
   drawPile = run.drawPile,
-  discardPile = run.discardPile,
   referenceCards = run.deck ?? [...run.hand, ...run.drawPile, ...run.discardPile],
   deckDisabled = false,
   sidebarExtra,
@@ -125,7 +123,7 @@ export function GameRunLayout({
             {children}
           </section>
 
-          <aside className="deck-pile-dock" aria-label={phase === "shop" ? "덱" : "뽑기 더미와 버린 카드 더미"}>
+          <aside className="deck-pile-dock" aria-label="뽑기 더미">
             <PileInspector
               variant="draw"
               cards={drawPile}
@@ -134,15 +132,6 @@ export function GameRunLayout({
               onOpenDetails={onOpenDeck}
               disabled={deckDisabled}
             />
-            {phase !== "shop" && (
-              <PileInspector
-                variant="discard"
-                cards={discardPile}
-                totalCards={referenceCards.length}
-                onOpenDetails={onOpenDeck}
-                disabled={deckDisabled}
-              />
-            )}
           </aside>
         </section>
       </div>

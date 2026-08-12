@@ -474,8 +474,9 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 .guestbook-form { position: sticky; top: 90px; padding: 23px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
 .guestbook-form h2 { margin: 7px 0 13px; font: 900 23px/1 ui-monospace, monospace; }
 .star-rating-control { margin-bottom: 16px; }
-.star-input { display: flex; gap: 5px; }
-.star-input button { width: 48px; height: 48px; display: grid; place-items: center; border: 0; background: transparent; padding: 0; color: #6e7582; font-size: 38px; line-height: 1; }
+.star-input { width: fit-content; max-width: 100%; min-height: 52px; display: flex; gap: 0; padding: 4px; border: 2px solid #34454c; background: #080d10; box-shadow: inset 2px 2px 0 rgba(255,255,255,.08), inset -3px -4px 0 rgba(0,0,0,.32), 4px 4px 0 #050708; clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px); }
+.star-input:focus-within { border-color: var(--yellow); }
+.star-input button { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; padding: 0; color: #6e7582; font-size: 36px; line-height: 1; }
 .star-input button.active { color: var(--yellow); text-shadow: 0 0 11px rgba(255, 210, 63, .42); }
 .star-input button[aria-checked="true"] { transform: translateY(-2px) scale(1.08); }
 .rating-choice { min-height: 18px; margin: 7px 0 0; color: var(--dim); font-size: 11px; font-weight: 800; }
@@ -1369,7 +1370,7 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 }
 
 /* Shared pressable pixel controls. Stars and playing cards keep their own silhouettes. */
-.app-shell button:not(.number-card):not(.toggle):not(.brand),
+.app-shell button:not(.number-card):not(.toggle):not(.brand):not(.star-rating-button),
 .install-toast button,
 .account-card a {
   border-radius: 0 !important;
@@ -1389,7 +1390,7 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
   filter: brightness(1.1) saturate(1.05);
   transform: translate(-1px, -1px);
 }
-.app-shell button:not(.number-card):not(.toggle):not(.brand):not(:disabled):active,
+.app-shell button:not(.number-card):not(.toggle):not(.brand):not(.star-rating-button):not(:disabled):active,
 .install-toast button:not(:disabled):active,
 .account-card a:active {
   filter: brightness(.96);

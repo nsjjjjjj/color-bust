@@ -203,6 +203,7 @@ function scoreTransferDuration(total: number): number {
 }
 
 export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
+  const appShellRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<View>("lobby");
   const [run, setRun] = useState<RunState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -224,6 +225,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   const [scorePlayback, setScorePlayback] = useState<ScorePlayback | null>(null);
   const [discardPlayback, setDiscardPlayback] = useState<DiscardPlayback | null>(null);
   const [displayRoundScore, setDisplayRoundScore] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenPromptDismissed, setFullscreenPromptDismissed] = useState(false);
   const [notice, setNotice] = useState("");
   const [loadingSave, setLoadingSave] = useState(true);
   const [cashOutLeaving, setCashOutLeaving] = useState(false);
@@ -445,6 +448,38 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       if (latestRunRef.current && signedIn) syncCloudRun(latestRunRef.current).catch(() => undefined);
     }
   }), [signedIn, syncCloudRun]);
+
+  useEffect(() => {
+    const syncFullscreenState = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    syncFullscreenState();
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenEnabled || !appShellRef.current) {
+      setNotice("이 브라우저에서는 전체화면을 사용할 수 없습니다.");
+      return;
+    }
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await appShellRef.current.requestFullscreen();
+    } catch {
+      setNotice("전체화면 전환에 실패했습니다. 브라우저 권한을 확인해 주세요.");
+    }
+  }, []);
+
+  const dismissFullscreenPrompt = useCallback(() => {
+    setFullscreenPromptDismissed(true);
+  }, []);
+
+  const shouldOfferFullscreen = view === "game"
+    && Boolean(run)
+    && !isFullscreen
+    && !fullscreenPromptDismissed
+    && typeof document !== "undefined"
+    && document.fullscreenEnabled
+    && window.innerWidth >= 1001;
 
   useEffect(() => {
     if (!scorePlayback) return;
@@ -804,6 +839,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
 
   return (
     <div
+      ref={appShellRef}
       className={`app-shell high-contrast${immersiveView ? " is-immersive" : ""}${reducedMotion ? " reduced-motion" : ""}`}
       onClickCapture={(event) => {
         const target = event.target instanceof Element
@@ -949,6 +985,18 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       {loadingSave && <div className="loading-save" role="status">저장된 런 확인 중…</div>}
       {accountOpen && <AccountModal user={initialUser} onClose={() => setAccountOpen(false)} />}
       {settingsOpen && <SettingsModal audio={audio} reducedMotion={reducedMotion} inRun={view === "game" && Boolean(run)} onOpenRunInfo={() => { setSettingsOpen(false); setUtilityModal("run-info"); }} onExitRun={() => { setSettingsOpen(false); setPendingLobbyExit(true); }} onReducedMotion={(value) => { setReducedMotion(value); setLocalSetting("reducedMotion", value).catch(() => undefined); }} onClose={() => setSettingsOpen(false)} />}
+      {shouldOfferFullscreen && (
+        <Modal title="전체화면으로 플레이" onClose={dismissFullscreenPrompt}>
+          <div className="confirm-body fullscreen-prompt">
+            <p>카드 테이블은 전체화면에서 가장 안정적인 비율로 표시됩니다.</p>
+            <small>전체화면은 언제든 Esc 키로 종료할 수 있습니다.</small>
+            <div className="confirm-actions">
+              <button type="button" className="secondary-button" onClick={dismissFullscreenPrompt}>창 모드로 계속</button>
+              <button type="button" className="primary-button" onClick={() => { dismissFullscreenPrompt(); void toggleFullscreen(); }}>전체화면으로 시작</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {utilityModal === "run-info" && run && <RunInfoModal run={run} onOpenHands={() => setUtilityModal("hands")} onOpenDeck={() => setUtilityModal("deck")} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "hands" && <HandGuide handLevels={run?.handLevels ?? BASE_HAND_LEVELS} onClose={() => setUtilityModal(null)} />}
       {utilityModal === "deck" && run && <DeckInspector deck={run.deck} drawPile={run.drawPile} discardPile={run.discardPile} hand={run.hand} onClose={() => setUtilityModal(null)} />}
@@ -1106,7 +1154,6 @@ function GameTable({
       onOpenSettings={onOpenSettings}
       onOpenDeck={onOpenDeck}
       drawPile={displayedDrawPile}
-      discardPile={displayedDiscardPile}
       referenceCards={deckReferenceCards}
       deckDisabled={runFrameBusy}
       sidebarExtra={phase === "playing" && hotSwap && run.handHistory.length === 0 ? <ColorPicker value={hotSwap.selectedColor ?? "red"} disabled={inputLocked} onChange={onHotSwap} /> : null}

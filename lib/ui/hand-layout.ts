@@ -90,7 +90,9 @@ export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.fre
   minimumCardWidth: 72,
   maximumHandCardWidth: 144,
   maximumPlayedCardWidth: 152,
-  responsiveCardWidthRatio: 0.145,
+  // The table reserves a wide centre lane. At eight cards, use the compact
+  // cabinet size and let the cards overlap rather than growing into a row.
+  responsiveCardWidthRatio: 0.13,
   roomyGap: 16,
   regularGap: 8,
   compactGap: 4,
@@ -138,7 +140,9 @@ function preferredStep(
   if (variant !== "hand") return cardWidth + gap;
   // The starting eight-card hand should read as one fan, not eight tiny tiles.
   // Extra cards overlap a little more while every card keeps a selectable edge.
-  if (cardCount === 8) return cardWidth * 0.92;
+  // Eight cards use the same visibly overlapping fan as the reference table.
+  // Keep the full card width; reduce the step instead of shrinking the art.
+  if (cardCount === 8) return cardWidth * 0.86;
   if (cardCount === 9) return cardWidth * 0.86;
   if (cardCount >= 10) return cardWidth * 0.8;
   return cardWidth + gap;
