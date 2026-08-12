@@ -29,7 +29,6 @@ import type {
   CardRarity,
   DeckWorkShopOffer,
   GameCard,
-  GhostItem,
   PackChoice,
   PackOpening,
   RunState,
@@ -392,14 +391,12 @@ function GarageInventory({
   onSell,
   onOpenDeck,
   onUseStashedItem,
-  onUseGhostItem,
   onSellStashedItem,
 }: {
   readonly run: RunState;
   readonly onSell: (instanceId: string) => void;
   readonly onOpenDeck: () => void;
   readonly onUseStashedItem?: (instanceId: string) => void;
-  readonly onUseGhostItem?: (item: GhostItem) => void;
   readonly onSellStashedItem?: (instanceId: string) => void;
 }) {
   const cards = uniqueDeckCards(run);
@@ -462,7 +459,7 @@ function GarageInventory({
                         <small style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.75)" }}>{config.description}</small>
                       </div>
                       <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onUseGhostItem?.(item)}>사용</button>
+                        <button type="button" disabled title="플레이 중 핸드에서 카드 1장을 선택한 뒤 사용할 수 있습니다." style={{ padding: "2px 8px", fontSize: "0.8rem" }}>플레이 중 사용</button>
                         <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onSellStashedItem?.(item.id)}>판매 +{refund}¢</button>
                       </div>
                     </article>
@@ -577,97 +574,6 @@ function ProtocolTargetOverlay({
             </button>
           </footer>
         )}
-      </section>
-    </div>
-  );
-}
-
-function GhostTargetOverlay({
-  run,
-  item,
-  onClose,
-  onSelect,
-}: {
-  readonly run: RunState;
-  readonly item: GhostItem;
-  readonly onClose: () => void;
-  readonly onSelect: (options: UseConsumableOptions) => void;
-}) {
-  const config = GHOST_CONFIG[item.ghostId];
-  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
-  const [targetColor, setTargetColor] = useState<CardColor | null>(null);
-  const cards = uniqueDeckCards(run);
-
-  const minTargets = item.ghostId === "dead-channel" ? 2 : 1;
-  const maxTargets = item.ghostId === "dead-channel" ? 2 : 5;
-  const needsColor = item.ghostId === "white-noise";
-
-  function disabledReason(card: GameCard): string | null {
-    if (selectedIds.includes(card.id)) return null;
-    if (selectedIds.length >= maxTargets) return `최대 ${maxTargets}장`;
-    if (item.ghostId === "dead-channel" && cards.length - 1 < MINIMUM_RUN_DECK_SIZE) return `최소 ${MINIMUM_RUN_DECK_SIZE}장`;
-    return null;
-  }
-
-  function handleCardSelect(card: GameCard) {
-    if (disabledReason(card)) return;
-    setSelectedIds((current) => current.includes(card.id)
-      ? current.filter((id) => id !== card.id)
-      : current.length < maxTargets ? [...current, card.id] : current);
-  }
-
-  const ready = selectedIds.length >= minTargets && selectedIds.length <= maxTargets && (!needsColor || Boolean(targetColor));
-
-  return (
-    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-ghost-target-title">
-      <section className="dm-garage-dialog dm-utility-dialog" data-kind="ghost">
-        <header>
-          <div><span>GHOST CARD</span><h2 id="dm-ghost-target-title">{item.name}</h2></div>
-          <button type="button" onClick={onClose}>취소</button>
-        </header>
-        <p>{normalizeTerminology(config.description)}</p>
-        <p style={{ color: "#c084fc", fontSize: "0.85rem", margin: "4px 0 10px 0" }}>
-          {needsColor ? "변경할 색상과 카드를 선택한 후 적용 버튼을 누르세요." : `대상이 될 카드 (${minTargets === maxTargets ? `${minTargets}장` : `${minTargets}~${maxTargets}장`})를 선택한 후 적용 버튼을 누르세요.`}
-        </p>
-        {needsColor && (
-          <div className="dm-utility-colors" data-has-selection={Boolean(targetColor)} role="group" aria-label="변경할 채널 색" style={{ marginBottom: "10px" }}>
-            {(["red", "yellow", "green", "blue"] as const).map((color) => {
-              const isSelected = targetColor === color;
-              return (
-                <button
-                  type="button"
-                  data-color={color}
-                  aria-pressed={isSelected}
-                  key={color}
-                  onClick={() => setTargetColor(color)}
-                >
-                  {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <DeckCardGrid
-          cards={cards}
-          ariaLabel={`${item.name} 대상 카드`}
-          selectedIds={selectedIds}
-          disabledReason={disabledReason}
-          onSelect={handleCardSelect}
-        />
-        <footer style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            className="dm-utility-confirm"
-            disabled={!ready}
-            style={ready ? { background: "#a855f7", color: "#fff", cursor: "pointer", fontWeight: "bold" } : { opacity: 0.5, cursor: "not-allowed" }}
-            onClick={() => onSelect({
-              targetCardIds: selectedIds,
-              ...(targetColor ? { targetColor } : {}),
-            })}
-          >
-            적용하기
-          </button>
-        </footer>
       </section>
     </div>
   );
@@ -1039,7 +945,6 @@ export function GarageView({
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [targetOfferId, setTargetOfferId] = useState<string | null>(null);
   const [protocolOfferId, setProtocolOfferId] = useState<string | null>(null);
-  const [activeGhostItem, setActiveGhostItem] = useState<GhostItem | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const purchaseTimer = useRef<number | null>(null);
   const targetOffer = offers.find(
@@ -1136,13 +1041,6 @@ export function GarageView({
           onSell={onSell}
           onOpenDeck={onOpenDeck}
           onUseStashedItem={onUseStashedItem}
-          onUseGhostItem={(item) => {
-            if (item.ghostId === "forbidden-port") {
-              onUseStashedItem?.(item.id);
-            } else {
-              setActiveGhostItem(item);
-            }
-          }}
           onSellStashedItem={onSellStashedItem}
         />
         <div className="dm-shop-board" aria-label="Garage 판매 상품">
@@ -1219,17 +1117,6 @@ export function GarageView({
           onSelect={(options) => {
             purchase(protocolOffer, options);
             setProtocolOfferId(null);
-          }}
-        />
-      )}
-      {activeGhostItem && (
-        <GhostTargetOverlay
-          run={run}
-          item={activeGhostItem}
-          onClose={() => setActiveGhostItem(null)}
-          onSelect={(options) => {
-            onUseStashedItem?.(activeGhostItem.id, options);
-            setActiveGhostItem(null);
           }}
         />
       )}
