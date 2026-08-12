@@ -5,15 +5,18 @@ import { registerUser, safeReturnPath } from "@/lib/server/auth";
 export async function POST(request: Request): Promise<Response> {
   const form = await request.formData();
   const returnTo = safeReturnPath(text(form, "returnTo"));
+  const wantsJson = request.headers.get("accept")?.includes("application/json") ?? false;
   try {
-    await registerUser({
+    const user = await registerUser({
       displayName: text(form, "displayName"),
       email: text(form, "email"),
       password: text(form, "password"),
     });
+    if (wantsJson) return NextResponse.json({ user });
     return NextResponse.redirect(new URL(returnTo, request.url), 303);
   } catch (error) {
     const message = error instanceof ApiProblem ? error.message : "회원가입 처리 중 오류가 발생했습니다.";
+    if (wantsJson) return NextResponse.json({ error: message }, { status: error instanceof ApiProblem ? error.status : 500 });
     const url = new URL("/login", request.url);
     url.searchParams.set("mode", "register");
     url.searchParams.set("returnTo", returnTo);

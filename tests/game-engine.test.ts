@@ -21,6 +21,7 @@ import {
   PackGenerator,
   PACK_DEFINITIONS,
   validateCommunityUnoCard,
+  bossPenaltyFor,
   type GameCard,
   type RunState,
 } from "../lib/game/index";
@@ -67,6 +68,23 @@ test("ships 43 jokers and balanced one-turn UNO modules", () => {
     assert.equal(validation.valid, true);
     assert.equal(validation.pointTotal, 0);
   }
+});
+
+test("applies one visible, deterministic penalty to every boss round", () => {
+  const stageOneShop = { ...createRun({ seed: "boss-stage-one" }), phase: "shop" as const, round: "big" as const };
+  const stageOneBoss = nextRound(stageOneShop);
+  assert.equal(bossPenaltyFor(stageOneBoss.ante, stageOneBoss.round)?.id, "channel-jam");
+  assert.equal(stageOneBoss.discardsLeft, 1);
+
+  const stageTwoShop = { ...stageOneShop, ante: 2 };
+  const stageTwoBoss = nextRound(stageTwoShop);
+  assert.equal(bossPenaltyFor(stageTwoBoss.ante, stageTwoBoss.round)?.id, "hand-drain");
+  assert.equal(stageTwoBoss.handsLeft, 3);
+
+  const stageThreeShop = { ...stageOneShop, ante: 3 };
+  const stageThreeBoss = nextRound(stageThreeShop);
+  assert.equal(bossPenaltyFor(stageThreeBoss.ante, stageThreeBoss.round)?.id, "signal-surge");
+  assert.equal(stageThreeBoss.target, 2078);
 });
 
 test("finishes standard after 15 cleared rounds and continues endless to ante 6", () => {

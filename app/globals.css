@@ -1782,3 +1782,160 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
   }
   .mobile-nav-contextual > span b { display: block; margin-bottom: 3px; font-size: 13px; }
 }
+
+/* Home menu: keep the main actions in a deliberate 2–1–2 rhythm.  The two
+ * primary destinations bookend the smaller settings control like a card-table
+ * menu, while all four quick controls share the same low-profile HUD shell. */
+.mobile-menu-primary {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, .78fr) minmax(0, 1.25fr);
+  width: min(760px, 66vw);
+  gap: clamp(8px, .7vw, 12px);
+}
+
+.mobile-menu-primary .mobile-menu-button {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.mobile-menu-primary .mobile-menu-button::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 3px;
+  border: 1px solid rgba(255, 248, 226, .34);
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 0 calc(100% - 4px), 0 4px);
+  pointer-events: none;
+}
+
+.mobile-menu-primary .mobile-menu-button > * { position: relative; z-index: 1; }
+
+/* Primary menu lives inside the lockup so it follows the white home copy
+ * instead of being stranded in a separate grid row near the screen bottom. */
+.mobile-menu-brand .mobile-menu-primary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, .78fr) minmax(0, 1.25fr);
+  width: min(760px, 66vw);
+  gap: clamp(8px, .7vw, 12px);
+  margin: clamp(10px, 1.25vh, 16px) auto 0;
+  transform: none;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button {
+  min-height: clamp(66px, 7.2vh, 82px);
+  border: 3px solid #111b20;
+  border-radius: 16px;
+  padding: 10px 14px 12px;
+  clip-path: none;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  box-shadow: 5px 6px 0 rgba(0,0,0,.66);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button::before {
+  display: none;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button span {
+  font: 700 clamp(20px, 1.35vw, 27px)/1 "Galmuri11", ui-monospace, monospace;
+  letter-spacing: -.04em;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button small {
+  margin-top: 7px;
+  font: 400 clamp(8px, .58vw, 11px)/1.1 "Galmuri11", ui-monospace, monospace;
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button:not(:disabled):hover {
+  transform: translateY(-3px);
+}
+
+.mobile-menu-brand .mobile-menu-primary .mobile-menu-button:not(:disabled):active {
+  transform: translate(3px, 3px);
+}
+
+.mobile-menu-primary .mobile-menu-play {
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #339ee0, #1672b6);
+}
+
+.mobile-menu-primary .mobile-menu-options {
+  padding-inline: clamp(8px, 1vw, 14px);
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.08) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #f4c942, #d69217);
+}
+
+.mobile-menu-primary .mobile-menu-collection {
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #46bf88, #23885a);
+}
+
+.mobile-menu-connectivity .mobile-menu-cloud,
+.mobile-menu-feedback,
+.mobile-menu-profile,
+.mobile-menu-side-controls .mobile-menu-ranking {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: #55777a;
+  color: #eaf3eb;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 4px),
+    linear-gradient(180deg, #183136, #0b171a 74%);
+  box-shadow: inset 0 0 0 1px rgba(8, 16, 18, .92), inset 0 -4px 0 rgba(0,0,0,.32), 4px 4px 0 #030708;
+}
+
+.mobile-menu-connectivity .mobile-menu-cloud::before,
+.mobile-menu-feedback::before,
+.mobile-menu-profile::before,
+.mobile-menu-side-controls .mobile-menu-ranking::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 3px;
+  border: 1px solid rgba(181, 231, 221, .28);
+  clip-path: polygon(3px 0, calc(100% - 3px) 0, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 0 calc(100% - 3px), 0 3px);
+  pointer-events: none;
+}
+
+.mobile-menu-connectivity .mobile-menu-cloud > *,
+.mobile-menu-feedback > *,
+.mobile-menu-profile > *,
+.mobile-menu-side-controls .mobile-menu-ranking > * { position: relative; z-index: 1; }
+
+.mobile-menu-feedback { border-color: #aa8135; color: #fff0c5; }
+.mobile-menu-feedback::before { border-color: rgba(255, 212, 106, .38); }
+.mobile-menu-feedback b,
+.mobile-menu-side-controls .mobile-menu-ranking b { color: #ffd24b; text-shadow: 1px 1px 0 #372b0f; }
+.mobile-menu-feedback span,
+.mobile-menu-side-controls .mobile-menu-ranking small,
+.mobile-menu-profile :is(b, small),
+.mobile-menu-cloud strong { color: inherit; font-family: "Galmuri11", ui-monospace, monospace; }
+
+.mobile-menu-connectivity .mobile-menu-cloud { border-color: #357990; color: #dcf7ff; }
+.mobile-menu-connectivity .mobile-menu-cloud::before { border-color: rgba(98, 211, 239, .4); }
+.mobile-menu-profile { position: absolute; border-color: #55777a; }
+.mobile-menu-side-controls .mobile-menu-ranking { border-color: #9b803b; color: #ffefbe; }
+.mobile-menu-side-controls .mobile-menu-ranking::before { border-color: rgba(244, 207, 108, .32); }
+
+/* The fan is a locked card asset: the home lockup now has no cast shadow, so
+ * the card faces remain crisp behind the logo rather than turning into a dark
+ * blob at small scales. */
+.mobile-menu-brand .deck-mayhem-card-fan { filter: none; }
+.mobile-menu-brand .deck-mayhem-card-fan .number-card,
+.mobile-menu-brand .deck-logo-back i { box-shadow: none; }
+
+/* Leave the lobby's bottom quick controls unobscured by the PWA install CTA. */
+@media (min-width: 761px) {
+  .install-toast {
+    /* This needs to clear the lower-right ranking control as well as the
+       corner of the background UI at every desktop height. */
+    bottom: max(132px, calc(env(safe-area-inset-bottom) + 132px)) !important;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 760px) {
+  .mobile-menu-primary { width: min(520px, 100%); }
+  .mobile-menu-primary .mobile-menu-options { width: 78%; justify-self: center; }
+}

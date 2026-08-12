@@ -3,7 +3,6 @@
 import type { CSSProperties } from "react";
 
 import { effectiveHandChips, effectiveHandMultiplier, HAND_RULES } from "../../lib/game/constants";
-import { COLOR_LABELS } from "../../lib/game/colors";
 import {
   HAND_TYPES,
   type GameCard,

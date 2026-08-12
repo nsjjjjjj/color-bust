@@ -3,18 +3,19 @@
 import type { ReactNode } from "react";
 
 import { ROUND_ORDER, ROUND_REWARDS } from "../../lib/game/constants";
+import { bossPenaltyFor } from "../../lib/game/boss-penalties";
 import type { RunState } from "../../lib/game/types";
 
 const ROUND_NAMES: Readonly<Record<RunState["round"], string>> = {
   small: "워밍업",
   big: "브레이크포인트",
-  boss: "메이헴 라운드",
+  boss: "보스 · 메이헴",
 };
 
 const ROUND_RULES: Readonly<Record<RunState["round"], string>> = {
   small: "기본 목표 점수를 달성하세요.",
   big: "더 높은 목표 점수를 돌파하세요.",
-  boss: "스테이지 마지막 목표입니다.",
+  boss: "보스전 · 이번 STAGE의 마지막 관문입니다.",
 };
 
 export interface GameLeftRailProps {
@@ -57,22 +58,25 @@ export function GameLeftRail({
   const visibleRoundScore = phase === "shop" ? 0 : displayRoundScore ?? run.score;
   const progress = run.target > 0 ? Math.min(100, (visibleRoundScore / run.target) * 100) : 0;
   const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
+  const bossPenalty = bossPenaltyFor(run.ante, run.round);
 
   return (
     <aside
-      className={`mobile-run-rail game-left-rail pixel-panel${run.round === "boss" ? " is-boss" : ""}${isTransferring ? " is-transferring" : ""}`}
+      className={`mobile-run-rail game-left-rail pixel-panel phase-${phase}${run.round === "boss" ? " is-boss" : ""}${isTransferring ? " is-transferring" : ""}`}
       data-score-phase={scorePhase}
       aria-label="현재 런과 라운드 정보"
     >
-      <section className={`mobile-run-rail-round${phase === "shop" ? " is-garage" : ""}`} aria-labelledby="mobile-run-rail-title">
+      <section className={`mobile-run-rail-round${phase === "shop" ? " is-garage" : ""}${phase === "reward" ? " is-clearing" : ""}`} aria-labelledby="mobile-run-rail-title" aria-hidden={phase === "reward" || undefined}>
         <header className="mobile-run-rail-blind">
-          <span className="mobile-run-rail-blind-mark" aria-hidden="true">
-            {phase === "shop" ? "G" : run.round === "small" ? "S" : run.round === "big" ? "B" : "X"}
-          </span>
+          {phase !== "shop" ? (
+            <span className="mobile-run-rail-blind-mark" aria-hidden="true">
+              {run.round === "small" ? "S" : run.round === "big" ? "B" : "X"}
+            </span>
+          ) : null}
           <div className="mobile-run-rail-blind-copy">
-            <span>{phase === "shop" ? "DECK MAYHEM" : `스테이지 ${run.ante}${run.mode === "standard" ? "/5" : "/∞"} · 라운드 ${roundIndex}/3`}</span>
+            {phase !== "shop" ? <span>{`스테이지 ${run.ante}${run.mode === "standard" ? "/5" : "/∞"} · 라운드 ${roundIndex}/3`}</span> : null}
             <h2 id="mobile-run-rail-title">{phase === "shop" ? "GARAGE" : ROUND_NAMES[run.round]}</h2>
-            <small>{phase === "shop" ? "카드를 골라 런 회로를 개조하세요." : ROUND_RULES[run.round]}</small>
+            {phase !== "shop" ? <small>{ROUND_RULES[run.round]}</small> : null}
           </div>
         </header>
         {phase !== "shop" && (
@@ -82,6 +86,13 @@ export function GameLeftRail({
             <small>보상: <b>{"¢".repeat(ROUND_REWARDS[run.round])}</b></small>
           </div>
         )}
+        {phase !== "shop" && bossPenalty ? (
+          <div className="mobile-run-rail-boss-note" aria-label={`보스 패널티: ${bossPenalty.name}. ${bossPenalty.description}`}>
+            <b>BOSS PENALTY</b>
+            <strong>{bossPenalty.name}</strong>
+            <span>{bossPenalty.description}</span>
+          </div>
+        ) : null}
       </section>
 
       <section

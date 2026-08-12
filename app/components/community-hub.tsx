@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   CommunityUnoCard,
   ListCommunityCardsResponse,
@@ -221,8 +222,8 @@ function UnoCreator({
     }
   }
 
-  return (
-    <Modal title="커뮤니티 메이헴 카드 제작기" onClose={onClose} wide>
+  const creatorDialog = (
+    <Modal title="커뮤니티 메이헴 카드 제작기" className="creator-sheet" onClose={onClose} wide>
       <div className="creator-layout">
         <div className="creator-form">
           <label>카드 이름<input value={name} maxLength={30} onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
@@ -267,4 +268,11 @@ function UnoCreator({
       </div>
     </Modal>
   );
+
+  // This dialog can be launched from the collection sheet. Render it beside
+  // that sheet (still inside the app shell) so a transformed parent never
+  // constrains the creator's viewport-sized frame or introduces a horizontal
+  // scrollbar.
+  const appShell = typeof document === "undefined" ? null : document.querySelector<HTMLElement>(".app-shell");
+  return appShell ? createPortal(creatorDialog, appShell) : creatorDialog;
 }

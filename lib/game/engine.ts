@@ -12,6 +12,7 @@ import {
   UNO_SLOT_LIMIT,
   targetForRound,
 } from "./constants";
+import { bossPenaltyFor } from "./boss-penalties";
 import { drawCards, shuffledDeck } from "./deck";
 import {
   GHOST_CONFIG,
@@ -1609,6 +1610,7 @@ export function nextRound(state: RunState): RunState {
   }
 
   const roundNumber = state.roundNumber + 1;
+  const bossPenalty = bossPenaltyFor(ante, round);
   const shuffled = shuffle(persistentDeck(state), state.rngState);
   const handSize = nextRoundHandSizeFor(state);
   const draw = drawCards(
@@ -1632,9 +1634,9 @@ export function nextRound(state: RunState): RunState {
       discardPile: draw.discardPile,
       deck: persistentDeck(state),
       score: 0,
-      target: targetForRound(ante, round),
-      handsLeft: HANDS_PER_ROUND + firmwareCount(state, "backup-power"),
-      discardsLeft: discardsPerRoundFor(state),
+      target: Math.ceil(targetForRound(ante, round) * (bossPenalty?.targetMultiplier ?? 1)),
+      handsLeft: Math.max(1, HANDS_PER_ROUND + firmwareCount(state, "backup-power") + (bossPenalty?.handDelta ?? 0)),
+      discardsLeft: Math.max(0, discardsPerRoundFor(state) + (bossPenalty?.discardDelta ?? 0)),
       nextRoundHandPenalty: 0,
       roundIncome: 0,
       jokers: state.jokers.map((joker) => ({
