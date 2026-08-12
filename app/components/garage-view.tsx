@@ -962,8 +962,11 @@ export function GarageView({
 
           <section className="dm-shop-zone dm-shop-lab" aria-label="DECK LAB">
             <div className="dm-shop-grid">
-              {deckLabOffers.map(renderOffer)}
-              {deckLabOffers.length === 0 && <EmptyShopSlot eyebrow="LAB OFFLINE" message="정비 항목 없음" />}
+              <div className="dm-shop-lab-voucher">
+                <span className="dm-shop-lab-voucher__label" aria-hidden="true">설치 제한</span>
+                {deckLabOffers.map(renderOffer)}
+                {deckLabOffers.length === 0 && <EmptyShopSlot eyebrow="LAB OFFLINE" message="정비 항목 없음" />}
+              </div>
             </div>
           </section>
 
