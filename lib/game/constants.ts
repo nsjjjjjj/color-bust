@@ -134,16 +134,31 @@ export function effectiveHandMultiplier(rule: HandRule, level: number): number {
   );
 }
 
-/** Ante 1-5 targets. Endless mode scales the fifth row for later Antes. */
+/**
+ * Ante 1-5 targets grow gently (~1.5x per ante) so a standard run stays
+ * approachable. Endless mode (ante 6+) is computed by targetForRound below,
+ * where the per-ante ratio starts higher and eases down toward a floor —
+ * matching how a player's own power growth slows down the longer a run goes.
+ */
 export const ROUND_TARGETS: Readonly<
   Record<number, Readonly<Record<RoundType, number>>>
 > = {
   1: { small: 500, big: 650, boss: 825 },
-  2: { small: 950, big: 1200, boss: 1550 },
-  3: { small: 1725, big: 2250, boss: 2925 },
-  4: { small: 3250, big: 4225, boss: 5550 },
-  5: { small: 6150, big: 8025, boss: 10550 },
+  2: { small: 750, big: 975, boss: 1240 },
+  3: { small: 1125, big: 1465, boss: 1855 },
+  4: { small: 1690, big: 2195, boss: 2785 },
+  5: { small: 2530, big: 3290, boss: 4175 },
 };
+
+const ROUND_TYPE_TARGET_MULTIPLIER: Readonly<Record<RoundType, number>> = {
+  small: 1,
+  big: 1.3,
+  boss: 1.65,
+};
+
+const ENDLESS_RATIO_BASE = 1.6;
+const ENDLESS_RATIO_STEP = -0.05;
+const ENDLESS_RATIO_FLOOR = 1.15;
 
 export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "zero-day": {
@@ -613,7 +628,14 @@ export function targetForRound(ante: number, round: RoundType): number {
   const fixed = ROUND_TARGETS[ante];
   if (fixed) return fixed[round];
 
-  const base = ROUND_TARGETS[5][round];
-  const scaled = base * 1.8 ** (ante - 5);
+  let base = ROUND_TARGETS[5].small;
+  for (let depth = 1; depth <= ante - 5; depth += 1) {
+    const ratio = Math.max(
+      ENDLESS_RATIO_FLOOR,
+      ENDLESS_RATIO_BASE + ENDLESS_RATIO_STEP * (depth - 1),
+    );
+    base *= ratio;
+  }
+  const scaled = base * ROUND_TYPE_TARGET_MULTIPLIER[round];
   return Math.round(scaled / 25) * 25;
 }
