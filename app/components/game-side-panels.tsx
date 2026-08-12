@@ -58,7 +58,7 @@ export function GameLeftRail({
   const visibleRoundScore = phase === "shop" ? 0 : displayRoundScore ?? run.score;
   const progress = run.target > 0 ? Math.min(100, (visibleRoundScore / run.target) * 100) : 0;
   const roundIndex = ROUND_ORDER.indexOf(run.round) + 1;
-  const bossPenalty = bossPenaltyFor(run.ante, run.round);
+  const bossPenalty = bossPenaltyFor(run);
 
   return (
     <aside

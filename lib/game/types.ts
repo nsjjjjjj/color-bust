@@ -32,6 +32,19 @@ export type HandType = (typeof HAND_TYPES)[number];
 export type RunMode = "standard" | "endless";
 export type RunPhase = "playing" | "reward" | "shop" | "won" | "lost";
 export type RoundType = "small" | "big" | "boss";
+export type BossPenaltyId =
+  | "channel-jam"
+  | "hand-drain"
+  | "signal-surge"
+  | "hard-lock"
+  | "final-gate"
+  | "color-jam"
+  | "flint-cut"
+  | "pattern-lock"
+  | "mono-track"
+  | "one-shot"
+  | "narrow-hand"
+  | "forced-purge";
 export type JokerRarity = "common" | "uncommon" | "rare";
 
 export interface HandRule {
@@ -499,6 +512,12 @@ export interface RunState {
   /** Optional penalties are omitted by legacy v1 saves. */
   readonly nextRoundHandPenalty?: number;
   readonly permanentDiscardPenalty?: number;
+  /** The boss effect rolled for the current/most recent boss round. Legacy saves omit it. */
+  readonly bossPenaltyId?: BossPenaltyId | null;
+  /** The CardColor jammed by a "color-jam" boss effect, rolled alongside bossPenaltyId. */
+  readonly bossDebuffColor?: CardColor | null;
+  /** The HandType a "mono-track" boss effect locked in from this round's first play. */
+  readonly bossLockedHandType?: HandType | null;
   readonly unoUsedThisAnte: boolean;
   readonly handLevels: Readonly<Record<HandType, number>>;
   readonly handHistory: readonly HandType[];

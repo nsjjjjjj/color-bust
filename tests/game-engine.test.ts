@@ -22,9 +22,13 @@ import {
   PACK_DEFINITIONS,
   validateCommunityUnoCard,
   bossPenaltyFor,
+  BOSS_PENALTIES,
+  calculateHandScore,
+  STARTING_HAND_SIZE,
   type GameCard,
   type RunState,
 } from "../lib/game/index";
+import { COLOR_IDENTITIES } from "../lib/game/colors";
 
 function card(id: string, rank: GameCard["rank"], color: GameCard["color"]): GameCard {
   return { id, rank, color };
@@ -70,21 +74,131 @@ test("ships 43 jokers and balanced one-turn UNO modules", () => {
   }
 });
 
-test("applies one visible, deterministic penalty to every boss round", () => {
-  const stageOneShop = { ...createRun({ seed: "boss-stage-one" }), phase: "shop" as const, round: "big" as const };
+test("rolls one visible, seed-deterministic penalty for every boss round, consistent with its resulting state", () => {
+  function bossRoundFor(seed: string): RunState {
+    const shop = { ...createRun({ seed }), phase: "shop" as const, round: "big" as const };
+    return nextRound(shop);
+  }
+
+  for (const seed of ["boss-roll-a", "boss-roll-b", "boss-roll-c", "boss-roll-d", "boss-roll-e"]) {
+    const boss = bossRoundFor(seed);
+    assert.equal(boss.round, "boss");
+    const penalty = bossPenaltyFor(boss);
+    assert.ok(penalty, `expected a boss penalty to be rolled for seed ${seed}`);
+    assert.ok(BOSS_PENALTIES.some((candidate) => candidate.id === penalty!.id));
+
+    const rawPenalty = BOSS_PENALTIES.find((candidate) => candidate.id === penalty!.id)!;
+    assert.equal(
+      boss.discardsLeft,
+      Math.max(0, 2 + (rawPenalty.discardDelta ?? 0)),
+    );
+    assert.equal(
+      boss.handsLeft,
+      rawPenalty.handsOverride ?? Math.max(1, 4 + (rawPenalty.handDelta ?? 0)),
+    );
+    if (rawPenalty.debuffsColor) {
+      assert.ok(boss.bossDebuffColor);
+      assert.ok(penalty!.description.includes(COLOR_IDENTITIES[boss.bossDebuffColor!].koreanColor));
+      assert.ok(!penalty!.description.includes("{color}"));
+    } else {
+      assert.equal(boss.bossDebuffColor, null);
+    }
+
+    // Same seed always rolls the same effect.
+    const repeat = bossRoundFor(seed);
+    assert.equal(bossPenaltyFor(repeat)?.id, penalty!.id);
+  }
+});
+
+test("boss penalty stays stable across re-renders and clears once the boss round ends", () => {
+  const stageOneShop = { ...createRun({ seed: "boss-lifecycle" }), phase: "shop" as const, round: "big" as const };
   const stageOneBoss = nextRound(stageOneShop);
-  assert.equal(bossPenaltyFor(stageOneBoss.ante, stageOneBoss.round)?.id, "channel-jam");
-  assert.equal(stageOneBoss.discardsLeft, 1);
+  assert.equal(stageOneBoss.round, "boss");
+  const firstRead = bossPenaltyFor(stageOneBoss);
+  const secondRead = bossPenaltyFor(stageOneBoss);
+  assert.equal(firstRead?.id, secondRead?.id);
 
-  const stageTwoShop = { ...stageOneShop, ante: 2 };
-  const stageTwoBoss = nextRound(stageTwoShop);
-  assert.equal(bossPenaltyFor(stageTwoBoss.ante, stageTwoBoss.round)?.id, "hand-drain");
-  assert.equal(stageTwoBoss.handsLeft, 3);
+  const nonBossState = { ...stageOneBoss, round: "small" as const };
+  assert.equal(bossPenaltyFor(nonBossState), null);
+});
 
-  const stageThreeShop = { ...stageOneShop, ante: 3 };
-  const stageThreeBoss = nextRound(stageThreeShop);
-  assert.equal(bossPenaltyFor(stageThreeBoss.ante, stageThreeBoss.round)?.id, "signal-surge");
-  assert.equal(stageThreeBoss.target, 2078);
+test("color-jam boss effect zeroes chips and enhancements for the jammed color", () => {
+  const initial = createRun({ seed: "color-jam-test" });
+  const redPair = [card("r1", 5, "red"), card("r2", 5, "red")];
+  const jammed = calculateHandScore(
+    { ...initial, round: "boss", bossPenaltyId: "color-jam", bossDebuffColor: "red" },
+    redPair,
+  );
+  const clear = calculateHandScore({ ...initial, round: "small" }, redPair);
+  assert.equal(jammed.breakdown.numericChips, 0);
+  assert.ok(clear.breakdown.numericChips > 0);
+  assert.ok(jammed.breakdown.total < clear.breakdown.total);
+});
+
+test("flint-cut boss effect halves base hand chips and multiplier", () => {
+  const initial = createRun({ seed: "flint-cut-test" });
+  const cards = [card("a", 3, "red"), card("b", 3, "blue")];
+  const normal = calculateHandScore({ ...initial, round: "small" }, cards);
+  const flinted = calculateHandScore(
+    { ...initial, round: "boss", bossPenaltyId: "flint-cut" },
+    cards,
+  );
+  assert.equal(flinted.breakdown.baseChips, normal.breakdown.baseChips * 0.5);
+  assert.equal(flinted.breakdown.baseMultiplier, normal.breakdown.baseMultiplier * 0.5);
+});
+
+test("pattern-lock boss blocks repeating a hand type already played this round", () => {
+  const initial = createRun({ seed: "pattern-lock-test" });
+  const pairCards = [card("a", 3, "red"), card("b", 3, "blue")];
+  const state: RunState = {
+    ...initial,
+    round: "boss",
+    bossPenaltyId: "pattern-lock",
+    handHistory: ["pair"],
+  };
+  assert.throws(() => calculateHandScore(state, pairCards), /다시 낼 수 없습니다/);
+});
+
+test("mono-track boss locks every hand this round to the first hand type played", () => {
+  const initial = createRun({ seed: "mono-track-test" });
+  const pairCards = [card("a", 3, "red"), card("b", 3, "blue")];
+  const tripleCards = [card("c", 4, "red"), card("d", 4, "blue"), card("e", 4, "green")];
+  const state: RunState = {
+    ...initial,
+    round: "boss",
+    bossPenaltyId: "mono-track",
+    bossLockedHandType: "pair",
+  };
+  assert.throws(() => calculateHandScore(state, tripleCards), /족보만 낼 수 있습니다/);
+  assert.doesNotThrow(() => calculateHandScore(state, pairCards));
+});
+
+test("one-shot, narrow-hand and forced-purge boss effects reshape the round as advertised", () => {
+  function findBossRound(targetId: string): RunState {
+    for (let attempt = 0; attempt < 400; attempt += 1) {
+      const shop = { ...createRun({ seed: `find-${targetId}-${attempt}` }), phase: "shop" as const, round: "big" as const };
+      const boss = nextRound(shop);
+      if (boss.bossPenaltyId === targetId) return boss;
+    }
+    throw new Error(`could not roll boss penalty ${targetId}`);
+  }
+
+  const oneShot = findBossRound("one-shot");
+  assert.equal(oneShot.handsLeft, 1);
+
+  const narrowHand = findBossRound("narrow-hand");
+  assert.equal(narrowHand.hand.length, STARTING_HAND_SIZE - 2);
+
+  const forcedPurge = { ...findBossRound("forced-purge"), target: 999_999 };
+  const originalIds = new Set(forcedPurge.hand.map((item) => item.id));
+  const playedId = forcedPurge.hand[0].id;
+  const played = playHand(forcedPurge, [playedId]);
+  assert.equal(played.state.discardsLeft, forcedPurge.discardsLeft);
+  assert.equal(played.state.hand.length, forcedPurge.hand.length);
+  const survivingOriginals = played.state.hand.filter(
+    (item) => originalIds.has(item.id) && item.id !== playedId,
+  ).length;
+  assert.ok(survivingOriginals <= forcedPurge.hand.length - 2);
 });
 
 test("finishes standard after 15 cleared rounds and continues endless to ante 6", () => {
