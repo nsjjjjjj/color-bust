@@ -148,6 +148,25 @@ function runStatus(run: RunState): "active" | "won" | "lost" {
   return "active";
 }
 
+/**
+ * Storage can be unavailable on first launch (private browsing, interrupted
+ * IndexedDB migration, or a flaky network). Do not let that prevent a new run
+ * from starting.
+ */
+function resolveWithin<T>(work: Promise<T>, fallback: T, timeoutMs = 2_500): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: T) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => finish(fallback), timeoutMs);
+    work.then(finish, () => finish(fallback));
+  });
+}
+
 function resolvedBreakdownValues(breakdown: ScoreBreakdown) {
   const power = breakdown.chipsBeforeUno + (breakdown.uno?.chipDelta ?? 0);
   const hype = (breakdown.multiplierBeforeUno + (breakdown.uno?.multiplierDelta ?? 0))
@@ -357,37 +376,45 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   useEffect(() => {
     let cancelled = false;
     async function restore() {
-      const [localRuns, savedUno, savedMotion] = await Promise.all([
-        listLocalRuns<RunState>().catch(() => []),
-        getLocalSetting<CommunityUnoCard | undefined>("equippedCommunityUno", undefined).catch(() => undefined),
-        getLocalSetting<boolean>("reducedMotion", false).catch(() => false),
-      ]);
-      if (cancelled) return;
-      setEquippedUno(savedUno);
-      setReducedMotion(savedMotion);
-      const local = localRuns.find((record) => isRunState(record.data) && record.data.phase !== "won" && record.data.phase !== "lost");
-      if (local) replaceRun(local.data);
+      try {
+        const [localRuns, savedUno, savedMotion] = await Promise.all([
+          resolveWithin(listLocalRuns<RunState>().catch(() => []), []),
+          resolveWithin(getLocalSetting<CommunityUnoCard | undefined>("equippedCommunityUno", undefined).catch(() => undefined), undefined),
+          resolveWithin(getLocalSetting<boolean>("reducedMotion", false).catch(() => false), false),
+        ]);
+        if (cancelled) return;
+        setEquippedUno(savedUno);
+        setReducedMotion(savedMotion);
+        const local = localRuns.find((record) => isRunState(record.data) && record.data.phase !== "won" && record.data.phase !== "lost");
+        if (local) replaceRun(local.data);
 
-      if (signedIn && navigator.onLine) {
-        const remoteRuns = await Promise.all(["standard", "endless"].map(async (mode) => {
-          try {
-            const response = await fetch(`/api/runs/${mode}`, { credentials: "include" });
-            if (!response.ok) return null;
-            const data = (await response.json()) as { run: CloudRun | null };
-            if (data.run) cloudRevision.current[data.run.mode] = data.run.revision;
-            return data.run;
-          } catch {
-            return null;
+        // Local restore is all the start screen needs. Cloud sync can finish
+        // afterwards without holding the entire game hostage.
+        setLoadingSave(false);
+
+        if (signedIn && navigator.onLine) {
+          const remoteRuns = await Promise.all(["standard", "endless"].map(async (mode) => resolveWithin((async () => {
+            try {
+              const response = await fetch(`/api/runs/${mode}`, { credentials: "include" });
+              if (!response.ok) return null;
+              const data = (await response.json()) as { run: CloudRun | null };
+              if (data.run) cloudRevision.current[data.run.mode] = data.run.revision;
+              return data.run;
+            } catch {
+              return null;
+            }
+          })(), null, 4_000)));
+          if (cancelled) return;
+          const latestRemote = remoteRuns.filter(Boolean).sort((a, b) => Date.parse(b!.updatedAt) - Date.parse(a!.updatedAt))[0];
+          const localUpdated = local?.updatedAt ?? 0;
+          if (latestRemote && Date.parse(latestRemote.updatedAt) > localUpdated && isRunState(latestRemote.snapshot)) {
+            replaceRun(latestRemote.snapshot);
+            setNotice("다른 기기의 최신 진행을 불러왔습니다.");
           }
-        }));
-        const latestRemote = remoteRuns.filter(Boolean).sort((a, b) => Date.parse(b!.updatedAt) - Date.parse(a!.updatedAt))[0];
-        const localUpdated = local?.updatedAt ?? 0;
-        if (latestRemote && Date.parse(latestRemote.updatedAt) > localUpdated && isRunState(latestRemote.snapshot)) {
-          replaceRun(latestRemote.snapshot);
-          setNotice("다른 기기의 최신 진행을 불러왔습니다.");
         }
+      } finally {
+        if (!cancelled) setLoadingSave(false);
       }
-      setLoadingSave(false);
     }
     restore();
     return () => { cancelled = true; };

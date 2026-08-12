@@ -5202,6 +5202,9 @@
 .game-select-card dd { margin: 4px 0 0; overflow: hidden; color: #f2e8cc; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .game-select-new-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
 .game-select-new-tags i { padding: 5px 7px; border: 1px solid #796235; color: #e9c96d; background: #221d10; font-size: 8px; font-style: normal; }
+.game-select-loading { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; color: #f0bd53; font-size: 9px; letter-spacing: .08em; }
+.game-select-loading i { width: 8px; height: 8px; border: 2px solid #f0bd53; border-right-color: transparent; border-radius: 50%; animation: game-select-loading-spin .7s linear infinite; }
+@keyframes game-select-loading-spin { to { transform: rotate(360deg); } }
 .game-select-panel > footer { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 15px; border-top: 1px solid #31484d; }
 .game-select-panel > footer button { min-height: 42px; padding: 8px 14px; border: 2px solid #3b575c; color: #d9e5e2; background: #132226; box-shadow: 3px 3px #020607; }
 .game-select-panel > footer p { margin: 0; color: #8da09f; font: 500 11px/1.4 system-ui, sans-serif !important; }
@@ -7321,7 +7324,7 @@
     --hud-radius: clamp(7px, .65vw, 12px);
     display: grid;
     grid-template-rows:
-      clamp(142px, 25vh, 270px)
+      clamp(128px, 21vh, 220px)
       clamp(64px, 10vh, 100px)
       clamp(96px, 17vh, 190px)
       clamp(180px, 32vh, 300px) !important;
@@ -7361,9 +7364,9 @@
     grid-row: 1;
     display: grid;
     grid-template-columns: minmax(62px, .74fr) minmax(0, 1.46fr);
-    grid-template-rows: clamp(32px, 5vh, 54px) minmax(0, 1fr);
-    gap: clamp(5px, .8vh, 9px);
-    padding: clamp(6px, .8vw, 10px);
+    grid-template-rows: clamp(28px, 3.7vh, 42px) auto minmax(0, 1fr);
+    gap: clamp(3px, .45vh, 6px);
+    padding: clamp(5px, .65vw, 8px);
   }
 
   .deck-run-view-playing .mobile-run-rail-blind,
@@ -7371,9 +7374,16 @@
     display: contents;
   }
 
-  .deck-run-view-playing .mobile-run-rail-blind-copy > span,
+  .deck-run-view-playing .mobile-run-rail-blind-copy > span { display: none; }
+
   .deck-run-view-playing .mobile-run-rail-blind-copy > small {
-    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: block;
+    margin: 0;
+    color: var(--hud-cream);
+    font: 800 clamp(9px, .76vw, 13px)/1.2 "Galmuri11", ui-monospace, monospace !important;
+    text-align: center;
   }
 
   .deck-run-view-playing .mobile-run-rail-blind-copy h2 {
@@ -7383,7 +7393,7 @@
     place-items: center;
     min-width: 0;
     margin: 0;
-    padding: 4px 8px;
+    padding: 3px 8px;
     border: 3px solid #056aa5;
     border-radius: var(--hud-radius);
     color: #fff;
@@ -7392,17 +7402,17 @@
       linear-gradient(180deg, #079be9, #0574bd);
     box-shadow: inset 0 -4px 0 rgba(0, 40, 78, .42), 0 4px 0 #020504;
     font-family: inherit !important;
-    font-size: clamp(17px, 1.55vw, 30px) !important;
+    font-size: clamp(16px, 1.35vw, 26px) !important;
     line-height: 1;
     text-shadow: 3px 3px 0 #06496d;
   }
 
   .deck-run-view-playing .mobile-run-rail-blind-mark {
     grid-column: 1;
-    grid-row: 2;
+    grid-row: 3;
     align-self: center;
     justify-self: center;
-    width: clamp(54px, 6.2vw, 108px) !important;
+    width: clamp(48px, 5.3vw, 86px) !important;
     height: auto !important;
     aspect-ratio: 1;
     margin: 0 !important;
@@ -7416,22 +7426,22 @@
       #123d60;
     box-shadow: inset 0 -6px 0 #092b49, 4px 5px 0 #020504;
     font-family: inherit !important;
-    font-size: clamp(22px, 2.7vw, 50px) !important;
+    font-size: clamp(20px, 2.3vw, 42px) !important;
     text-shadow: 3px 3px 0 #061d31;
   }
 
   .deck-run-view-playing .mobile-run-rail-round-reward {
     grid-column: 2;
-    grid-row: 2;
-    align-self: center;
+    grid-row: 3;
+    align-self: stretch;
     min-width: 0;
-    min-height: 0;
+    min-height: clamp(58px, 7.8vh, 88px);
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(40px, 1fr) auto;
     align-items: center;
-    gap: 4px 7px;
-    padding: clamp(6px, .7vw, 10px);
+    gap: clamp(5px, .7vh, 9px) clamp(6px, .7vw, 10px);
+    padding: clamp(5px, .55vw, 8px);
     border: 3px solid #273532;
     border-radius: var(--hud-radius);
     color: var(--hud-cream);
@@ -7444,33 +7454,55 @@
 
   .deck-run-view-playing .mobile-run-rail-round-reward span,
   .deck-run-view-playing .mobile-run-rail-round-reward small {
-    grid-column: 1;
     color: var(--hud-cream);
-    font: 700 clamp(10px, .8vw, 14px)/1.15 "Galmuri11", ui-monospace, monospace !important;
+    font: 800 clamp(12px, 1vw, 18px)/1.08 "Galmuri11", ui-monospace, monospace !important;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward span {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: center;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .deck-run-view-playing .mobile-run-rail-round-reward small {
-    align-self: end;
+    grid-column: 1;
+    grid-row: 3;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: .22em;
+    align-self: center;
+    color: var(--hud-cream);
+    text-align: center;
+  }
+
+  .deck-run-view-playing .mobile-run-rail-round-reward small b {
     color: var(--hud-gold);
+    font: 900 1.38em/1 "Galmuri11", ui-monospace, monospace;
+    letter-spacing: .08em;
+    text-shadow: 2px 2px 0 #5b4210;
   }
 
   .deck-run-view-playing .mobile-run-rail-round-reward strong {
-    grid-column: 2;
-    grid-row: 1 / 3;
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: center;
     display: grid;
     place-items: center;
     min-width: clamp(62px, 7.5vw, 132px);
-    min-height: clamp(44px, 7vh, 78px);
-    padding: 3px 8px;
+    min-height: clamp(40px, 5.2vh, 62px);
+    padding: 2px 6px;
     border: 3px solid #394944;
     border-radius: calc(var(--hud-radius) - 2px);
-    color: var(--hud-gold);
+    color: #ff575a;
     background: #2a3531;
     box-shadow: inset 0 -5px 0 #1b2421, 3px 4px 0 #020504;
     font-family: inherit !important;
-    font-size: clamp(25px, 2.7vw, 48px) !important;
+    font-size: clamp(25px, 2.55vw, 45px) !important;
     line-height: 1;
-    text-shadow: 3px 3px 0 #5b4210;
+    text-shadow: 3px 3px 0 #6f1e23;
   }
 
   /* Round score: one label, one stable high-contrast number capsule. */
@@ -7738,10 +7770,10 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows:
-      minmax(62px, 1fr)
-      minmax(58px, .72fr)
-      minmax(64px, 1fr) !important;
-    gap: clamp(5px, .65vh, 7px);
+      minmax(56px, 1fr)
+      minmax(50px, .68fr)
+      minmax(58px, 1fr) !important;
+    gap: clamp(4px, .5vh, 6px);
   }
 
   .deck-run-view-playing .mobile-run-rail-resources {
@@ -7764,8 +7796,8 @@
     height: auto !important;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: 2px;
-    padding: 3px !important;
+    gap: 1px;
+    padding: 2px 3px !important;
     border: 2px solid var(--hud-line) !important;
     border-radius: calc(var(--hud-radius) - 2px);
     background: #17211f !important;
@@ -7778,7 +7810,7 @@
 
   .deck-run-view-playing .mobile-run-rail-resources dt {
     color: var(--hud-cream) !important;
-    font: 800 clamp(10px, .72vw, 13px)/1 "Galmuri11", ui-monospace, monospace !important;
+    font: 800 clamp(12px, .9vw, 16px)/1 "Galmuri11", ui-monospace, monospace !important;
     text-align: center;
     text-shadow: 2px 2px 0 #0a100f !important;
   }
@@ -7856,7 +7888,7 @@
     min-height: 0;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) !important;
-    gap: 1px;
+    gap: 0;
     padding: 2px 3px !important;
     border: 2px solid var(--hud-line) !important;
     border-right-width: 1px !important;
@@ -7876,7 +7908,7 @@
     grid-column: 1;
     grid-row: 1;
     color: var(--hud-cream) !important;
-    font: 800 clamp(9px, .7vw, 12px)/1 "Galmuri11", ui-monospace, monospace !important;
+    font: 800 clamp(11px, .86vw, 15px)/1 "Galmuri11", ui-monospace, monospace !important;
     text-align: center;
   }
 

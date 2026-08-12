@@ -74,9 +74,9 @@ export function GameLeftRail({
         </header>
         {phase !== "shop" && (
           <div className="mobile-run-rail-round-reward">
-            <span>목표 점수</span>
+            <span>최소 득점</span>
             <strong>{run.target.toLocaleString()}</strong>
-            <small>보상 +{ROUND_REWARDS[run.round]}¢</small>
+            <small>보상: <b>{"¢".repeat(ROUND_REWARDS[run.round])}</b></small>
           </div>
         )}
       </section>

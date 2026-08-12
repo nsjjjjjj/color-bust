@@ -139,12 +139,12 @@ function preferredStep(
 ): number {
   if (variant !== "hand") return cardWidth + gap;
   // The starting eight-card hand should read as one fan, not eight tiny tiles.
-  // Extra cards overlap a little more while every card keeps a selectable edge.
-  // Eight cards use the same visibly overlapping fan as the reference table.
+  // Extra cards overlap enough for the next card to cover the previous card's
+  // lower-right badge, while leaving the rank and color immediately readable.
   // Keep the full card width; reduce the step instead of shrinking the art.
-  if (cardCount === 8) return cardWidth * 0.86;
-  if (cardCount === 9) return cardWidth * 0.86;
-  if (cardCount >= 10) return cardWidth * 0.8;
+  if (cardCount === 8) return cardWidth * 0.7;
+  if (cardCount === 9) return cardWidth * 0.7;
+  if (cardCount >= 10) return cardWidth * 0.66;
   return cardWidth + gap;
 }
 

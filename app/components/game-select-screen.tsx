@@ -55,12 +55,13 @@ export function GameSelectScreen({
             </span>
           </button>
 
-          <button type="button" className="game-select-card is-new" onClick={onNewGame}>
+          <button type="button" className="game-select-card is-new" aria-busy={loading || undefined} onClick={onNewGame}>
             <span className="game-select-card-icon" aria-hidden="true">＋</span>
             <span className="game-select-card-copy">
               <small>NEW SIGNAL</small>
               <strong>새 게임</strong>
-              <p>새로운 5 STAGE 런을 시작합니다.</p>
+              <p>{loading ? "런 데이터를 확인 중입니다. 새 게임은 바로 시작할 수 있어요." : "새로운 5 STAGE 런을 시작합니다."}</p>
+              {loading && <span className="game-select-loading" role="status"><i aria-hidden="true" />준비 중</span>}
               <span className="game-select-new-tags"><i>40 CARD DECK</i><i>5 STAGE</i><i>AUTO SAVE</i></span>
             </span>
           </button>

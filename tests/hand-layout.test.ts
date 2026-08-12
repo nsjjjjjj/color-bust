@@ -35,9 +35,9 @@ test("uses gaps for small groups and deliberate overlap for a full hand", () => 
 
   closeTo(five.step - five.cardWidth, 16);
   closeTo(six.step - six.cardWidth, 8);
-  closeTo(eight.step / eight.cardWidth, 0.86, 0.01);
-  closeTo(nine.step / nine.cardWidth, 0.86, 0.01);
-  closeTo(ten.step / ten.cardWidth, 0.8, 0.01);
+  closeTo(eight.step / eight.cardWidth, 0.7, 0.01);
+  closeTo(nine.step / nine.cardWidth, 0.7, 0.01);
+  closeTo(ten.step / ten.cardWidth, 0.66, 0.01);
 });
 
 test("keeps cards readable by increasing overlap before shrinking", () => {
