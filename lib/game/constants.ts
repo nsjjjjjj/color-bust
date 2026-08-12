@@ -36,80 +36,103 @@ export const CARD_COLORS: readonly CardColor[] = [
   "yellow",
 ];
 
+// Every hand type grows +0.3% POWER / +0.2% HYPE per CORE level, except
+// four-of-a-kind and straight-flush, which grow more slowly at +0.1% each.
+const DEFAULT_CHIP_GROWTH_RATE = 0.003;
+const DEFAULT_MULT_GROWTH_RATE = 0.002;
+const SLOW_CHIP_GROWTH_RATE = 0.001;
+const SLOW_MULT_GROWTH_RATE = 0.001;
+
 export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
   "high-card": {
     type: "high-card",
     name: "하이 카드",
     baseChips: 5,
     baseMultiplier: 1,
-    chipsPerLevel: 10,
-    multiplierPerLevel: 1,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   pair: {
     type: "pair",
     name: "페어",
     baseChips: 10,
     baseMultiplier: 2,
-    chipsPerLevel: 10,
-    multiplierPerLevel: 1,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   "two-pair": {
     type: "two-pair",
     name: "투 페어",
     baseChips: 25,
     baseMultiplier: 3,
-    chipsPerLevel: 15,
-    multiplierPerLevel: 1,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   "three-of-a-kind": {
     type: "three-of-a-kind",
     name: "트리플",
     baseChips: 35,
     baseMultiplier: 3,
-    chipsPerLevel: 20,
-    multiplierPerLevel: 2,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   straight: {
     type: "straight",
     name: "스트레이트",
     baseChips: 45,
     baseMultiplier: 4,
-    chipsPerLevel: 25,
-    multiplierPerLevel: 2,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   flush: {
     type: "flush",
     name: "플러시",
     baseChips: 50,
     baseMultiplier: 4,
-    chipsPerLevel: 25,
-    multiplierPerLevel: 2,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   "full-house": {
     type: "full-house",
     name: "풀 하우스",
     baseChips: 55,
     baseMultiplier: 4,
-    chipsPerLevel: 30,
-    multiplierPerLevel: 2,
+    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
+    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
   },
   "four-of-a-kind": {
     type: "four-of-a-kind",
     name: "포 카드",
     baseChips: 110,
     baseMultiplier: 9,
-    chipsPerLevel: 45,
-    multiplierPerLevel: 4,
+    chipGrowthRate: SLOW_CHIP_GROWTH_RATE,
+    multGrowthRate: SLOW_MULT_GROWTH_RATE,
   },
   "straight-flush": {
     type: "straight-flush",
     name: "스트레이트 플러시",
     baseChips: 160,
     baseMultiplier: 12,
-    chipsPerLevel: 55,
-    multiplierPerLevel: 5,
+    chipGrowthRate: SLOW_CHIP_GROWTH_RATE,
+    multGrowthRate: SLOW_MULT_GROWTH_RATE,
   },
 };
+
+export function effectiveHandChips(rule: HandRule, level: number): number {
+  return Math.round(
+    rule.baseChips * (1 + rule.chipGrowthRate * Math.max(0, level - 1)),
+  );
+}
+
+export function effectiveHandMultiplier(rule: HandRule, level: number): number {
+  return (
+    Math.round(
+      rule.baseMultiplier *
+        (1 + rule.multGrowthRate * Math.max(0, level - 1)) *
+        100,
+    ) / 100
+  );
+}
 
 /** Ante 1-5 targets. Endless mode scales the fifth row for later Antes. */
 export const ROUND_TARGETS: Readonly<
@@ -260,6 +283,167 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
     id: "null-pointer",
     name: "널 포인터",
     description: "0이 2장 이상 득점하면 MAYHEM ×2.25",
+    rarity: "rare",
+    price: 8,
+  },
+  "venom-drip": {
+    id: "venom-drip",
+    name: "베놈 드립",
+    description: "득점한 VENOM 카드마다 +3 HYPE (최대 +15)",
+    rarity: "common",
+    price: 4,
+  },
+  "volt-surge": {
+    id: "volt-surge",
+    name: "볼트 서지",
+    description: "득점한 VOLT 카드마다 +10 POWER (최대 +50)",
+    rarity: "common",
+    price: 4,
+  },
+  "half-compile": {
+    id: "half-compile",
+    name: "하프 컴파일",
+    description: "제출 카드가 3장 이하면 +10 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "ice-cream-cache": {
+    id: "ice-cream-cache",
+    name: "아이스크림 캐시",
+    description: "라운드 시작 시 +48 POWER, 핸드를 낼 때마다 -12 POWER (최저 0)",
+    rarity: "common",
+    price: 4,
+  },
+  "memory-buffer": {
+    id: "memory-buffer",
+    name: "메모리 버퍼",
+    description: "남은 핸드 횟수마다 +18 POWER (최대 +54)",
+    rarity: "common",
+    price: 4,
+  },
+  "mystic-summit": {
+    id: "mystic-summit",
+    name: "미스틱 서밋",
+    description: "버리기를 모두 소진했으면 +3 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "delayed-gratification": {
+    id: "delayed-gratification",
+    name: "지연 보상",
+    description: "버리기 0회로 라운드를 클리어하면 +6코인",
+    rarity: "common",
+    price: 4,
+  },
+  "fibonacci-routine": {
+    id: "fibonacci-routine",
+    name: "피보나치 루틴",
+    description: "득점 카드 중 1·2·3·5·8 랭크마다 +3 HYPE (최대 +15)",
+    rarity: "common",
+    price: 4,
+  },
+  "loyalty-session": {
+    id: "loyalty-session",
+    name: "충성 세션",
+    description: "6번째 핸드마다 +15 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "jolly-routine": {
+    id: "jolly-routine",
+    name: "졸리 루틴",
+    description: "페어로 득점하면 +8 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "zany-core": {
+    id: "zany-core",
+    name: "제니 코어",
+    description: "트리플로 득점하면 +12 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "mad-routine": {
+    id: "mad-routine",
+    name: "매드 루틴",
+    description: "투페어로 득점하면 +10 HYPE",
+    rarity: "common",
+    price: 4,
+  },
+  "runner-process": {
+    id: "runner-process",
+    name: "런너 프로세스",
+    description: "스트레이트로 득점할 때마다 영구 +15 POWER",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "green-demon": {
+    id: "green-demon",
+    name: "그린 데몬",
+    description: "핸드를 낼 때마다 HYPE +1, 버리기할 때마다 HYPE -1 (누적치 최저 0)",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "eight-ball-exploit": {
+    id: "eight-ball-exploit",
+    name: "8볼 익스플로잇",
+    description: "득점 카드에 8이 있으면 25% 확률로 +3코인",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "bloodstone-driver": {
+    id: "bloodstone-driver",
+    name: "혈석 드라이버",
+    description: "득점한 RAGE 카드마다 50% 확률로 MAYHEM ×1.2",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "reserved-slot": {
+    id: "reserved-slot",
+    name: "예약 슬롯",
+    description: "보유 손패의 0 카드마다 50% 확률로 +1코인",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "turtle-bean-cache": {
+    id: "turtle-bean-cache",
+    name: "터틀빈 압축",
+    description: "손패 크기 +2, 이후 5라운드에 걸쳐 매 라운드 감소",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "spare-trousers": {
+    id: "spare-trousers",
+    name: "스페어 트라우저",
+    description: "투페어로 득점할 때마다 영구 +1 HYPE",
+    rarity: "uncommon",
+    price: 6,
+  },
+  "blueprint-protocol": {
+    id: "blueprint-protocol",
+    name: "블루프린트 프로토콜",
+    description: "오른쪽 MOD의 효과를 그대로 복제합니다 (없으면 무효)",
+    rarity: "rare",
+    price: 8,
+  },
+  "cavendish-overclock": {
+    id: "cavendish-overclock",
+    name: "카벤디시 오버클럭",
+    description: "MAYHEM ×2. 라운드 클리어 시 5% 확률로 이 MOD가 파괴됨",
+    rarity: "rare",
+    price: 8,
+  },
+  "perkeos-echo": {
+    id: "perkeos-echo",
+    name: "퍼케오의 메아리",
+    description: "라운드 클리어 시 20% 확률로 보유 프로토콜/고스트 카드 1장을 복제",
+    rarity: "rare",
+    price: 8,
+  },
+  "stencil-core": {
+    id: "stencil-core",
+    name: "스텐실 코어",
+    description: "비어있는 MOD 슬롯 하나당 MAYHEM +×0.3",
     rarity: "rare",
     price: 8,
   },

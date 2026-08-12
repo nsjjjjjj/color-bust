@@ -18,12 +18,13 @@ import {
   UNUSED_HAND_BONUS_CAP,
 } from "./garage-config";
 import { PACK_DEFINITIONS, PackGenerator } from "./packs";
-import { hashSeed, shuffle } from "./rng";
+import { hashSeed, nextRandom, shuffle } from "./rng";
 import { calculateHandScore } from "./scoring";
 import { generateShop, rerollShopSignals } from "./shop";
 import {
   canInstallFirmware,
   consumableSlotsFree,
+  discardsPerRoundFor,
   firmwareCount,
   jokerSlotLimitFor,
   nextRoundHandSizeFor,
@@ -41,6 +42,7 @@ import {
   type CreateRunOptions,
   type GameCard,
   type HandType,
+  type JokerId,
   type JokerInstance,
   type PlayHandOptions,
   type PlayHandResult,
@@ -59,6 +61,24 @@ function initialHandLevels(): Readonly<Record<HandType, number>> {
     HandType,
     number
   >;
+}
+
+/** MODs that track state in `JokerInstance.counter` need a starting value at acquisition. */
+function initialJokerCounter(jokerId: JokerId): number | undefined {
+  switch (jokerId) {
+    case "combo-compiler":
+    case "runner-process":
+    case "spare-trousers":
+    case "green-demon":
+    case "loyalty-session":
+      return 0;
+    case "ice-cream-cache":
+      return 48;
+    case "turtle-bean-cache":
+      return 5;
+    default:
+      return undefined;
+  }
 }
 
 function ensurePhase(state: RunState, expected: RunState["phase"]): void {
@@ -146,6 +166,74 @@ function roundRewardFor(
     total: baseCoins + handBonus + reserveBonus + modIncome,
     nextPhase: finalBoss ? "won" : "shop",
   };
+}
+
+/**
+ * Round-clear-only MOD effects that don't fit the per-hand scoring pipeline:
+ * Cavendish Overclock's destroy roll, Perkeo's Echo consumable duplication,
+ * and Delayed Gratification's no-discard-used bonus.
+ */
+function applyRoundClearEffects(
+  state: RunState,
+  jokersAfterHand: readonly JokerInstance[],
+  rngStateInput: number,
+): {
+  readonly jokers: readonly JokerInstance[];
+  readonly consumables: readonly ConsumableInstance[];
+  readonly extraCoins: number;
+  readonly rngState: number;
+} {
+  let jokers = jokersAfterHand;
+  let consumables = runConsumables(state);
+  let extraCoins = 0;
+  let rngState = rngStateInput;
+
+  if (
+    jokers.some((joker) => joker.jokerId === "delayed-gratification") &&
+    state.discardsLeft === discardsPerRoundFor(state)
+  ) {
+    extraCoins += 6;
+  }
+
+  if (jokers.some((joker) => joker.jokerId === "cavendish-overclock")) {
+    jokers = jokers.filter((joker) => {
+      if (joker.jokerId !== "cavendish-overclock") return true;
+      const roll = nextRandom(rngState);
+      rngState = roll.nextState;
+      return roll.value >= 0.05;
+    });
+  }
+
+  if (
+    jokers.some((joker) => joker.jokerId === "perkeos-echo") &&
+    consumables.length > 0 &&
+    consumableSlotsFree({ ...state, consumables }) > 0
+  ) {
+    const trigger = nextRandom(rngState);
+    rngState = trigger.nextState;
+    if (trigger.value < 0.2) {
+      const pick = nextRandom(rngState);
+      rngState = pick.nextState;
+      const source = consumables[Math.floor(pick.value * consumables.length)];
+      const clone: ConsumableInstance =
+        source.kind === "protocol"
+          ? {
+              instanceId: `protocol-${state.runId}-${state.actionLog.length + 1}-echo-${source.protocolId}`,
+              kind: "protocol",
+              protocolId: source.protocolId,
+              acquiredRound: state.roundNumber,
+            }
+          : {
+              instanceId: `ghost-${state.runId}-${state.actionLog.length + 1}-echo-${source.ghostId}`,
+              kind: "ghost",
+              ghostId: source.ghostId,
+              acquiredRound: state.roundNumber,
+            };
+      consumables = [...consumables, clone];
+    }
+  }
+
+  return { jokers, consumables, extraCoins, rngState };
 }
 
 function selectedCardsFromHand(
@@ -298,14 +386,38 @@ export function playHand(
   const isStandardFinalBoss =
     state.mode === "standard" && state.ante === 5 && state.round === "boss";
   const roundIncome = (state.roundIncome ?? 0) + calculated.breakdown.coinGain;
+
+  let jokersAfterHand = calculated.updatedJokers;
+  let consumablesAfterHand = runConsumables(state);
+  let rngStateAfterHand = calculated.rngState;
+  let roundClearCoins = 0;
+
+  if (roundCleared) {
+    const clearEffects = applyRoundClearEffects(
+      state,
+      jokersAfterHand,
+      rngStateAfterHand,
+    );
+    jokersAfterHand = clearEffects.jokers;
+    consumablesAfterHand = clearEffects.consumables;
+    rngStateAfterHand = clearEffects.rngState;
+    roundClearCoins = clearEffects.extraCoins;
+  }
+
   const pendingReward = roundCleared
-    ? roundRewardFor(state, handsLeft, roundIncome, isStandardFinalBoss)
+    ? roundRewardFor(
+        state,
+        handsLeft,
+        roundIncome + roundClearCoins,
+        isStandardFinalBoss,
+      )
     : null;
   const roundReward = pendingReward?.total ?? 0;
 
   let nextState: RunState = {
     ...state,
     ...replacement,
+    rngState: rngStateAfterHand,
     phase: roundCleared
       ? "reward"
       : handsLeft === 0
@@ -315,7 +427,8 @@ export function playHand(
     handsLeft,
     coins: state.coins,
     roundIncome: roundCleared ? 0 : roundIncome,
-    jokers: calculated.updatedJokers,
+    jokers: jokersAfterHand,
+    consumables: consumablesAfterHand,
     unoUsedThisAnte:
       state.unoUsedThisAnte || calculated.usedUnoCardId !== undefined,
     handHistory: [...state.handHistory, calculated.breakdown.handType],
@@ -421,6 +534,11 @@ export function discardCards(
       ...state,
       ...replacement,
       discardsLeft: state.discardsLeft - 1,
+      jokers: state.jokers.map((joker) =>
+        joker.jokerId === "green-demon"
+          ? { ...joker, counter: Math.max(0, (joker.counter ?? 0) - 1) }
+          : joker,
+      ),
       stats: {
         ...state.stats,
         cardsDiscarded: state.stats.cardsDiscarded + selectedCards.length,
@@ -480,11 +598,12 @@ export function buyJoker(state: RunState, offerId: string): RunState {
   }
 
   const purchase = payAndMarkSold(state, offer);
+  const initialCounter = initialJokerCounter(offer.jokerId);
   const instance: JokerInstance = {
     instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-${offer.jokerId}`,
     jokerId: offer.jokerId,
     acquiredRound: state.roundNumber,
-    ...(offer.jokerId === "combo-compiler" ? { counter: 0 } : {}),
+    ...(initialCounter !== undefined ? { counter: initialCounter } : {}),
   };
   return addAction(
     {
@@ -976,7 +1095,9 @@ export function takePackChoices(
       instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.jokerId}`,
       jokerId: choice.jokerId,
       acquiredRound: state.roundNumber,
-      ...(choice.jokerId === "combo-compiler" ? { counter: 0 } : {}),
+      ...(initialJokerCounter(choice.jokerId) !== undefined
+        ? { counter: initialJokerCounter(choice.jokerId) }
+        : {}),
     }));
     nextJokers = [...state.jokers, ...newJokers];
   } else if (choices.every((choice) => choice.kind === "core")) {
@@ -1233,17 +1354,16 @@ export function nextRound(state: RunState): RunState {
       score: 0,
       target: targetForRound(ante, round),
       handsLeft: HANDS_PER_ROUND + firmwareCount(state, "backup-power"),
-      discardsLeft: Math.max(
-        0,
-        DISCARDS_PER_ROUND +
-          firmwareCount(state, "recycle-unit") -
-          Math.max(0, state.permanentDiscardPenalty ?? 0),
-      ),
+      discardsLeft: discardsPerRoundFor(state),
       nextRoundHandPenalty: 0,
       roundIncome: 0,
       jokers: state.jokers.map((joker) => ({
         ...joker,
         ...(joker.jokerId === "combo-compiler" ? { counter: 0 } : {}),
+        ...(joker.jokerId === "ice-cream-cache" ? { counter: 48 } : {}),
+        ...(joker.jokerId === "turtle-bean-cache"
+          ? { counter: Math.max(0, (joker.counter ?? 0) - 1) }
+          : {}),
         ...(joker.jokerId === "hot-swap"
           ? { selectedColor: defaultHotSwapColor }
           : {}),

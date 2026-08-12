@@ -967,6 +967,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onOpenSettings={() => setSettingsOpen(true)}
           onPlay={handlePlay}
           onDiscard={handleDiscard}
+          onSellJoker={setPendingSellId}
           onHotSwap={(color) => {
             if (scorePlayback || discardPlayback) return;
             if (updateRun(() => setHotSwapColor(run, color))) audio.playEffect("equip", { gain: 0.72 });
@@ -1040,6 +1041,7 @@ function GameTable({
   onPlay,
   onDiscard,
   onHotSwap,
+  onSellJoker,
 }: {
   run: RunState;
   phase: RunLayoutPhase;
@@ -1065,6 +1067,7 @@ function GameTable({
   onPlay: () => void;
   onDiscard: () => void;
   onHotSwap: (color: CardColor) => void;
+  onSellJoker: (instanceId: string) => void;
 }) {
   const currentScoreEvent = scorePlayback && scorePlayback.phase !== "moving"
     ? scorePlayback.events[scorePlayback.eventIndex] ?? null
@@ -1167,6 +1170,7 @@ function GameTable({
           disabled={inputLocked}
           onSelectUno={onSelectUno}
           onCallColor={onCallColor}
+          onSellJoker={onSellJoker}
           className="deck-modifier-rail"
         />
       )}
