@@ -1,6 +1,9 @@
-const CACHE_VERSION = "deck-mayhem-ad413d3b5893";
+const CACHE_VERSION = "deck-mayhem-a5cc5147a4d9";
 const APP_SHELL = [
   "/",
+  "/_next/static/IiyvjwWKCRiR3Cs4jyTI3/_buildManifest.js",
+  "/_next/static/IiyvjwWKCRiR3Cs4jyTI3/_clientMiddlewareManifest.js",
+  "/_next/static/IiyvjwWKCRiR3Cs4jyTI3/_ssgManifest.js",
   "/_next/static/chunks/08ttfj81-47mu.js",
   "/_next/static/chunks/09bdbbnlixhsm.js",
   "/_next/static/chunks/0cz1d0mv5g_q7.js",
@@ -8,15 +11,12 @@ const APP_SHELL = [
   "/_next/static/chunks/22i43cg4l4-dq.js",
   "/_next/static/chunks/2d8r42dh5hbkb.css",
   "/_next/static/chunks/2tswzwt7g9k6a.js",
+  "/_next/static/chunks/2wc2iuohc94of.js",
   "/_next/static/chunks/310vm2bl3xxpt.js",
   "/_next/static/chunks/31ea98sji2xan.css",
   "/_next/static/chunks/3da_i4_2371xu.css",
-  "/_next/static/chunks/3dxgqo6l8ieft.js",
   "/_next/static/chunks/3fntmmi971322.js",
   "/_next/static/chunks/turbopack-325o-jjm--dwk.js",
-  "/_next/static/glW48qHQApsmPCWHhdHnx/_buildManifest.js",
-  "/_next/static/glW48qHQApsmPCWHhdHnx/_clientMiddlewareManifest.js",
-  "/_next/static/glW48qHQApsmPCWHhdHnx/_ssgManifest.js",
   "/art/card-back.png",
   "/art/card-symbols/fire_symbol.png",
   "/art/card-symbols/leaf_symbol.png",
