@@ -22,6 +22,8 @@ import {
 import {
   CARD_COLORS,
   DEFAULT_COMMUNITY_UNO_CARDS,
+  effectiveHandChips,
+  effectiveHandMultiplier,
   HAND_RULES,
   JOKER_CATALOG,
   ROUND_ORDER,
@@ -1346,9 +1348,8 @@ function RunInfoModal({
           {([...HAND_TYPES].reverse()).map((handType) => {
             const rule = HAND_RULES[handType];
             const level = Math.max(1, run.handLevels[handType] ?? 1);
-            const levelOffset = level - 1;
-            const power = rule.baseChips + rule.chipsPerLevel * levelOffset;
-            const hype = rule.baseMultiplier + rule.multiplierPerLevel * levelOffset;
+            const power = effectiveHandChips(rule, level);
+            const hype = effectiveHandMultiplier(rule, level);
             return (
               <article className="run-hand-row" key={handType}>
                 <b className="run-hand-level">Lv.{level}</b>
