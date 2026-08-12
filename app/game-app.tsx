@@ -929,7 +929,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               onReroll={() => {
                 if (updateRun(() => rerollShop(run))) audio.playEffect("reroll", { maxVoices: 1 });
               }}
-              onSell={setPendingSellId}
               onSelectDeckTarget={(offer, card) => {
                 if (updateRun(() => buyDeckWork(run, offer.id, card.id))) audio.playEffect("buy");
               }}
@@ -940,19 +939,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
               }}
               onPackOpen={() => audio.playEffect("pack-open", { maxVoices: 1 })}
               onPackReveal={(index) => audio.playEffect("pack-reveal", { progressionStep: index, semitonesPerStep: 0.6, maxVoices: 2 })}
-              onOpenDeck={() => setUtilityModal("deck")}
-              onUseStashedItem={(instanceId, options) => {
-                if (updateRun(() => applyStashedItem(run, instanceId, options))) {
-                  audio.playEffect("equip", { maxVoices: 1 });
-                  setNotice("보관 카드를 성공적으로 사용했습니다.");
-                }
-              }}
-              onSellStashedItem={(instanceId) => {
-                if (updateRun(() => sellStashedItem(run, instanceId))) {
-                  audio.playEffect("buy", { maxVoices: 1 });
-                  setNotice("보관 카드를 판매했습니다.");
-                }
-              }}
               onNext={() => {
                 let nextState: RunState;
                 try {

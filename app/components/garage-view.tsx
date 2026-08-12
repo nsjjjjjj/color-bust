@@ -20,10 +20,7 @@ import {
 } from "../../lib/game/garage-config";
 import { COLOR_LABELS } from "../../lib/game/colors";
 import { PACK_DEFINITIONS } from "../../lib/game/packs";
-import {
-  jokerSlotLimitFor,
-  runFirmware,
-} from "../../lib/game/run-upgrades";
+import { jokerSlotLimitFor } from "../../lib/game/run-upgrades";
 import type {
   CardColor,
   CardRarity,
@@ -67,7 +64,6 @@ export interface GarageViewProps {
   readonly notice?: string;
   readonly onBuy: (offer: ShopOffer, options?: UseConsumableOptions) => RunState | null | void;
   readonly onReroll: () => void;
-  readonly onSell: (instanceId: string) => void;
   readonly onNext: () => void;
   readonly onSelectDeckTarget: (offer: DeckWorkShopOffer, card: GameCard) => void;
   readonly onTakePack: (
@@ -78,9 +74,6 @@ export interface GarageViewProps {
   ) => RunState | null | void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
-  readonly onOpenDeck: () => void;
-  readonly onUseStashedItem?: (instanceId: string, options?: UseConsumableOptions) => void;
-  readonly onSellStashedItem?: (instanceId: string) => void;
 }
 
 function normalizeTerminology(value: string): string {
@@ -383,106 +376,6 @@ function DeckTargetOverlay({
         />
       </section>
     </div>
-  );
-}
-
-function GarageInventory({
-  run,
-  onSell,
-  onOpenDeck,
-  onUseStashedItem,
-  onSellStashedItem,
-}: {
-  readonly run: RunState;
-  readonly onSell: (instanceId: string) => void;
-  readonly onOpenDeck: () => void;
-  readonly onUseStashedItem?: (instanceId: string) => void;
-  readonly onSellStashedItem?: (instanceId: string) => void;
-}) {
-  const cards = uniqueDeckCards(run);
-  const firmware = runFirmware(run);
-  const jokerLimit = jokerSlotLimitFor(run);
-  return (
-      <aside className="dm-garage-inventory dm-current-build" aria-labelledby="dm-inventory-title">
-        <header>
-          <div><span>CURRENT BUILD</span><h2 id="dm-inventory-title">현재 빌드</h2></div>
-          <button type="button" className="dm-current-build__deck" onClick={onOpenDeck}>
-            <span>DECK</span><strong>{cards.length}장</strong><small>클릭해서 확인</small>
-          </button>
-          <div className="dm-current-build__systems" aria-label="보유 시스템 요약">
-            <span>FIRMWARE <b>{firmware.length}</b></span>
-          </div>
-        </header>
-        <div className="dm-current-build__racks">
-          <section aria-label="보유 MOD">
-            <header><b>MOD</b><span>{run.jokers.length}/{jokerLimit}</span></header>
-            <div className="dm-owned-mods">
-          {run.jokers.map((joker) => {
-            const definition = JOKER_CATALOG[joker.jokerId];
-            const refund = Math.max(1, Math.floor(definition.price / 2));
-            return (
-              <article key={joker.instanceId} data-rarity={modifierRarity(joker.jokerId)}>
-                <i aria-hidden="true">{definition.name.slice(0, 1)}</i>
-                <div><strong>{definition.name}</strong><small>{normalizeTerminology(definition.description)}</small></div>
-                <button type="button" onClick={() => onSell(joker.instanceId)}>판매 +{refund}¢</button>
-              </article>
-            );
-          })}
-              {run.jokers.length === 0 && <p>아직 MOD가 없습니다.</p>}
-            </div>
-          </section>
-          <section aria-label="보유 메이헴 및 족보 카드">
-            <header><b>STASH (보관함)</b><span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span></header>
-            <div className="dm-owned-mayhem">
-              {run.communityUno.map((item) => {
-                const isHandUpgrade = "kind" in item && item.kind === "hand-upgrade";
-                const isGhost = "kind" in item && item.kind === "ghost";
-                if (isHandUpgrade) {
-                  const refund = Math.max(1, Math.floor(item.price / 2));
-                  return (
-                    <article key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0", padding: "6px 8px", background: "rgba(0, 229, 255, 0.08)", border: "1px solid rgba(0, 229, 255, 0.2)", borderRadius: "4px", width: "100%" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: "bold" }}><b>[LV+]</b> {item.name}</span>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onUseStashedItem?.(item.id)}>사용</button>
-                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onSellStashedItem?.(item.id)}>판매 +{refund}¢</button>
-                      </div>
-                    </article>
-                  );
-                }
-                if (isGhost) {
-                  const refund = Math.max(1, Math.floor(item.price / 2));
-                  const config = GHOST_CONFIG[item.ghostId];
-                  return (
-                    <article key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0", padding: "6px 8px", background: "rgba(168, 85, 247, 0.12)", border: "1px solid rgba(168, 85, 247, 0.3)", borderRadius: "4px", width: "100%" }}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#c084fc" }}><b>[{config.symbol}]</b> {item.name}</span>
-                        <small style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.75)" }}>{config.description}</small>
-                      </div>
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <button type="button" disabled title="플레이 중 핸드에서 카드 1장을 선택한 뒤 사용할 수 있습니다." style={{ padding: "2px 8px", fontSize: "0.8rem" }}>플레이 중 사용</button>
-                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onSellStashedItem?.(item.id)}>판매 +{refund}¢</button>
-                      </div>
-                    </article>
-                  );
-                }
-                return (
-                  <span key={item.id}><b>M</b><strong>{item.name}</strong><small>사용 시 소모</small></span>
-                );
-              })}
-              {run.communityUno.length === 0 && <p>보관 중인 메이헴 / 족보 카드가 없습니다.</p>}
-            </div>
-          </section>
-          <section aria-label="설치된 펌웨어" className="dm-owned-firmware-rack">
-            <header><b>FIRMWARE</b><span>{firmware.length}</span></header>
-            <div className="dm-owned-firmware">
-              {firmware.map((firmwareId, index) => (
-                <span key={`${firmwareId}-${index}`}><b>{FIRMWARE_CONFIG[firmwareId].symbol}</b><strong>{FIRMWARE_CONFIG[firmwareId].name}</strong></span>
-              ))}
-              {firmware.length === 0 && <p>DECK LAB에서 영구 업그레이드를 설치할 수 있습니다.</p>}
-            </div>
-          </section>
-        </div>
-      </aside>
   );
 }
 
@@ -930,15 +823,11 @@ export function GarageView({
   notice = "",
   onBuy,
   onReroll,
-  onSell,
   onNext,
   onSelectDeckTarget,
   onTakePack,
   onPackOpen,
   onPackReveal,
-  onOpenDeck,
-  onUseStashedItem,
-  onSellStashedItem,
 }: GarageViewProps) {
   const offers = useMemo(() => run.shop?.offers ?? [], [run.shop?.offers]);
   const soldIds = useMemo(() => new Set(run.shop?.soldOfferIds ?? []), [run.shop?.soldOfferIds]);
@@ -1031,38 +920,38 @@ export function GarageView({
         </header>
       )}
 
-      <p className="dm-garage-notice" role="status" aria-live="polite">
-        {notice || "상품을 선택하면 상세 효과와 BUY 버튼이 열립니다. 구매한 슬롯은 Reroll 전까지 SOLD로 유지됩니다."}
-      </p>
+      {notice && (
+        <p className="dm-garage-notice dm-garage-notice--floating" role="status" aria-live="polite">
+          {notice}
+        </p>
+      )}
 
       <div className="dm-garage-workspace">
-        <GarageInventory
-          run={run}
-          onSell={onSell}
-          onOpenDeck={onOpenDeck}
-          onUseStashedItem={onUseStashedItem}
-          onSellStashedItem={onSellStashedItem}
-        />
         <div className="dm-shop-board" aria-label="Garage 판매 상품">
-          <section className="dm-shop-zone dm-shop-controls" aria-labelledby="dm-controls-title">
-            <header>
-              <div><span>ROUTE CONTROL</span><h2 id="dm-controls-title">조작 패널</h2></div>
-            </header>
+          <section className="dm-shop-zone dm-shop-controls" aria-label="상점 조작">
             <nav className="dm-garage-actions" aria-label="Garage 도구">
-              <button type="button" className="is-next" disabled={Boolean(run.packOpening)} onClick={onNext}>
-                <span>NEXT ROUND</span><b>{nextTargetLabel(run)} →</b><small>다음 전투로 이동</small>
+              <button
+                type="button"
+                className="is-next"
+                disabled={Boolean(run.packOpening)}
+                onClick={onNext}
+                aria-label={`다음 라운드로 이동 · ${nextTargetLabel(run)}`}
+              >
+                <span>다음<br />라운드</span>
               </button>
-              <button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)} onClick={() => { setSelectedOfferId(null); onReroll(); }}>
-                <span>REROLL</span><b>{run.shop?.rerollCost ?? 0}¢</b><small>오늘의 신호만 교체</small>
+              <button
+                type="button"
+                className="is-reroll"
+                disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)}
+                onClick={() => { setSelectedOfferId(null); onReroll(); }}
+                aria-label={`새로고침 · 오늘의 신호만 교체, ${run.shop?.rerollCost ?? 0}코인`}
+              >
+                <span>새로고침</span><b>{run.shop?.rerollCost ?? 0}¢</b>
               </button>
             </nav>
           </section>
 
-          <section className="dm-shop-zone dm-shop-signal" aria-labelledby="dm-signal-title">
-            <header>
-              <div><span>LIVE MARKET</span><h2 id="dm-signal-title">오늘의 신호</h2></div>
-              <p>MOD · 족보 CORE · PROTOCOL · <b>MAYHEM?</b></p>
-            </header>
+          <section className="dm-shop-zone dm-shop-signal" aria-label="오늘의 신호">
             <div className="dm-shop-grid">
               {signalOffers.map(renderOffer)}
               {Array.from({ length: Math.max(0, 2 - signalOffers.length) }, (_, index) => (
@@ -1071,22 +960,14 @@ export function GarageView({
             </div>
           </section>
 
-          <section className="dm-shop-zone dm-shop-lab" aria-labelledby="dm-lab-title">
-            <header>
-              <div><span>SYSTEM UPGRADE</span><h2 id="dm-lab-title">DECK LAB</h2></div>
-              <p>런 전체를 개조하는 펌웨어</p>
-            </header>
+          <section className="dm-shop-zone dm-shop-lab" aria-label="DECK LAB">
             <div className="dm-shop-grid">
               {deckLabOffers.map(renderOffer)}
               {deckLabOffers.length === 0 && <EmptyShopSlot eyebrow="LAB OFFLINE" message="정비 항목 없음" />}
             </div>
           </section>
 
-          <section className="dm-shop-zone dm-shop-packs" aria-labelledby="dm-packs-title">
-            <header>
-              <div><span>SEALED HARDWARE</span><h2 id="dm-packs-title">PACK BAY</h2></div>
-              <p>봉인 팩 2개 · 리롤 영향 없음</p>
-            </header>
+          <section className="dm-shop-zone dm-shop-packs" aria-label="PACK BAY">
             <div className="dm-shop-grid">
               {packOffers.map(renderOffer)}
               {Array.from({ length: Math.max(0, 2 - packOffers.length) }, (_, index) => (
