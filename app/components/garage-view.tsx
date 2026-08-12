@@ -1146,16 +1146,25 @@ export function GarageView({
           onSellStashedItem={onSellStashedItem}
         />
         <div className="dm-shop-board" aria-label="Garage 판매 상품">
-          <section className="dm-shop-zone dm-shop-controls" aria-labelledby="dm-controls-title">
-            <header>
-              <div><span>ROUTE CONTROL</span><h2 id="dm-controls-title">조작 패널</h2></div>
-            </header>
+          <section className="dm-shop-zone dm-shop-controls" aria-label="상점 조작">
             <nav className="dm-garage-actions" aria-label="Garage 도구">
-              <button type="button" className="is-next" disabled={Boolean(run.packOpening)} onClick={onNext}>
-                <span>NEXT ROUND</span><b>{nextTargetLabel(run)} →</b><small>다음 전투로 이동</small>
+              <button
+                type="button"
+                className="is-next"
+                disabled={Boolean(run.packOpening)}
+                onClick={onNext}
+                aria-label={`다음 라운드로 이동 · ${nextTargetLabel(run)}`}
+              >
+                <span>다음<br />라운드</span>
               </button>
-              <button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)} onClick={() => { setSelectedOfferId(null); onReroll(); }}>
-                <span>REROLL</span><b>{run.shop?.rerollCost ?? 0}¢</b><small>오늘의 신호만 교체</small>
+              <button
+                type="button"
+                className="is-reroll"
+                disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)}
+                onClick={() => { setSelectedOfferId(null); onReroll(); }}
+                aria-label={`새로고침 · 오늘의 신호만 교체, ${run.shop?.rerollCost ?? 0}코인`}
+              >
+                <span>새로고침</span><b>{run.shop?.rerollCost ?? 0}¢</b>
               </button>
             </nav>
           </section>
