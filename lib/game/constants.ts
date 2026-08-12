@@ -56,15 +56,15 @@ export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
   "two-pair": {
     type: "two-pair",
     name: "투 페어",
-    baseChips: 20,
-    baseMultiplier: 2,
+    baseChips: 25,
+    baseMultiplier: 3,
     chipsPerLevel: 15,
     multiplierPerLevel: 1,
   },
   "three-of-a-kind": {
     type: "three-of-a-kind",
     name: "트리플",
-    baseChips: 30,
+    baseChips: 35,
     baseMultiplier: 3,
     chipsPerLevel: 20,
     multiplierPerLevel: 2,
@@ -89,25 +89,25 @@ export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
     type: "full-house",
     name: "풀 하우스",
     baseChips: 55,
-    baseMultiplier: 5,
+    baseMultiplier: 4,
     chipsPerLevel: 30,
     multiplierPerLevel: 2,
   },
   "four-of-a-kind": {
     type: "four-of-a-kind",
     name: "포 카드",
-    baseChips: 75,
-    baseMultiplier: 7,
-    chipsPerLevel: 35,
-    multiplierPerLevel: 3,
+    baseChips: 110,
+    baseMultiplier: 9,
+    chipsPerLevel: 45,
+    multiplierPerLevel: 4,
   },
   "straight-flush": {
     type: "straight-flush",
     name: "스트레이트 플러시",
-    baseChips: 120,
-    baseMultiplier: 9,
-    chipsPerLevel: 45,
-    multiplierPerLevel: 4,
+    baseChips: 160,
+    baseMultiplier: 12,
+    chipsPerLevel: 55,
+    multiplierPerLevel: 5,
   },
 };
 
@@ -115,11 +115,11 @@ export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
 export const ROUND_TARGETS: Readonly<
   Record<number, Readonly<Record<RoundType, number>>>
 > = {
-  1: { small: 475, big: 625, boss: 800 },
-  2: { small: 900, big: 1150, boss: 1475 },
-  3: { small: 1625, big: 2100, boss: 2750 },
-  4: { small: 3000, big: 3900, boss: 5100 },
-  5: { small: 5600, big: 7300, boss: 9600 },
+  1: { small: 500, big: 650, boss: 825 },
+  2: { small: 950, big: 1200, boss: 1550 },
+  3: { small: 1725, big: 2250, boss: 2925 },
+  4: { small: 3250, big: 4225, boss: 5550 },
+  5: { small: 6150, big: 8025, boss: 10550 },
 };
 
 export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
