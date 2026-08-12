@@ -83,13 +83,14 @@ export interface HandCardPresentation {
 export type HandCSSVariables = Record<`--hand-${string}`, string | number>;
 
 export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.freeze({
-  maximumCards: 10,
-  // The approved core card raster is exactly 94 × 140 pixels.
-  cardAspectRatio: 94 / 140,
+  maximumCards: 11,
+  // The active gameplay card raster is exactly 288 × 448 pixels (9:14).
+  cardAspectRatio: 9 / 14,
   // Keep the card readable first. Dense hands should overlap before shrinking.
   minimumCardWidth: 72,
   maximumHandCardWidth: 144,
-  maximumPlayedCardWidth: 152,
+  // Submitted cards must remain at least as legible as the enlarged live hand.
+  maximumPlayedCardWidth: 190,
   // The table reserves a wide centre lane. At eight cards, use the compact
   // cabinet size and let the cards overlap rather than growing into a row.
   responsiveCardWidthRatio: 0.13,
@@ -114,6 +115,13 @@ export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.fre
   scoreDuration: 360,
   feedbackOffset: -28,
 });
+
+/**
+ * The play table is deliberately more generous than compact rails and modals.
+ * Keep this in geometry rather than a visual CSS scale so the card bitmap,
+ * pointer target, selection lift and ordering animation always agree.
+ */
+const PLAY_HAND_CARD_SCALE = 1.18;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -142,9 +150,12 @@ function preferredStep(
   // Extra cards overlap enough for the next card to cover the previous card's
   // lower-right badge, while leaving the rank and color immediately readable.
   // Keep the full card width; reduce the step instead of shrinking the art.
-  if (cardCount === 8) return cardWidth * 0.7;
-  if (cardCount === 9) return cardWidth * 0.7;
-  if (cardCount >= 10) return cardWidth * 0.66;
+  // The supplied cards have generous side ornament. Reveal slightly more of
+  // each frame so an eight-card hand keeps the broad Balatro-like fan instead
+  // of reading as a tightly stacked strip.
+  if (cardCount === 8) return cardWidth * 0.76;
+  if (cardCount === 9) return cardWidth * 0.72;
+  if (cardCount >= 10) return cardWidth * 0.68;
   return cardWidth + gap;
 }
 
@@ -209,15 +220,16 @@ export class HandLayoutManager {
       };
     }
 
+    const handCardScale = variant === "hand" ? PLAY_HAND_CARD_SCALE : 1;
     const maximumCardWidth = variant === "played"
       ? this.tuning.maximumPlayedCardWidth
-      : this.tuning.maximumHandCardWidth;
+      : Math.round(this.tuning.maximumHandCardWidth * handCardScale);
     const responsiveWidth = availableWidth * this.tuning.responsiveCardWidthRatio *
-      (variant === "played" ? 1.1 : 1);
+      (variant === "played" ? 1.1 : handCardScale);
     const requestedWidth = input.preferredCardWidth ?? responsiveWidth;
     let cardWidth = Math.round(clamp(
       requestedWidth,
-      this.tuning.minimumCardWidth,
+      Math.round(this.tuning.minimumCardWidth * handCardScale),
       maximumCardWidth,
     ));
     const gap = preferredGap(cardCount, this.tuning);

@@ -7,7 +7,9 @@ import {
   AUDIO_TRACKS,
   BGM_CROSSFADE_MS,
   BgmManager,
+  CARD_SCORE_TICK_SEMITONES,
   DEFAULT_SCORE_TICK_VOICE_LIMIT,
+  MAX_CARD_SCORE_TICK_STEP,
   SCORE_EFFECT_FADE_DURATION_MS,
   SCORE_EFFECT_MAX_DURATION_MS,
   SCORE_EFFECT_START_OFFSET_SECONDS,
@@ -34,11 +36,16 @@ const expectedEffects = {
   "card-play": "/audio/card-play.mp3",
   "card-draw": "/audio/card-draw.mp3",
   "deck-setup": "/audio/deck-setup.mp3",
+  "hand-sort-rank": "/audio/hand-sort-rank.m4a",
+  "hand-sort-suit": "/audio/hand-sort-suit.m4a",
   score: "/audio/score.mp3",
   buy: "/audio/buy.m4a",
   uno: "/audio/uno.m4a",
   "pack-open": "/audio/pack-open.m4a",
   "pack-reveal": "/audio/pack-reveal.m4a",
+  "round-score-settle": "/audio/round-score-settle.mp3",
+  "cashout-claim": "/audio/cashout-claim.mp3",
+  "cashout-tick": "/audio/cashout-tick.mp3",
   win: "/audio/win.m4a",
   lose: "/audio/lose.m4a",
 } as const;
@@ -203,8 +210,8 @@ test("audio hook maps every supplied track and effect to the intended scene", ()
   assert.deepEqual(sources(AUDIO_EFFECTS), expectedEffects);
 });
 
-test("ships sixteen non-empty audio files with valid container signatures", async () => {
-  assert.equal(expectedAudioPaths.length, 16);
+test("ships twenty-one non-empty audio files with valid container signatures", async () => {
+  assert.equal(expectedAudioPaths.length, 21);
   for (const pathname of expectedAudioPaths) {
     const bytes = await readFile(new URL(`public${pathname}`, root));
     assert.ok(bytes.byteLength > 1_000, `${pathname} is unexpectedly small`);
@@ -221,7 +228,6 @@ test("procedural effects cover the previously silent interaction and scoring bea
     "ui-click",
     "ui-error",
     "discard",
-    "sort",
     "reroll",
     "sell",
     "coin",
@@ -264,6 +270,19 @@ test("score ticks rise in pitch and stay inside a safe playback-rate range", () 
   assert.equal(DEFAULT_SCORE_TICK_VOICE_LIMIT, 3);
 });
 
+test("five scoring cards form a clearly rising pitch staircase", () => {
+  const rates = Array.from(
+    { length: MAX_CARD_SCORE_TICK_STEP + 1 },
+    (_, step) => scoreTickPlaybackRate(step, CARD_SCORE_TICK_SEMITONES),
+  );
+
+  assert.deepEqual(
+    rates.map((rate) => Number(rate.toFixed(3))),
+    [1, 1.155, 1.335, 1.542, 1.782],
+  );
+  assert.ok(rates.every((rate, index) => index === 0 || rate > rates[index - 1]!));
+});
+
 test("score effect pool preloads voices, deduplicates event tokens, and trims each hit", () => {
   const originalAudio = globalThis.Audio;
 
@@ -272,6 +291,7 @@ test("score effect pool preloads voices, deduplicates event tokens, and trims ea
     readonly src: string;
     preload = "";
     volume = 1;
+    preservesPitch = true;
     playbackRate = 1;
     currentTime = 0;
     paused = true;
@@ -319,6 +339,7 @@ test("score effect pool preloads voices, deduplicates event tokens, and trims ea
     assert.equal(pool.preparedVoiceCount, 3);
     assert.equal(FakeScoreAudio.instances.length, 3);
     assert.ok(FakeScoreAudio.instances.every(({ loadCalls }) => loadCalls === 1));
+    assert.ok(FakeScoreAudio.instances.every(({ preservesPitch }) => preservesPitch === false));
 
     assert.equal(pool.play("hand-1:card-1", { playbackRate: 1, gain: 1 }), true);
     assert.equal(pool.play("hand-1:card-1", { playbackRate: 1.2, gain: 1 }), false);

@@ -53,6 +53,9 @@
   inset: 0;
   pointer-events: none;
   opacity: 0.32;
+}
+
+.dm-reward__backdrop {
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
@@ -224,6 +227,7 @@
 
 .dm-garage {
   --shop-card-w: clamp(146px, 12.2vw, 210px);
+  position: relative;
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
@@ -353,6 +357,30 @@
   line-height: 1.35;
 }
 
+/* Purchase/reroll feedback only — overlaid so it never reserves layout
+   space or pushes the shop board around when it appears or clears. */
+.dm-garage-notice--floating {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 5;
+  min-height: 0;
+  transform: translateX(-50%);
+  border: 1px solid #43d8e5;
+  border-left-width: 3px;
+  box-shadow: 0 6px 16px rgba(2, 7, 8, .5);
+  animation: dm-garage-notice-pop 180ms ease-out both;
+}
+
+@keyframes dm-garage-notice-pop {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-garage-notice--floating { animation: none; }
+}
+
 .dm-shop-floor {
   min-height: 0;
   padding: 12px 14px 18px;
@@ -480,6 +508,41 @@
   color: #fff0c4;
   font-size: clamp(28px, 3vw, 46px);
   text-shadow: 3px 3px 0 #071113, 0 0 12px var(--rarity-color);
+}
+
+/* Use the supplied MOD/MAYHEM card face as-is instead of rebuilding art in CSS. */
+.dm-shop-slot__art.is-special-art,
+.dm-pack-choice__icon.is-special-art {
+  overflow: hidden;
+  border-color: transparent;
+  background: #06090a;
+}
+
+.dm-shop-slot__art.is-special-art::after { display: none; }
+
+.dm-shop-slot__art.is-special-art .special-card-art,
+.dm-pack-choice__icon.is-special-art .special-card-art,
+.joker-art .special-card-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+/* Supplied booster pack art is a locked portrait asset.  Let it completely
+   * replace the generated symbol frame, without cropping its border. */
+.dm-shop-slot__art.is-pack-art {
+  border-color: transparent;
+  background: #050807;
+}
+.dm-shop-slot__art.is-pack-art::after { display: none; }
+.dm-shop-slot__art.is-pack-art .dm-pack-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
 }
 .dm-shop-slot__copy { display: block; min-width: 0; text-align: center; }
 .dm-shop-slot__copy > small { display: block; color: #879d9a; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
@@ -679,9 +742,286 @@
 }
 .dm-sealed-pack:hover { transform: translateY(-10px) scale(1.05) rotate(-1deg); filter: brightness(1.2); }
 .dm-sealed-pack[data-opening] { animation: dm-pack-open .52s cubic-bezier(.2,.85,.2,1); }
-.dm-sealed-pack > span { color: #f7d853; font-family: "Galmuri11", monospace !important; font-size: 52px; }
-.dm-sealed-pack > strong { margin-top: 14px; font-size: 17px; }
-.dm-sealed-pack > small { margin-top: 9px; color: #d4b7ee; font-size: 10px; }
+.dm-sealed-pack:has(.dm-sealed-pack__art) {
+  width: min(330px, 62vw);
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: #050807;
+}
+.dm-sealed-pack__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.dm-sealed-pack__copy {
+  position: absolute;
+  right: 0;
+  bottom: -34px;
+  left: 0;
+  display: grid;
+  gap: 3px;
+  color: #f7eacb;
+  text-shadow: 2px 2px 0 #050807;
+}
+.dm-sealed-pack__copy strong { font-size: 16px; }
+.dm-sealed-pack__copy small { color: #d4b7ee; font-size: 10px; }
+
+/* Pack opening is a self-contained stage.  A fixed three-part layout keeps
+ * the pack, all revealed choices and the confirm action inside the viewport
+ * instead of letting tall 5-choice packs run underneath the footer. */
+.dm-pack-overlay {
+  overflow: hidden;
+  padding: clamp(10px, 2vh, 22px);
+}
+.dm-pack-stage {
+  width: min(1120px, calc(100vw - 28px));
+  height: min(760px, calc(100dvh - 28px));
+  max-height: none;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  overflow: hidden;
+  padding: clamp(12px, 1.45vw, 20px);
+  border: 2px solid #4a7773;
+  background:
+    linear-gradient(#d0a848, #d0a848) 15px 0 / 84px 2px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(209,244,233,.025) 4px 5px),
+    linear-gradient(145deg, #0c2020, #061112 72%);
+}
+.dm-pack-stage > header {
+  min-width: 0;
+  padding: 0 0 9px;
+}
+.dm-pack-stage > header h2 { font-size: clamp(20px, 2vw, 30px); }
+.dm-pack-notice {
+  position: absolute;
+  top: 68px;
+  right: 18px;
+  left: 18px;
+  z-index: 4;
+  padding: 7px 12px;
+  border: 1px solid #ff5555;
+  color: #ffaaa0;
+  background: rgba(71, 20, 22, .96);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+.dm-pack-content {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  overflow: hidden;
+}
+.dm-pack-content:has(.dm-pack-targets) {
+  grid-template-rows: minmax(190px, 1fr) minmax(146px, .74fr);
+  gap: 10px;
+}
+.dm-sealed-pack {
+  align-self: center;
+  width: min(300px, 44vw);
+  max-height: 100%;
+  margin: 0 auto 30px;
+}
+.dm-pack-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  min-height: 0;
+  height: 100%;
+  padding: 10px 4px;
+  gap: clamp(8px, 1.25vw, 16px);
+  overflow: hidden;
+  align-items: center;
+  justify-items: center;
+}
+.dm-pack-choice {
+  width: min(100%, 155px);
+  min-width: 0;
+  max-height: 100%;
+  aspect-ratio: .69;
+}
+.dm-pack-choice-tile {
+  position: relative;
+  width: min(100%, 155px);
+  height: 100%;
+  max-height: 100%;
+}
+.dm-pack-choice-tile .dm-pack-choice { width: 100%; height: 100%; }
+.dm-pack-choice-tile[data-previewed] { z-index: 12; }
+.dm-pack-choice-tile[data-previewed] .dm-pack-choice {
+  transform: translateY(-8px) scale(1.035);
+  box-shadow: 0 0 20px var(--rarity-color), 5px 7px 0 #020708;
+}
+.dm-pack-choice__confirm {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  left: 8px;
+  z-index: 14;
+  min-height: 26px;
+  border: 2px solid #f2cf5c;
+  cursor: pointer;
+  color: #16130a;
+  background: linear-gradient(#ffe67c, #d69c22);
+  box-shadow: 2px 3px 0 #060806;
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-size: 10px;
+  font-weight: 900;
+}
+.dm-pack-choice__confirm:hover { filter: brightness(1.12); transform: translateY(-1px); }
+
+/* Same compact reveal proportions as before; only the SELECT control gains a
+ * proper pixel-button treatment. */
+.dm-pack-choice__confirm {
+  right: 7px !important;
+  bottom: 7px !important;
+  left: 7px !important;
+  display: grid !important;
+  min-height: 28px !important;
+  place-items: center !important;
+  border: 2px solid #f2cf5c !important;
+  color: #191307 !important;
+  background:
+    repeating-linear-gradient(135deg, rgba(255,255,255,.14) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #ffe875, #d99419 78%) !important;
+  box-shadow: inset 0 1px rgba(255,255,230,.6), inset 0 -2px rgba(107,60,0,.45), 2px 3px 0 #040605 !important;
+  font-size: 10px !important;
+  letter-spacing: .05em !important;
+}
+
+/* Restore the compact five-card reveal: choice tiles size themselves from
+ * their portrait ratio, not from the full height of the opening panel.  The
+ * second-click SELECT remains visible directly beneath its chosen card. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .dm-pack-stage {
+    width: min(1240px, 96vw) !important;
+    height: min(760px, calc(100dvh - 28px)) !important;
+  }
+
+  .dm-pack-choices {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: clamp(10px, 1.45vw, 22px) !important;
+    padding: 28px 8px 15px !important;
+    align-items: center !important;
+  }
+
+  .dm-pack-choice-tile {
+    width: min(100%, 190px) !important;
+    height: auto !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    display: grid !important;
+    grid-template-rows: auto auto !important;
+    gap: 7px !important;
+    align-self: center !important;
+  }
+
+  .dm-pack-choice-tile .dm-pack-choice {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: .69 !important;
+  }
+
+  .dm-pack-choice__confirm {
+    position: static !important;
+    width: calc(100% - 12px) !important;
+    min-height: 30px !important;
+    margin: 0 6px !important;
+    padding: 0 !important;
+    border: 2px solid #f2cf5c !important;
+    color: #191307 !important;
+    background:
+      repeating-linear-gradient(135deg, rgba(255,255,255,.14) 0 1px, transparent 1px 5px),
+      linear-gradient(180deg, #ffe875, #d99419 78%) !important;
+    box-shadow: inset 0 1px rgba(255,255,230,.6), inset 0 -2px rgba(107,60,0,.45), 2px 3px 0 #040605 !important;
+    font-size: 10px !important;
+  }
+
+  .dm-pack-choice-tile[data-previewed] .dm-pack-choice {
+    transform: translateY(-6px) scale(1.025) !important;
+  }
+}
+.dm-pack-choice__front,
+.dm-pack-choice__back { padding: clamp(7px, .8vw, 11px); }
+.dm-pack-choice__front > strong { margin-top: 7px; font-size: clamp(10px, 1vw, 13px); }
+.dm-pack-choice__front > span:last-child { font-size: clamp(8px, .8vw, 10px); }
+.dm-pack-choice__number,
+.dm-pack-choice__icon { width: 68%; }
+.dm-pack-targets {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 7px;
+  padding: 9px 10px;
+  overflow: hidden;
+}
+.dm-pack-targets > header { min-width: 0; }
+.dm-pack-targets .dm-utility-colors { margin: 0 !important; }
+.dm-pack-targets .dm-deck-grid { min-height: 0; max-height: none; overflow: auto; }
+.dm-pack-target-confirm {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 2px solid #4ddc86;
+  cursor: pointer;
+  color: #06130b;
+  background: #72e69f;
+  box-shadow: 2px 3px 0 #020708;
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-size: 9px;
+}
+.dm-pack-target-confirm:disabled { cursor: not-allowed; opacity: .4; }
+.dm-pack-targets { position: relative; padding-bottom: 46px; }
+.dm-pack-footer,
+.dm-pack-stage > footer {
+  min-height: 46px;
+  margin-top: 0;
+  padding-top: 9px;
+}
+.dm-pack-footer > button,
+.dm-pack-stage > footer > button { min-width: 164px; min-height: 38px; }
+
+@media (max-width: 760px), (max-height: 620px) {
+  .dm-pack-overlay { padding: 8px; overflow: auto; place-items: start center; }
+  .dm-pack-stage { height: auto; min-height: calc(100dvh - 16px); overflow: visible; grid-template-rows: auto auto auto; }
+  .dm-pack-content { overflow: visible; }
+  .dm-pack-content:has(.dm-pack-targets) { grid-template-rows: auto auto; }
+  .dm-pack-choices { grid-template-columns: repeat(auto-fit, minmax(98px, 1fr)); height: auto; overflow: visible; }
+  .dm-pack-choice { width: min(100%, 130px); }
+  .dm-pack-targets { overflow: visible; }
+  .dm-pack-targets .dm-deck-grid { max-height: 190px; }
+}
+
+/* Pack artwork already carries its own title.  Give it the text row too, so
+   * every supplied portrait is shown uncropped in the shop shelf. */
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__select {
+  grid-template-rows: 13px minmax(0, 1fr) !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__copy {
+  display: none !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art {
+  grid-row: 2 !important;
+  width: min(100%, 112px) !important;
+  height: auto !important;
+  max-height: none !important;
+  aspect-ratio: 2 / 3 !important;
+  clip-path: none !important;
+}
+.dm-shop-board .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art .dm-pack-art {
+  object-fit: contain !important;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-slot[data-kind="card-pack"] .dm-shop-slot__art {
+    width: min(100%, 132px) !important;
+  }
+}
 @keyframes dm-pack-open {
   0%,100% { transform: scale(1); }
   22% { transform: translateX(-7px) rotate(-3deg) scale(1.08); }
@@ -1328,6 +1668,388 @@
   }
 }
 
+/* Focus the cash-out on rewards that were actually earned.  The total sits in
+ * a bottom payout dock, so the staggered coin stream has a clear destination
+ * instead of reading like four unrelated accounting rows. */
+.deck-run-view-reward .dm-reward--embedded .dm-reward__ledger {
+  margin-top: 15px;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line {
+  min-height: 52px;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 68px;
+  margin-top: 13px;
+  padding: 10px 18px;
+  overflow: hidden;
+  border: 2px solid #a98521;
+  border-radius: 4px;
+  color: #fff4ce;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 225, 129, .055) 4px 5px),
+    linear-gradient(90deg, #2b260b, #15180b 68%);
+  box-shadow: inset 0 0 0 2px rgba(255, 211, 80, .10), 3px 4px 0 #050807;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-copy {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-copy b {
+  color: #f6cd52;
+  font-size: 13px;
+  letter-spacing: .07em;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-copy small {
+  color: #b9c8bc;
+  font: 11px/1.15 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock output {
+  position: relative;
+  z-index: 2;
+  align-self: center;
+  color: #ffd45b;
+  font-size: clamp(32px, 3.15vw, 49px);
+  font-weight: 700;
+  line-height: 1;
+  text-align: right;
+  text-shadow: 3px 3px 0 #4b3404;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well {
+  position: absolute;
+  z-index: 1;
+  right: clamp(28px, 9.6vw, 108px);
+  bottom: -31px;
+  width: 40px;
+  height: 92px;
+  border-inline: 2px solid rgba(255, 206, 73, .45);
+  background: linear-gradient(90deg, transparent, rgba(248, 188, 42, .12), transparent);
+  opacity: .92;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 68px;
+  height: 2px;
+  content: "";
+  background: #d6a42d;
+  box-shadow: 0 2px #402e08;
+  transform: translateX(-50%);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  color: #ffe178;
+  font-size: 16px;
+  font-style: normal;
+  opacity: 0;
+  text-shadow: 2px 2px 0 #543907;
+  transform: translate(-50%, 10px) scale(.55);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock[data-complete="true"] .dm-reward__coin-well i {
+  animation: dm-cashout-well-coin 620ms cubic-bezier(.18, .83, .24, 1) both;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i:nth-child(2) { left: 28%; animation-delay: 55ms; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i:nth-child(3) { left: 72%; animation-delay: 110ms; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i:nth-child(4) { left: 36%; animation-delay: 165ms; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i:nth-child(5) { left: 66%; animation-delay: 220ms; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well i:nth-child(6) { left: 50%; animation-delay: 275ms; }
+
+@keyframes dm-cashout-well-coin {
+  0% { opacity: 0; transform: translate(-50%, 18px) scale(.45) rotate(-14deg); }
+  22% { opacity: 1; }
+  82% { opacity: 1; transform: translate(-50%, -57px) scale(1.03) rotate(6deg); }
+  100% { opacity: 0; transform: translate(-50%, -72px) scale(.72) rotate(-3deg); }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line { min-height: 40px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock { min-height: 52px; margin-top: 9px; padding: 7px 12px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock output { font-size: 27px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-copy b { font-size: 10px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-copy small { font-size: 9px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well { right: 84px; height: 68px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock[data-complete="true"] .dm-reward__coin-well i {
+    animation: none;
+  }
+}
+
+/* Cash-out sits directly on the felt.  The embedded reward wrapper used to
+ * retain the old full-size rising-sheet frame, leaving an empty giant box
+ * around the receipt.  Only the receipt itself is now framed. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-reward .deck-run-main-content[data-run-content="reward"] {
+    display: grid !important;
+    align-items: end !important;
+    justify-items: start !important;
+    padding: 0 0 clamp(72px, 9vh, 116px) clamp(48px, 4.1vw, 66px) !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded {
+    width: min(860px, 72%) !important;
+    height: auto !important;
+    max-height: calc(100% - clamp(72px, 9vh, 116px)) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    width: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+
+/* Mobile cash-out is deliberately independent from the desktop receipt. Keep
+ * it inside the available felt height, with the receipt itself scrolling only
+ * when a particularly long reward ledger needs the space. */
+@media (max-width: 1000px) {
+  .deck-run-view-reward .deck-run-main-content[data-run-content="reward"] {
+    display: grid !important;
+    align-items: end !important;
+    justify-items: center !important;
+    min-height: 0 !important;
+    padding: 8px 8px max(10px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    place-items: end center !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    width: min(100%, 620px) !important;
+    max-height: calc(100% - 2px) !important;
+    margin: 0 !important;
+    padding: clamp(11px, 3.2vw, 18px) !important;
+    overflow: auto !important;
+    overscroll-behavior: contain;
+    border: 3px solid #385957 !important;
+    border-radius: 7px !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(225,245,228,.03) 4px 5px),
+      linear-gradient(135deg, #11231f, #07130f 72%) !important;
+    box-shadow: 5px 6px 0 #020605, inset 0 0 0 1px rgba(214,242,224,.06) !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__header {
+    grid-template-columns: 48px minmax(0, 1fr) !important;
+    gap: 9px !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark {
+    width: 44px !important;
+    height: 44px !important;
+    border-width: 3px !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark span { font-size: 7px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__header > div > span { font-size: 8px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim { min-height: 42px !important; padding: 7px 9px 9px !important; font-size: clamp(20px, 6.3vw, 29px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target { gap: 6px !important; margin-top: 6px !important; font-size: 11px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target strong { font-size: clamp(19px, 5.5vw, 26px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__ledger { margin-top: 9px !important; padding-top: 5px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line { grid-template-columns: 28px minmax(0, 1fr) auto !important; gap: 6px !important; min-height: 35px !important; padding: 3px 2px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-icon { width: 25px !important; height: 25px !important; font-size: 12px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy b { font-size: 10px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy small { font-size: 8px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line output { min-width: 45px !important; font-size: clamp(17px, 5vw, 23px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__settle-coins { right: 43px !important; font-size: 14px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock { min-height: 48px !important; margin-top: 8px !important; padding: 7px 10px !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__payout-dock output { font-size: clamp(25px, 8vw, 34px) !important; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__coin-well { right: 54px !important; height: 60px !important; }
+}
+
+/* Garage market cabinet ----------------------------------------------------
+ * One flat board, four deliberate bays.  This matches the shop's visual
+ * hierarchy without changing the cards or the existing purchase state. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
+  .dm-garage--embedded .dm-garage-workspace {
+    width: min(1120px, 78%);
+    margin-left: 5%;
+    margin-right: auto;
+  }
+
+  .dm-garage--embedded .dm-shop-board {
+    display: grid;
+    grid-template-columns: minmax(248px, 28%) minmax(0, 72%);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "controls signal"
+      "lab packs";
+    gap: 0;
+    padding: 10px;
+    overflow: visible;
+    border: 4px solid #de5148;
+    border-radius: 0;
+    background: #131f20;
+    box-shadow: 8px 9px 0 #030706, inset 0 0 0 2px rgba(255,255,255,.04);
+  }
+
+  .dm-garage--embedded .dm-shop-zone {
+    min-height: 0;
+    margin: 0;
+    padding: 18px;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .dm-garage--embedded .dm-shop-controls,
+  .dm-garage--embedded .dm-shop-lab { border-right: 3px solid #456163; }
+  .dm-garage--embedded .dm-shop-controls,
+  .dm-garage--embedded .dm-shop-signal { border-bottom: 3px solid #456163; }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 13px;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button {
+    min-height: 0;
+    padding: 16px;
+    border-radius: 3px;
+  }
+
+  .dm-garage--embedded .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-lab .dm-shop-grid,
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-lab .dm-shop-grid,
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-packs .dm-shop-grid {
+    height: 100%;
+    padding: 0;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-packs .dm-shop-grid {
+    grid-template-columns: repeat(2, minmax(150px, 172px)) !important;
+    gap: clamp(44px, 6vw, 104px);
+  }
+
+  .dm-garage--embedded .dm-shop-lab .dm-shop-grid { grid-template-columns: 172px !important; }
+
+  .dm-garage--embedded .dm-shop-lab-voucher {
+    min-width: 0;
+    padding: 12px 24px 20px;
+    border-color: #69807c;
+    border-radius: 0;
+    background: rgba(9, 20, 20, .7);
+  }
+
+  .dm-garage--embedded .dm-shop-lab-voucher__label { display: none; }
+}
+
+.deck-run-view.has-rising-panel .dm-garage--embedded.is-leaving {
+  animation: dm-garage-panel-drop 330ms cubic-bezier(.24,.78,.24,1) both !important;
+  pointer-events: none;
+}
+
+@keyframes dm-garage-panel-drop {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(calc(100% + 48px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view.has-rising-panel .dm-garage--embedded.is-leaving { animation: none !important; }
+}
+
+/* Cash-out is a bottom receipt, not a floating modal.  Keep the same centre
+ * content but let its outer frame run into the table's bottom edge. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
+  .deck-run-view-reward .dm-reward--embedded {
+    position: relative;
+    align-self: end !important;
+    justify-self: center;
+    width: min(940px, 74%);
+    height: min(590px, 72%);
+    padding: clamp(18px, 2.2vw, 30px) clamp(20px, 2.4vw, 34px) 0 !important;
+    overflow: visible !important;
+    border: 4px solid #385957 !important;
+    border-bottom: 0 !important;
+    border-radius: 5px 5px 0 0 !important;
+    background:
+      linear-gradient(#c59b30, #c59b30) 20px 0 / 110px 3px no-repeat,
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(225,245,228,.03) 4px 5px),
+      linear-gradient(135deg, #11231f, #07130f 72%);
+    box-shadow: 9px 0 0 #020605, -3px 0 0 #020605, inset 0 0 0 2px rgba(214,242,224,.06) !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 18px;
+    content: "";
+    background: linear-gradient(180deg, rgba(5,16,12,0), #07130f 55%);
+    pointer-events: none;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    width: 100%;
+    max-height: 100%;
+    margin: 0;
+    padding: 0 0 20px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card::before { display: none; }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__notice {
+    margin-bottom: 0;
+  }
+}
+
 /* Preserve the pixel accents while keeping dense shop copy readable on 1080p. */
 @media (min-width: 1001px) and (min-height: 650px) {
   .dm-garage,
@@ -1377,9 +2099,17 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-rows: minmax(190px, 31vh) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   margin-inline: auto;
+}
+
+/* A hovered/selected shop card scales up and can spill past its own
+   zone — let it escape every clipping ancestor instead of getting cut
+   off at the edge of the panel. */
+.dm-garage:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]),
+.dm-garage-workspace:has(.dm-shop-slot:hover, .dm-shop-slot[data-selected]) {
+  overflow: visible;
 }
 
 .dm-garage-inventory {
@@ -1517,7 +2247,7 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(128px, 21vh) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 9px;
     overflow: hidden;
   }
@@ -1658,6 +2388,12 @@
   background: transparent;
 }
 
+/* Solid instead of transparent so the felt table's diagonal-stripe
+   texture (.deck-play-table) doesn't show through behind the cards. */
+.dm-garage.dm-garage--embedded {
+  background: #0b1a1c;
+}
+
 .dm-garage--embedded > .dm-garage__backdrop,
 .dm-reward--embedded > .dm-reward__backdrop { display: none; }
 
@@ -1676,7 +2412,7 @@
 .dm-garage--embedded .dm-garage-brand small { margin-top: 2px; font-size: 11px; }
 .dm-garage--embedded .dm-garage-actions { min-width: 280px; grid-template-columns: repeat(2, minmax(130px, 1fr)); }
 .dm-garage--embedded .dm-garage-notice { min-height: 27px; padding-block: 5px; }
-.dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(108px, 18vh) minmax(0, 1fr); }
+.dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(0, 1fr); }
 .dm-garage--embedded .dm-current-build { padding-block: 7px; }
 .dm-garage--embedded .dm-garage-workspace .dm-shop-grid { padding-block: 7px; }
 .dm-garage--embedded .dm-garage-workspace .dm-shop-slot { min-height: 230px; }
@@ -1705,7 +2441,7 @@
 @media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
   .dm-garage--embedded .dm-garage-bar { min-height: 54px; }
   .dm-garage--embedded .dm-garage-brand small { display: none; }
-  .dm-garage--embedded .dm-garage-workspace { grid-template-rows: 96px minmax(0, 1fr); }
+  .dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(0, 1fr); }
   .dm-reward--embedded .dm-reward__card { padding: 13px 18px; }
   .dm-reward--embedded .dm-reward__header h1 { font-size: 26px; }
   .dm-reward--embedded .dm-reward__wallets { margin-top: 9px; }
@@ -1761,16 +2497,16 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(230px, 3fr) minmax(0, 7fr);
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto;
   grid-template-areas:
     "controls signal"
     "lab packs";
-  gap: 2px;
-  padding: 2px;
+  gap: 0;
+  padding: 10px;
   overflow: hidden;
   border: 2px solid #3c6064;
-  background: #29484c;
-  box-shadow: 6px 6px 0 #020708, inset 0 0 30px rgba(67, 216, 229, .03);
+  border-radius: 14px;
+  background: #16211f;
 }
 
 .dm-shop-zone {
@@ -1778,67 +2514,72 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   padding: 7px 9px 9px;
   overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,.025), transparent 36%),
-    rgba(6, 17, 19, .98);
-}
-
-.dm-shop-zone::before {
-  position: absolute;
-  top: 0;
-  left: 9px;
-  width: 54px;
-  height: 3px;
-  content: "";
-  background: var(--zone-color, #50d9e5);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--zone-color, #50d9e5) 55%, transparent);
+  background: transparent;
 }
 
 .dm-shop-controls { --zone-color: #78e89a; grid-area: controls; }
-.dm-shop-signal { --zone-color: #59dbe7; grid-area: signal; }
-.dm-shop-lab { --zone-color: #f1c94d; grid-area: lab; }
-.dm-shop-packs { --zone-color: #b687ef; grid-area: packs; }
 
-.dm-shop-zone > header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  min-height: 34px;
-  padding: 2px 2px 5px;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
+/* Signal keeps its own rounded card, separated from the buttons by margin
+   instead of a grid gap (a gap filled by .dm-shop-board's own background
+   reads as a thin dividing line between zones). */
+.dm-shop-signal {
+  --zone-color: #59dbe7;
+  grid-area: signal;
+  margin-left: 12px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 14px;
+  background: #1c2629;
 }
 
-.dm-shop-zone > header span {
-  display: block;
-  color: var(--zone-color);
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .11em;
+/* Lab + packs share one background/border and only round their outer
+   corners, so the two grid areas read as a single merged panel with no
+   seam between them — matching the reference's single "shelf" card. */
+.dm-shop-lab,
+.dm-shop-packs {
+  --zone-color: #f1c94d;
+  margin-top: 28px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: #1c2629;
 }
 
-.dm-shop-zone > header h2 {
-  margin: 1px 0 0;
-  color: #edf8f6;
-  font-size: clamp(14px, 1.15vw, 19px);
-  line-height: 1;
+.dm-shop-lab {
+  grid-area: lab;
+  border-right: none;
+  border-radius: 14px 0 0 14px;
 }
 
-.dm-shop-zone > header p {
-  margin: 0;
-  color: #8fa6a3;
-  font-size: 8px;
-  font-weight: 700;
-  text-align: right;
+.dm-shop-packs {
+  --zone-color: #b687ef;
+  grid-area: packs;
+  border-left: none;
+  border-radius: 0 14px 14px 0;
 }
 
-.dm-shop-signal > header p b {
-  color: #ff7180;
-  text-shadow: 1px 0 #6ee6ed, -1px 0 #bc62ef;
+/* Nested "voucher slot" for the DECK LAB card: a pale outline sitting on
+   the board's own dark fill (not the lighter lab/packs panel color), with
+   a bottom-to-top install-limit label to its left, matching the reference. */
+.dm-shop-lab-voucher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 18px;
+  min-width: 360px;
+  padding: 2px 32px 28px;
+  border: 1px solid rgba(255, 255, 255, .28);
+  border-radius: 10px;
+  background: #16211f;
+}
+
+.dm-shop-lab-voucher__label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  color: rgba(237, 245, 243, .45);
+  font-size: 9px;
+  letter-spacing: .16em;
+  white-space: nowrap;
 }
 
 .dm-shop-controls .dm-garage-actions {
@@ -1853,41 +2594,49 @@
 .dm-shop-controls .dm-garage-actions button {
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
   padding: 8px 10px;
-  align-content: center;
-  gap: 3px 8px;
-  text-align: left;
 }
 
-.dm-shop-controls .dm-garage-actions button > span {
-  color: #dbe9e6;
-  font-size: 9px;
-  font-weight: 900;
-  letter-spacing: .09em;
-}
-
+.dm-shop-controls .dm-garage-actions button > span,
 .dm-shop-controls .dm-garage-actions button > b {
-  grid-column: 2;
-  grid-row: 1 / 3;
-  align-self: center;
-  margin: 0;
-  font-size: clamp(12px, 1vw, 16px);
-  text-align: right;
-}
-
-.dm-shop-controls .dm-garage-actions button > small {
-  color: #849b98;
-  font-size: 8px;
+  font-family: "Galmuri11", ui-monospace, monospace;
+  font-weight: 500;
 }
 
 .dm-shop-controls .dm-garage-actions button.is-next {
+  display: grid;
+  place-items: center;
   border-color: #4b9a69;
   background:
     linear-gradient(90deg, rgba(104, 235, 143, .12), transparent),
     #123625;
+}
+
+.dm-shop-controls .dm-garage-actions button.is-next > span {
+  color: #dbe9e6;
+  font-size: clamp(13px, 1.1vw, 17px);
+  line-height: 1.35;
+  letter-spacing: .03em;
+  text-align: center;
+}
+
+.dm-shop-controls .dm-garage-actions button.is-reroll {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.dm-shop-controls .dm-garage-actions button.is-reroll > span {
+  color: #dbe9e6;
+  font-size: clamp(13px, 1.1vw, 17px);
+  letter-spacing: .03em;
+}
+
+.dm-shop-controls .dm-garage-actions button.is-reroll > b {
+  margin: 0;
+  color: #79ed9b;
+  font-size: clamp(13px, 1.1vw, 17px);
 }
 
 .dm-garage-workspace .dm-shop-board .dm-shop-grid {
@@ -2078,7 +2827,6 @@
   .dm-garage-stats { width: 100%; }
   .dm-current-build > header { grid-template-columns: 1fr 1fr; }
   .dm-current-build__systems { grid-column: 1 / -1; grid-template-columns: repeat(2, 1fr); }
-  .dm-shop-zone > header p { display: none; }
   .dm-shop-board {
     min-height: 1260px;
     grid-template-rows: 210px 360px 300px 360px;
@@ -2231,7 +2979,22 @@
 .dm-utility-colors button[data-color="yellow"] { --utility-color: #f5ce3d; }
 .dm-utility-colors button[data-color="green"] { --utility-color: #55d77a; }
 .dm-utility-colors button[data-color="blue"] { --utility-color: #55bff5; }
-.dm-utility-colors button[aria-pressed="true"] { border-color: var(--utility-color); box-shadow: inset 0 0 0 2px #061012, 0 0 13px color-mix(in srgb, var(--utility-color) 45%, transparent); }
+.dm-utility-colors button {
+  transition: all 0.15s ease-in-out;
+}
+.dm-utility-colors[data-has-selection="true"] button[aria-pressed="false"] {
+  opacity: 0.35;
+  filter: grayscale(60%) brightness(0.4);
+}
+.dm-utility-colors button[aria-pressed="true"] {
+  opacity: 1 !important;
+  filter: none !important;
+  border-color: var(--utility-color) !important;
+  border-width: 3px !important;
+  background: color-mix(in srgb, var(--utility-color) 45%, #0b1719) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--utility-color) 80%, transparent) !important;
+  transform: scale(1.04);
+}
 .dm-utility-no-target { display: grid; min-height: 150px; place-content: center; gap: 7px; border: 1px dashed #4a6669; color: #91aaa7; text-align: center; }
 .dm-utility-no-target b { color: #ecf7f4; }
 .dm-utility-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -2269,10 +3032,6 @@
   padding: 7px 10px 10px;
 }
 
-.dm-shop-zone > header {
-  min-height: 31px;
-}
-
 .dm-garage-workspace .dm-shop-board .dm-shop-grid {
   grid-template-columns: repeat(2, 124px);
   align-content: center;
@@ -2283,6 +3042,14 @@
 
 .dm-shop-lab .dm-shop-grid {
   grid-template-columns: 124px !important;
+}
+
+/* Higher specificity than .dm-garage-workspace .dm-shop-board .dm-shop-grid's
+   padding:0 reset, so the DECK LAB card's rest position actually shifts
+   right — giving its left-opening detail panel room to clear the screen
+   edge instead of running off it. */
+.dm-garage-workspace .dm-shop-board .dm-shop-lab .dm-shop-grid {
+  padding-left: 250px;
 }
 
 .dm-garage-workspace .dm-shop-board .dm-shop-slot {
@@ -2384,10 +3151,10 @@
 
 .dm-shop-board .dm-shop-slot__detail {
   position: absolute;
-  top: calc(100% + 9px);
-  right: auto;
+  top: 50%;
+  right: calc(100% + 9px);
   bottom: auto;
-  left: 50%;
+  left: auto;
   z-index: 90;
   width: min(238px, 28vw);
   min-width: 205px;
@@ -2398,15 +3165,8 @@
   color: #dce9e6;
   background: rgba(3, 12, 14, .98);
   box-shadow: 6px 7px 0 rgba(1, 7, 8, .9), 0 0 18px color-mix(in srgb, var(--rarity-color) 20%, transparent);
-  transform: translate(-50%, -5px);
+  transform: translate(5px, -50%);
   pointer-events: none;
-}
-
-.dm-shop-lab .dm-shop-slot__detail,
-.dm-shop-packs .dm-shop-slot__detail {
-  top: auto;
-  bottom: calc(100% + 9px);
-  transform: translate(-50%, 5px);
 }
 
 .dm-shop-slot:hover .dm-shop-slot__detail,
@@ -2414,9 +3174,13 @@
 .dm-shop-slot[data-selected] .dm-shop-slot__detail {
   visibility: visible;
   opacity: 1;
-  transform: translate(-50%, 0);
-  pointer-events: auto;
+  transform: translate(0, -50%);
+  /* This is an informational hover card, not an action surface.  Leaving the
+     shop card must therefore close it even when the pointer crosses over the
+     floating detail panel. */
+  pointer-events: none;
 }
+
 
 .dm-shop-board .dm-shop-slot__detail strong,
 .dm-shop-board .dm-shop-slot__detail em,
@@ -2561,16 +3325,18 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(510px, calc(100% - 42px));
+    height: auto;
+    max-height: 100%;
     min-height: 430px;
+    flex: 0 1 auto;
   }
 
   .dm-garage--embedded .dm-shop-board {
     width: 100%;
-    height: 100%;
+    height: auto;
     min-height: 0;
     grid-template-columns: minmax(220px, 27%) minmax(0, 73%);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto;
   }
 
   .dm-shop-controls .dm-garage-actions {
@@ -2590,7 +3356,8 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(650px, calc(100% - 48px));
+    height: auto;
+    max-height: 100%;
   }
 
   .dm-garage--embedded .dm-shop-board {
@@ -2686,6 +3453,74 @@
   text-align: center;
 }
 
+/* Balatro-style shop interaction: inspect beside a card, then buy directly
+   beneath the selected card.  The detail deliberately stops at the name and
+   one useful effect line; prices and the action stay attached to the item. */
+.dm-shop-board .dm-shop-slot__detail {
+  width: min(276px, 31vw);
+  min-width: 228px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.dm-shop-board .dm-shop-slot__detail strong {
+  padding: 0 0 9px;
+  color: #fff7e2;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.dm-shop-board .dm-shop-slot__detail em {
+  margin: 0;
+  color: #d6e5e0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.dm-shop-slot__purchase {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  z-index: 110;
+  width: max(118px, calc(100% - 10px));
+  transform: translateX(-50%);
+  animation: dm-shop-buy-rise .18s cubic-bezier(.2,.9,.3,1) both;
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 2px solid #59bd79;
+  border-radius: 4px;
+  color: #f1ffef;
+  background: linear-gradient(#2a8052, #185238);
+  box-shadow: 0 3px 0 #071510, 0 0 0 2px rgba(2, 8, 8, .7);
+  font-family: "Galmuri11", monospace !important;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy:not(:disabled):hover {
+  filter: brightness(1.18);
+  transform: translateY(-1px);
+}
+
+.dm-shop-slot__purchase .dm-shop-slot__buy:disabled {
+  border-color: #725353;
+  color: #d6aaa7;
+  background: #382323;
+  opacity: .72;
+}
+
+@keyframes dm-shop-buy-rise {
+  from { opacity: 0; transform: translate(-50%, 7px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
 @media (min-width: 1500px) and (min-height: 850px) {
   .dm-shop-board .dm-shop-slot > footer {
     top: -31px;
@@ -2766,6 +3601,20 @@
   }
 }
 
+  .dm-garage--embedded .dm-shop-board {
+    align-self: start;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: 3px solid #d84e47;
+    border-radius: 18px;
+    grid-template-columns: minmax(245px, 26%) minmax(0, 74%);
+    grid-template-rows: auto auto;
+    margin-bottom: clamp(100px, 13vh, 140px);
+    background: rgba(11, 25, 27, .965);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.035);
+  }
+
 @media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
   .deck-run-main-content[data-run-content="reward"],
   .deck-run-main-content[data-run-content="shop"] {
@@ -2798,20 +3647,10 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(720px, calc(100% - 52px));
+    height: auto;
+    max-height: 100%;
     min-height: 0;
     flex: 0 1 auto;
-  }
-
-  .dm-garage--embedded .dm-shop-board {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    border: 5px solid #d84e47;
-    grid-template-columns: minmax(245px, 26%) minmax(0, 74%);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    background: rgba(11, 25, 27, .965);
-    box-shadow: 8px 10px 0 rgba(1, 7, 8, .82), inset 0 0 0 2px rgba(255,255,255,.035);
   }
 
   .dm-garage--embedded .dm-shop-zone {
@@ -2819,16 +3658,15 @@
     padding: 13px 16px 15px;
   }
 
-  .dm-garage--embedded .dm-shop-zone > header {
-    min-height: 46px;
+  .dm-garage--embedded .dm-shop-lab,
+  .dm-garage--embedded .dm-shop-packs,
+  .dm-garage--embedded .dm-shop-signal {
+    padding-top: 50px;
   }
 
-  .dm-garage--embedded .dm-shop-zone > header span {
-    font-size: 10px;
-  }
-
-  .dm-garage--embedded .dm-shop-zone > header h2 {
-    font-size: 23px;
+  .dm-garage--embedded .dm-shop-lab,
+  .dm-garage--embedded .dm-shop-packs {
+    margin-top: 0;
   }
 
   .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
@@ -2851,8 +3689,24 @@
     font-size: 20px;
   }
 
-  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button small {
-    font-size: 11px;
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-next {
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-next span {
+    font-size: 24px;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-reroll {
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-reroll span {
+    font-size: 24px;
   }
 
   .dm-garage--embedded .dm-shop-grid,
@@ -2866,6 +3720,24 @@
 
   .dm-garage--embedded .dm-shop-lab .dm-shop-grid {
     grid-template-columns: minmax(150px, 172px) !important;
+  }
+
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-lab .dm-shop-grid {
+    padding-left: 250px;
+  }
+  
+  .dm-garage--embedded .dm-shop-lab .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-packs .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    align-content: start;
+  }
+
+  .dm-garage--embedded .dm-garage-workspace .dm-shop-board .dm-shop-packs .dm-shop-grid {
+    padding-left: 250px;
+  }
+
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    gap: clamp(50px, 6vw, 96px);
   }
 
   .dm-garage--embedded .dm-shop-slot,
@@ -3001,4 +3873,695 @@
 
 .dm-reward--embedded .dm-reward__title-claim:disabled {
   filter: saturate(.55) brightness(.72);
+}
+
+/* Cash-out receipt ---------------------------------------------------------
+ * Keep the persistent run HUD visible and turn only the centre scene into a
+ * compact, Balatro-inspired payout receipt. The title is the single claim
+ * control; amounts resolve down the receipt before coins leave for the rail. */
+.deck-run-view-reward .dm-reward--embedded {
+  display: grid !important;
+  place-items: center !important;
+  padding: clamp(12px, 1.8vw, 26px) !important;
+  overflow: hidden !important;
+}
+
+.deck-run-view-reward .dm-reward--embedded,
+.deck-run-view-reward .dm-reward--embedded :is(button, b, strong, span, small, output, p) {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-synthesis: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+  width: min(860px, 72%);
+  max-height: calc(100% - 12px);
+  padding: clamp(16px, 1.7vw, 26px);
+  overflow: auto;
+  border: 3px solid #3e6159;
+  border-radius: 3px;
+  color: #f6f0dd;
+  background:
+    linear-gradient(#d5ad43, #d5ad43) 18px 0 / 110px 3px no-repeat,
+    linear-gradient(#385d51, #385d51) 0 0 / 100% 1px no-repeat,
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(225, 245, 228, .025) 4px 5px),
+    linear-gradient(135deg, #10211e, #071311 70%);
+  box-shadow:
+    8px 9px 0 #020605,
+    inset 0 0 0 1px rgba(209, 239, 222, .08),
+    inset 0 0 0 5px rgba(3, 11, 9, .52);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__card::before {
+  display: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__header {
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark {
+  width: 76px;
+  height: 76px;
+  border: 4px solid #4ba0d7;
+  border-radius: 50%;
+  color: #e8f7ff;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .08) 0 3px, transparent 3px 7px),
+    #17496a;
+  box-shadow: 4px 5px 0 #061015, inset 0 0 0 3px rgba(219, 247, 255, .14);
+  transform: rotate(-5deg);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark span {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: .98;
+  text-align: center;
+  text-shadow: 2px 2px 0 #0b2537;
+  white-space: pre-line;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__header > div > span {
+  color: #f1ca54;
+  font-size: 13px;
+  letter-spacing: .07em;
+  text-shadow: 1px 1px 0 #171209;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__header h1 {
+  margin: 7px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim {
+  min-height: clamp(58px, 6.4vh, 78px);
+  padding: 9px 18px 12px;
+  border: 3px solid #ffd15a;
+  border-radius: 4px;
+  color: #fff8e8;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, .10) 4px 5px),
+    linear-gradient(180deg, #ffad1c, #e9780c);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 246, 187, .45),
+    inset 0 -5px 0 rgba(119, 51, 3, .34),
+    5px 6px 0 #372007;
+  font-size: clamp(29px, 3vw, 47px);
+  letter-spacing: .025em;
+  text-align: center;
+  text-shadow: 3px 3px 0 #8c4302;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim:disabled {
+  color: #fff8e8;
+  cursor: wait;
+  filter: saturate(.94) brightness(.88);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__target {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 10px 0 0;
+  color: #f1eee0;
+  font-size: 17px;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__target b {
+  color: #f1eee0;
+  font-size: inherit;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__target strong {
+  color: #ff6259;
+  font-size: clamp(27px, 2.5vw, 38px);
+  line-height: 1;
+  text-shadow: 2px 3px 0 #3c1413;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__ledger {
+  gap: 0;
+  margin: 17px 0 0;
+  padding: 9px 0 0;
+  border-top: 3px dotted #e5f3eb;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line {
+  position: relative;
+  grid-template-columns: 37px minmax(0, 1fr) auto;
+  gap: 9px;
+  min-height: 47px;
+  padding: 6px 6px;
+  border: 0;
+  border-bottom: 1px dotted #54736b;
+  background: transparent;
+  box-shadow: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line:first-child {
+  border-top: 0;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="pending"] {
+  opacity: .25;
+  filter: saturate(.32) brightness(.75);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counting"] {
+  border-color: #f7cd58;
+  background: linear-gradient(90deg, rgba(205, 147, 25, .18), transparent 66%);
+  box-shadow: inset 3px 0 #f3c94b;
+  animation: dm-cashout-line-count 170ms steps(3, end) infinite alternate;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] {
+  opacity: 1;
+  filter: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line-icon {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #456962;
+  border-radius: 2px;
+  color: #61d7e3;
+  background: #102b2a;
+  box-shadow: inset 0 0 0 1px rgba(227, 250, 238, .08);
+  font-size: 16px;
+  text-shadow: 1px 1px #071312;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy b {
+  color: #e9f1e7;
+  font-size: 13px;
+  letter-spacing: .05em;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy small {
+  margin-top: 2px;
+  color: #a9c1b7;
+  font-size: 12px;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line output {
+  position: relative;
+  z-index: 2;
+  min-width: 66px;
+  color: #ffc94f;
+  font-size: clamp(20px, 1.9vw, 28px);
+  text-align: right;
+  text-shadow: 2px 2px 0 #4c3306;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] output {
+  animation: dm-cashout-amount-settle 280ms cubic-bezier(.16, .84, .25, 1) both;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__settle-coins {
+  position: absolute;
+  z-index: 1;
+  right: 58px;
+  top: 50%;
+  display: flex;
+  gap: 1px;
+  color: #ffd45d;
+  font-size: 21px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__settle-coins i {
+  font-style: normal;
+  opacity: 0;
+  text-shadow: 2px 2px 0 #563806;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] .dm-reward__settle-coins {
+  opacity: 1;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] .dm-reward__settle-coins i {
+  animation: dm-cashout-settle-coin 340ms cubic-bezier(.16, .84, .25, 1) both;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] .dm-reward__settle-coins i:nth-child(2) { animation-delay: 38ms; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] .dm-reward__settle-coins i:nth-child(3) { animation-delay: 76ms; }
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__notice {
+  min-height: 0;
+  margin: 11px 0 0;
+  padding: 7px 9px;
+  border-left: 3px solid #f3c94b;
+  color: #b7c9c0;
+  background: rgba(5, 15, 12, .6);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight {
+  position: absolute;
+  z-index: 8;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i {
+  position: absolute;
+  right: 9%;
+  bottom: 20%;
+  color: #ffcf56;
+  font-size: clamp(23px, 2.1vw, 34px);
+  font-style: normal;
+  opacity: 0;
+  text-shadow: 2px 3px 0 #563806;
+  transform: translate3d(0, 0, 0) scale(.6);
+}
+
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i {
+  animation: dm-cashout-coin-flight 640ms cubic-bezier(.17, .78, .19, 1) both;
+}
+
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(2) { right: 12%; bottom: 23%; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(3) { right: 15%; bottom: 18%; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(4) { right: 18%; bottom: 25%; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(5) { right: 21%; bottom: 20%; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(6) { right: 24%; bottom: 24%; }
+.deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i:nth-child(7) { right: 27%; bottom: 18%; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(2) { animation-delay: 46ms; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(3) { animation-delay: 92ms; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(4) { animation-delay: 138ms; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(5) { animation-delay: 184ms; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(6) { animation-delay: 230ms; }
+.deck-run-view-reward .dm-reward--embedded.is-leaving .dm-reward__coin-flight i:nth-child(7) { animation-delay: 276ms; }
+
+.deck-run-view-reward.has-rising-panel .dm-reward--embedded.is-leaving {
+  animation: dm-cashout-receipt-commit 760ms cubic-bezier(.16, .8, .2, 1) both !important;
+  pointer-events: none;
+}
+
+@keyframes dm-cashout-line-count {
+  from { filter: brightness(.94); }
+  to { filter: brightness(1.15); }
+}
+
+@keyframes dm-cashout-amount-settle {
+  0% { transform: translateY(4px) scale(.76); }
+  58% { transform: translateY(-3px) scale(1.14); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes dm-cashout-settle-coin {
+  0% { opacity: 0; transform: translate3d(14px, 5px, 0) scale(.45) rotate(-18deg); }
+  44% { opacity: 1; transform: translate3d(-3px, -4px, 0) scale(1.13) rotate(5deg); }
+  100% { opacity: .86; transform: translate3d(-9px, 0, 0) scale(.9); }
+}
+
+@keyframes dm-cashout-coin-flight {
+  0% { opacity: 0; transform: translate3d(0, 8px, 0) scale(.45) rotate(-22deg); }
+  16% { opacity: 1; transform: translate3d(-12px, -12px, 0) scale(1.08) rotate(8deg); }
+  100% { opacity: 0; transform: translate3d(calc(-1 * min(61vw, 1120px)), clamp(130px, 28vh, 390px), 0) scale(.72) rotate(-24deg); }
+}
+
+@keyframes dm-cashout-receipt-commit {
+  0%, 68% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(30px); }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card { width: min(760px, 76%); padding: 13px 18px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__header { grid-template-columns: 62px minmax(0, 1fr); gap: 11px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark { width: 58px; height: 58px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__clear-mark span { font-size: 10px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__title-claim { min-height: 52px; font-size: 27px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target { margin-top: 6px; font-size: 13px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__target strong { font-size: 24px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__ledger { margin-top: 10px; padding-top: 6px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line { min-height: 37px; padding-block: 3px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-icon { width: 27px; height: 27px; font-size: 13px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy b { font-size: 11px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line-copy small,
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__notice { font-size: 9px; }
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line output { font-size: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view-reward.has-rising-panel .dm-reward--embedded.is-leaving,
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__coin-flight i,
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__line[data-count-state="counted"] :is(output, .dm-reward__settle-coins i) {
+    animation: none !important;
+  }
+}
+
+/* Garage bays use separate score-panel-like cassettes instead of one board
+ * split by a crosshair. This keeps the existing two-by-two arrangement and
+ * all card geometry, while giving every shop group a clear, contained edge. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .dm-garage--embedded .dm-shop-board {
+    gap: 12px;
+    padding: 12px;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.025) 4px 5px),
+      #0a1618;
+  }
+
+  .dm-garage--embedded .dm-shop-zone,
+  .dm-garage--embedded .dm-shop-controls,
+  .dm-garage--embedded .dm-shop-signal,
+  .dm-garage--embedded .dm-shop-lab,
+  .dm-garage--embedded .dm-shop-packs {
+    position: relative;
+    min-height: 0;
+    margin: 0;
+    padding: 48px 16px 15px;
+    overflow: visible;
+    border: 2px solid #45666a;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, rgba(121, 218, 224, .16) 0 28px, transparent 28px) 9px 8px / 76px 2px no-repeat,
+      linear-gradient(90deg, transparent calc(100% - 28px), rgba(121, 218, 224, .16) calc(100% - 28px)) calc(100% - 9px) calc(100% - 8px) / 76px 2px no-repeat,
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.022) 4px 5px),
+      linear-gradient(135deg, #102326, #071214 76%);
+    box-shadow: inset 0 0 0 1px rgba(229,255,249,.045), 4px 4px 0 #020708;
+  }
+
+  .dm-garage--embedded .dm-shop-zone::before {
+    position: absolute;
+    top: 13px;
+    left: 16px;
+    color: #acd1d1;
+    font-family: "Galmuri11", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    pointer-events: none;
+  }
+
+  .dm-garage--embedded .dm-shop-controls::before { content: "GARAGE CONTROLS"; color: #9ee8b5; }
+  .dm-garage--embedded .dm-shop-signal::before { content: "TODAY'S SIGNAL"; color: #69e1eb; }
+  .dm-garage--embedded .dm-shop-lab::before { content: "DECK LAB"; color: #f2d16c; }
+  .dm-garage--embedded .dm-shop-packs::before { content: "PACK BAY"; color: #d5a7ff; }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
+    height: 100%;
+  }
+
+  .dm-garage--embedded .dm-shop-lab .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-packs .dm-shop-grid,
+  .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    height: 100%;
+    padding-top: 0;
+  }
+}
+
+/* Cash Out is a receipt rising from the lower edge of the table.  Anchor it
+ * near (but not against) the fixed rail, rather than centering it in the
+ * wide play field and leaving an unexplained gap below its frame. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-reward .dm-reward--embedded {
+    place-items: end start !important;
+    padding: clamp(12px, 1.8vw, 26px) 0 0 clamp(52px, 5vw, 104px) !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    align-self: end;
+    max-height: 100%;
+    margin: 0;
+    border-bottom: 0;
+    border-radius: 4px 4px 0 0;
+    box-shadow:
+      8px 0 0 #020605,
+      -3px 0 0 #020605,
+      inset 0 0 0 1px rgba(209, 239, 222, .08),
+      inset 0 0 0 5px rgba(3, 11, 9, .52);
+  }
+}
+
+/* Garage v9 — a single Balatro-like shop cabinet. The market keeps one
+ * coherent frame: controls at left, signals above, deck work + packs below.
+ * Individual card art stays untouched; only the surrounding shop furniture
+ * is rebuilt. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .dm-garage--embedded {
+    display: grid;
+    place-items: end center;
+    padding: 0 !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-garage-workspace {
+    width: min(1060px, 78%);
+    height: min(615px, 78%);
+    min-height: 0;
+    margin: 0 auto;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-board {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(206px, 24%) minmax(230px, 31%) minmax(0, 45%);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "controls signal signal"
+      "controls lab packs";
+    gap: 0 !important;
+    padding: 11px !important;
+    overflow: visible;
+    border: 4px solid #dc5049 !important;
+    border-radius: 0 !important;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(255,255,255,.026) 4px 5px),
+      linear-gradient(135deg, #102022, #0a1718 68%, #0e2221) !important;
+    box-shadow: 8px 9px 0 #020605, inset 0 0 0 2px rgba(236,255,248,.05) !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-zone,
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls,
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-signal,
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab,
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-packs {
+    min-height: 0;
+    margin: 0 !important;
+    padding: 42px 17px 14px !important;
+    overflow: visible;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls {
+    grid-row: 1 / -1;
+    padding: 20px 19px !important;
+    border-right: 3px solid #425f60 !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-signal {
+    border-bottom: 3px solid #425f60 !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab {
+    border-right: 3px solid #425f60 !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-zone::before {
+    top: 13px;
+    left: 17px;
+    padding: 0 8px 0 0;
+    color: #b7d0ca;
+    background: #102022;
+    font-size: 10px;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls::before { content: "SHOP"; color: #f0cc57; }
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-signal::before { content: "SIGNALS"; color: #72dced; }
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab::before { content: "DECK UPGRADE"; color: #f1ce59; }
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-packs::before { content: "BOOSTER PACKS"; color: #d4a8f4; }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions button {
+    min-height: 0;
+    border-radius: 3px;
+    font-size: 18px;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions button:is(.is-next, .is-reroll) > :is(span, b) {
+    font-size: 22px;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-grid,
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab .dm-shop-grid,
+  .deck-run-view-shop .dm-garage--embedded .dm-garage-workspace .dm-shop-board :is(.dm-shop-lab, .dm-shop-packs) .dm-shop-grid {
+    width: 100%;
+    height: 100%;
+    padding: 0 !important;
+    align-content: center;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-signal .dm-shop-grid {
+    grid-template-columns: repeat(2, minmax(142px, 168px)) !important;
+    gap: clamp(42px, 5.5vw, 88px);
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab .dm-shop-grid {
+    grid-template-columns: 166px !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-packs .dm-shop-grid {
+    grid-template-columns: repeat(2, minmax(142px, 166px)) !important;
+    gap: clamp(24px, 3vw, 54px);
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-lab-voucher {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+}
+
+/* Keep the Garage cabinet visually anchored just after the HUD.  Do not let
+   the parent grid re-centre an auto-width workspace: that was making the
+   entire shop float in the middle of the field at wide desktop sizes. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .dm-garage--embedded {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-garage-workspace {
+    box-sizing: border-box;
+    width: calc(100% - clamp(44px, 4.7vw, 92px)) !important;
+    height: min(615px, 100%) !important;
+    margin: 0 0 0 clamp(22px, 2.35vw, 46px) !important;
+  }
+}
+
+/* A little more presence for the two primary Garage controls without
+   changing the surrounding shop geometry. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
+    align-self: center;
+    height: calc(100% - 30px);
+    gap: 12px;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions button {
+    padding: 10px 12px;
+    border-width: 2px;
+    border-radius: 7px;
+    box-shadow: inset 0 1px rgba(235,255,246,.12), inset 0 -3px rgba(0,0,0,.24), 3px 4px 0 #020706;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions button:is(.is-next, .is-reroll) > :is(span, b) {
+    font-size: 25px;
+    line-height: 1.3;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions .is-next {
+    background:
+      repeating-linear-gradient(135deg, rgba(198,255,214,.075) 0 1px, transparent 1px 5px),
+      linear-gradient(180deg, #1d5737, #123625 78%) !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-controls .dm-garage-actions .is-reroll {
+    background:
+      repeating-linear-gradient(135deg, rgba(140,225,229,.055) 0 1px, transparent 1px 5px),
+      linear-gradient(180deg, #173238, #10262a 78%) !important;
+  }
+}
+
+/* Garage alignment pass --------------------------------------------------
+ * The shop cabinet shares the exact playable width and left edge of the
+ * MOD rack above it.  Keeping the same inset makes the rising Garage panel
+ * read as part of the table instead of a small, detached window. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-shop .deck-run-main-content[data-run-content="shop"] {
+    padding-inline: 0 !important;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded {
+    place-items: end stretch;
+  }
+
+  .deck-run-view-shop .dm-garage--embedded .dm-garage-workspace {
+    width: auto !important;
+    height: min(615px, 100%) !important;
+    min-height: 0;
+    margin: 0 clamp(22px, 2.35vw, 46px) !important;
+  }
+
+  /* Balatro-style cabinet: control stack on the left, two signal cards on
+     the upper shelf, then one deck upgrade and two packs below. */
+  .deck-run-view-shop .dm-garage--embedded .dm-shop-board {
+    grid-template-columns: minmax(224px, 24%) minmax(250px, 32%) minmax(0, 44%);
+    grid-template-areas:
+      "controls signal signal"
+      "controls lab packs";
+  }
+}
+
+/* Final reward receipt frame: the prior rising-sheet frame was larger than
+ * its receipt and ended without a bottom edge.  The receipt owns the complete
+ * frame now, aligned to the same left inset as the MOD rack. */
+@media (orientation: landscape) and (min-width: 1001px) {
+  .deck-run-view-reward .deck-run-main-content[data-run-content="reward"] {
+    display: grid !important;
+    align-items: end !important;
+    justify-items: start !important;
+    padding: 0 0 clamp(24px, 3vh, 40px) clamp(48px, 4.1vw, 66px) !important;
+    overflow: visible !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded {
+    width: min(940px, 74%) !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view-reward .dm-reward--embedded::after { content: none !important; }
+
+  .deck-run-view-reward .dm-reward--embedded .dm-reward__card {
+    width: 100% !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: clamp(16px, 1.7vw, 26px) !important;
+    overflow: visible !important;
+    border: 4px solid #385957 !important;
+    border-radius: 5px !important;
+    background:
+      linear-gradient(#c59b30, #c59b30) 20px 0 / 110px 3px no-repeat,
+      repeating-linear-gradient(0deg, transparent 0 4px, rgba(225,245,228,.03) 4px 5px),
+      linear-gradient(135deg, #11231f, #07130f 72%) !important;
+    box-shadow: 8px 9px 0 #020605, inset 0 0 0 2px rgba(214,242,224,.06) !important;
+  }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   CommunityUnoCard,
   ListCommunityCardsResponse,
@@ -112,10 +113,23 @@ export function CommunityHub({
           <h1>다른 정글러의 한 수</h1>
           <p>효과와 비용의 합이 0인 메이헴 카드를 만들고, 누군가의 다음 스테이지에 등장시키세요.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
-          + 메이헴 카드 제작
-        </button>
+        {signedIn ? (
+          <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
+            + 메이헴 카드 제작
+          </button>
+        ) : (
+          <a className="social-login-button" href="/login?returnTo=%2F">로그인 · 카드 제작</a>
+        )}
       </div>
+      {!signedIn && (
+        <section className="social-login-prompt social-login-prompt--community" aria-label="계정 연결 안내">
+          <div>
+            <span>커뮤니티 신호 연결</span>
+            <strong>로그인하면 만든 메이헴 카드와 장착 정보가 다른 기기에도 이어집니다.</strong>
+          </div>
+          <a href="/login?returnTo=%2F">로그인 · 가입</a>
+        </section>
+      )}
       <div className="status-strip"><span className="live-dot" />{notice}</div>
       <div className="uno-grid">
         {cards.map((card) => {
@@ -221,8 +235,8 @@ function UnoCreator({
     }
   }
 
-  return (
-    <Modal title="커뮤니티 메이헴 카드 제작기" onClose={onClose} wide>
+  const creatorDialog = (
+    <Modal title="커뮤니티 메이헴 카드 제작기" className="creator-sheet" onClose={onClose} wide>
       <div className="creator-layout">
         <div className="creator-form">
           <label>카드 이름<input value={name} maxLength={30} onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
@@ -252,7 +266,7 @@ function UnoCreator({
           </div>
         </div>
         <aside className="creator-preview">
-          <div className="mini-uno"><span>M</span><strong>{name || "이름 없는 카드"}</strong></div>
+          <div className="mini-uno" aria-label="메이헴 카드 미리보기"><span>M</span><strong>{name || "이름 없는 카드"}</strong></div>
           <div className={`budget-meter${total === 0 ? " balanced" : ""}`}>
             <span>밸런스 합계</span><b>{total > 0 ? `+${total}` : total}</b>
           </div>
@@ -267,4 +281,11 @@ function UnoCreator({
       </div>
     </Modal>
   );
+
+  // This dialog can be launched from the collection sheet. Render it beside
+  // that sheet (still inside the app shell) so a transformed parent never
+  // constrains the creator's viewport-sized frame or introduces a horizontal
+  // scrollbar.
+  const appShell = typeof document === "undefined" ? null : document.querySelector<HTMLElement>(".app-shell");
+  return appShell ? createPortal(creatorDialog, appShell) : creatorDialog;
 }

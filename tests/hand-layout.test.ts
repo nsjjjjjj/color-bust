@@ -15,8 +15,8 @@ const closeTo = (actual: number, expected: number, tolerance = 0.000_001) => {
 test("centers a single upright card", () => {
   const layout = handLayoutManager.calculate({ cardCount: 1, availableWidth: 1000 });
   assert.equal(layout.cards.length, 1);
-  assert.equal(layout.cardWidth, 130);
-  closeTo(layout.cards[0].x, (1000 - 130) / 2);
+  assert.equal(layout.cardWidth, 153);
+  closeTo(layout.cards[0].x, Math.round((1000 - 153) / 2));
   assert.equal(layout.cards[0].rotation, 0);
   assert.equal(layout.cards[0].normalizedPosition, 0);
 
@@ -35,9 +35,9 @@ test("uses gaps for small groups and deliberate overlap for a full hand", () => 
 
   closeTo(five.step - five.cardWidth, 16);
   closeTo(six.step - six.cardWidth, 8);
-  closeTo(eight.step / eight.cardWidth, 0.7, 0.01);
-  closeTo(nine.step / nine.cardWidth, 0.7, 0.01);
-  closeTo(ten.step / ten.cardWidth, 0.66, 0.01);
+  closeTo(eight.step / eight.cardWidth, 0.76, 0.01);
+  closeTo(nine.step / nine.cardWidth, 0.72, 0.01);
+  closeTo(ten.step / ten.cardWidth, 0.68, 0.01);
 });
 
 test("keeps cards readable by increasing overlap before shrinking", () => {
@@ -116,8 +116,12 @@ test("exposes stable CSS variables for a thin view adapter", () => {
 });
 
 test("rejects impossible public inputs instead of producing NaN geometry", () => {
+  assert.equal(
+    handLayoutManager.calculate({ cardCount: 11, availableWidth: 900 }).cards.length,
+    11,
+  );
   assert.throws(
-    () => handLayoutManager.calculate({ cardCount: 11, availableWidth: 900 }),
+    () => handLayoutManager.calculate({ cardCount: 12, availableWidth: 900 }),
     /cardCount/,
   );
   assert.throws(

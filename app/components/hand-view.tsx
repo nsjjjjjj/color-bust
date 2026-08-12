@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -61,20 +62,106 @@ export function HandView({
   cards,
   selectedIds,
   discardingIds = [],
+  dealtCardIds = [],
   resolving,
+  sortMotionKey = 0,
   onToggleCard,
 }: {
   cards: readonly GameCard[];
   selectedIds: readonly string[];
   discardingIds?: readonly string[];
+  /** Replacement cards deal from the draw pile in this supplied order. */
+  dealtCardIds?: readonly string[];
   resolving: boolean;
+  /** Increments only for an explicit sort; cards then slide in their current hand. */
+  sortMotionKey?: number;
   onToggleCard: (id: string) => void;
 }) {
   const { elementRef, width } = useMeasuredWidth();
+  const previousCardPositionsRef = useRef(new Map<string, { x: number; y: number }>());
+  const handledSortMotionKeyRef = useRef(sortMotionKey);
+  const sortFrameRef = useRef<number | null>(null);
+  const sortTimerRef = useRef<number | null>(null);
   const { layout, style } = useMemo(
     () => layoutStyle(cards.length, width, "hand"),
     [cards.length, width],
   );
+
+  useLayoutEffect(() => {
+    const hand = elementRef.current;
+    if (!hand) return;
+
+    const nextPositions = new Map<string, { x: number; y: number }>();
+    cards.forEach((card, index) => {
+      const slot = layout.cards[index];
+      if (slot) nextPositions.set(card.id, { x: slot.x, y: slot.y });
+    });
+
+    const isExplicitSort = sortMotionKey > 0
+      && sortMotionKey !== handledSortMotionKeyRef.current;
+    const reduceMotion = Boolean(hand.closest(".reduced-motion"))
+      || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (sortFrameRef.current !== null) window.cancelAnimationFrame(sortFrameRef.current);
+    if (sortTimerRef.current !== null) window.clearTimeout(sortTimerRef.current);
+    hand.querySelectorAll<HTMLElement>(".deck-hand-card").forEach((cardElement) => {
+      delete cardElement.dataset.sortMotion;
+      cardElement.style.removeProperty("--hand-sort-delta-x");
+      cardElement.style.removeProperty("--hand-sort-delta-y");
+    });
+
+    if (isExplicitSort) {
+      const cardElements = hand.querySelectorAll<HTMLElement>(".deck-hand-card");
+      cardElements.forEach((cardElement, index) => {
+        const card = cards[index];
+        if (!card) return;
+        const previous = previousCardPositionsRef.current.get(card.id);
+        const next = nextPositions.get(card.id);
+
+        // These nodes are already in the hand. Prevent deal/selection
+        // animations from restarting when React moves their keyed DOM nodes.
+        cardElement.dataset.dealt = "true";
+        delete cardElement.dataset.selectionMotion;
+
+        if (reduceMotion || !previous || !next) return;
+        const deltaX = previous.x - next.x;
+        const deltaY = previous.y - next.y;
+        if (deltaX === 0 && deltaY === 0) return;
+
+        cardElement.style.setProperty("--hand-sort-delta-x", `${deltaX}px`);
+        cardElement.style.setProperty("--hand-sort-delta-y", `${deltaY}px`);
+        cardElement.dataset.sortMotion = "from";
+      });
+
+      // Flush the inverted (old) positions once, then let the next frame
+      // transition every card to its new slot as a single continuous motion.
+      void hand.offsetWidth;
+      sortFrameRef.current = window.requestAnimationFrame(() => {
+        sortFrameRef.current = null;
+        cardElements.forEach((cardElement) => {
+          if (cardElement.dataset.sortMotion === "from") {
+            cardElement.dataset.sortMotion = "to";
+          }
+        });
+        sortTimerRef.current = window.setTimeout(() => {
+          sortTimerRef.current = null;
+          cardElements.forEach((cardElement) => {
+            delete cardElement.dataset.sortMotion;
+            cardElement.style.removeProperty("--hand-sort-delta-x");
+            cardElement.style.removeProperty("--hand-sort-delta-y");
+          });
+        }, 300);
+      });
+    }
+
+    handledSortMotionKeyRef.current = sortMotionKey;
+    previousCardPositionsRef.current = nextPositions;
+  }, [cards, elementRef, layout.cards, sortMotionKey]);
+
+  useEffect(() => () => {
+    if (sortFrameRef.current !== null) window.cancelAnimationFrame(sortFrameRef.current);
+    if (sortTimerRef.current !== null) window.clearTimeout(sortTimerRef.current);
+  }, []);
 
   return (
     <div
@@ -86,16 +173,30 @@ export function HandView({
     >
       {cards.map((card, index) => {
         const selected = selectedIds.includes(card.id);
-        const discarding = discardingIds.includes(card.id);
+        const discardIndex = discardingIds.indexOf(card.id);
+        const discarding = discardIndex >= 0;
+        const dealIndex = dealtCardIds.indexOf(card.id);
+        const dealing = dealIndex >= 0;
         const slot = layout.cards[index];
         if (!slot) return null;
-        const cardStyle = handLayoutManager.cardVariables(slot) as CSSProperties;
+        const cardStyle = {
+          ...handLayoutManager.cardVariables(slot),
+          // Keep each physical card on one idle-animation phase even when its
+          // sort index changes; an index-derived delay visibly rephases it.
+          "--hand-card-idle-delay": `${-(card.id.split("").reduce(
+            (hash, character) => (hash * 31 + character.charCodeAt(0)) >>> 0,
+            0,
+          ) % 2800)}ms`,
+          "--hand-discard-index": discarding ? discardIndex : undefined,
+          "--hand-deal-index": dealing ? dealIndex : undefined,
+        } as CSSProperties;
 
         return (
           <div
             className="deck-hand-card"
             data-selected={selected || undefined}
             data-discarding={discarding || undefined}
+            data-dealing={dealing || undefined}
             key={card.id}
             style={cardStyle}
             // Mark the existing DOM card before its selected state changes.
@@ -103,6 +204,25 @@ export function HandView({
             // the initial draw animation.
             onClickCapture={(event) => {
               event.currentTarget.dataset.dealt = "true";
+              // Selection changes after this capture handler. Record the
+              // intended direction so CSS can give both lift and drop a
+              // small, physical overshoot instead of an abrupt stop.
+              event.currentTarget.dataset.selectionMotion = selected ? "down" : "up";
+            }}
+            onAnimationStart={(event) => {
+              // A card can have settled from an earlier click by the time
+              // React commits the next selection. Restart the animation from
+              // its own resting position so every new selection visibly lifts
+              // on the Y axis instead of occasionally keeping the old frame.
+              if (event.animationName === "dm-hand-selection-settle") {
+                event.currentTarget.dataset.selectionMotion = "up";
+              }
+            }}
+            onAnimationEnd={(event) => {
+              if (event.animationName === "dm-hand-selection-settle"
+                || event.animationName === "dm-hand-deselection-settle") {
+                delete event.currentTarget.dataset.selectionMotion;
+              }
             }}
           >
             <ColorCard

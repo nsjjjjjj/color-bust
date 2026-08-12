@@ -95,28 +95,28 @@ export function Lobby({
           <h1 id="mobile-menu-title"><span>DECK</span><strong>MAYHEM</strong></h1>
         </div>
         <p>색깔 숫자 카드로 족보를 만들고, 단 한 장의 메이헴 카드로 덱을 뒤집으세요.</p>
-      </section>
 
-      <nav className="mobile-menu-primary" aria-label="메인 메뉴">
-        <button
-          type="button"
-          className="mobile-menu-button mobile-menu-play"
-          onClick={onPlay}
-        >
-          <span>플레이</span>
-          <small>
-            {savedRun
-              ? `게임 선택 · 저장된 STAGE ${savedRun.ante}-${savedRun.roundIndex} 런 있음`
-              : "게임 선택 · 새 5 STAGE 런"}
-          </small>
-        </button>
-        <button type="button" className="mobile-menu-button mobile-menu-options" onClick={onOpenSettings}>
-          <span>옵션</span><small>화면 · 오디오 · 접근성</small>
-        </button>
-        <button type="button" className="mobile-menu-button mobile-menu-collection" onClick={onOpenCommunity}>
-          <span>컬렉션</span><small>커뮤니티 메이헴 연구소</small>
-        </button>
-      </nav>
+        <nav className="mobile-menu-primary" aria-label="메인 메뉴">
+          <button
+            type="button"
+            className="mobile-menu-button mobile-menu-play"
+            onClick={onPlay}
+          >
+            <span>플레이</span>
+            <small>
+              {savedRun
+                ? `게임 선택 · 저장된 STAGE ${savedRun.ante}-${savedRun.roundIndex} 런 있음`
+                : "게임 선택 · 새 5 STAGE 런"}
+            </small>
+          </button>
+          <button type="button" className="mobile-menu-button mobile-menu-options" onClick={onOpenSettings}>
+            <span>옵션</span><small>화면 · 오디오 · 접근성</small>
+          </button>
+          <button type="button" className="mobile-menu-button mobile-menu-collection" onClick={onOpenCommunity}>
+            <span>컬렉션</span><small>커뮤니티 메이헴 연구소</small>
+          </button>
+        </nav>
+      </section>
 
       <button className="mobile-menu-uno" type="button" onClick={onOpenCommunity}>
         <span className="kicker">장착 중 · 메이헴 카드</span>

@@ -32,6 +32,19 @@ export type HandType = (typeof HAND_TYPES)[number];
 export type RunMode = "standard" | "endless";
 export type RunPhase = "playing" | "reward" | "shop" | "won" | "lost";
 export type RoundType = "small" | "big" | "boss";
+export type BossPenaltyId =
+  | "channel-jam"
+  | "hand-drain"
+  | "signal-surge"
+  | "hard-lock"
+  | "final-gate"
+  | "color-jam"
+  | "flint-cut"
+  | "pattern-lock"
+  | "mono-track"
+  | "one-shot"
+  | "narrow-hand"
+  | "forced-purge";
 export type JokerRarity = "common" | "uncommon" | "rare";
 
 export interface HandRule {
@@ -39,8 +52,9 @@ export interface HandRule {
   readonly name: string;
   readonly baseChips: number;
   readonly baseMultiplier: number;
-  readonly chipsPerLevel: number;
-  readonly multiplierPerLevel: number;
+  /** CORE level growth, as a fraction of the ORIGINAL base value per level (e.g. 0.003 = +0.3%/level). */
+  readonly chipGrowthRate: number;
+  readonly multGrowthRate: number;
 }
 
 export interface EvaluatedHand {
@@ -69,7 +83,30 @@ export type JokerId =
   | "cmyk-core"
   | "combo-compiler"
   | "hot-swap"
-  | "null-pointer";
+  | "null-pointer"
+  | "venom-drip"
+  | "volt-surge"
+  | "half-compile"
+  | "ice-cream-cache"
+  | "memory-buffer"
+  | "mystic-summit"
+  | "delayed-gratification"
+  | "fibonacci-routine"
+  | "loyalty-session"
+  | "jolly-routine"
+  | "zany-core"
+  | "mad-routine"
+  | "runner-process"
+  | "green-demon"
+  | "eight-ball-exploit"
+  | "bloodstone-driver"
+  | "reserved-slot"
+  | "turtle-bean-cache"
+  | "spare-trousers"
+  | "blueprint-protocol"
+  | "cavendish-overclock"
+  | "perkeos-echo"
+  | "stencil-core";
 
 export interface JokerDefinition {
   readonly id: JokerId;
@@ -128,6 +165,24 @@ export interface CommunityUnoCard {
   readonly negativeModules: readonly UnoNegativeModuleId[];
 }
 
+export interface HandUpgradeItem {
+  readonly id: string;
+  readonly kind: "hand-upgrade";
+  readonly handType: HandType;
+  readonly name: string;
+  readonly price: number;
+}
+
+export interface GhostItem {
+  readonly id: string;
+  readonly kind: "ghost";
+  readonly ghostId: GhostId;
+  readonly name: string;
+  readonly price: number;
+}
+
+export type StashedMayhemItem = CommunityUnoCard | HandUpgradeItem | GhostItem;
+
 export interface UnoValidationResult {
   readonly valid: boolean;
   readonly pointTotal: number;
@@ -144,11 +199,7 @@ export type ProtocolId =
   | "hype-amp"
   | "emergency-credit";
 
-export type GhostId =
-  | "dead-channel"
-  | "white-noise"
-  | "blackout"
-  | "forbidden-port";
+export type GhostId = "wild-signal" | "chaos-cache" | "bankrupt-bargain" | "spectrum-wash" | "universal-core";
 
 export type FirmwareId =
   | "expanded-mod-bay"
@@ -410,12 +461,15 @@ export type RunActionType =
   | "buy-protocol"
   | "buy-firmware"
   | "use-consumable"
+  | "use-hand-upgrade"
+  | "sell-stashed-item"
   | "choose-pack-card"
   | "take-pack-choices"
   | "upgrade-hand"
   | "sell-joker"
   | "reroll-shop"
   | "claim-reward"
+  | "continue-endless"
   | "set-hot-swap"
   | "next-round";
 
@@ -449,7 +503,7 @@ export interface RunState {
   /** Economy effects earned during this round and paid on reward claim. */
   readonly roundIncome?: number;
   readonly jokers: readonly JokerInstance[];
-  readonly communityUno: readonly CommunityUnoCard[];
+  readonly communityUno: readonly StashedMayhemItem[];
   readonly communityUnoPool: readonly CommunityUnoCard[];
   /** Shared two-slot inventory for PROTOCOL and GHOST cards. */
   readonly consumables?: readonly ConsumableInstance[];
@@ -458,6 +512,12 @@ export interface RunState {
   /** Optional penalties are omitted by legacy v1 saves. */
   readonly nextRoundHandPenalty?: number;
   readonly permanentDiscardPenalty?: number;
+  /** The boss effect rolled for the current/most recent boss round. Legacy saves omit it. */
+  readonly bossPenaltyId?: BossPenaltyId | null;
+  /** The CardColor jammed by a "color-jam" boss effect, rolled alongside bossPenaltyId. */
+  readonly bossDebuffColor?: CardColor | null;
+  /** The HandType a "mono-track" boss effect locked in from this round's first play. */
+  readonly bossLockedHandType?: HandType | null;
   readonly unoUsedThisAnte: boolean;
   readonly handLevels: Readonly<Record<HandType, number>>;
   readonly handHistory: readonly HandType[];

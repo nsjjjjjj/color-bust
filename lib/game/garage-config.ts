@@ -21,8 +21,6 @@ export const GARAGE_OFFER_COUNTS = {
   packs: 2,
 } as const;
 
-export const CONSUMABLE_SLOT_LIMIT = 2;
-
 export const TODAY_SIGNAL_WEIGHTS = {
   mod: 45,
   core: 30,
@@ -89,29 +87,35 @@ export const PROTOCOL_CONFIG: Readonly<Record<ProtocolId, UtilityCardConfig>> = 
 };
 
 export const GHOST_CONFIG: Readonly<Record<GhostId, UtilityCardConfig>> = {
-  "dead-channel": {
-    name: "데드 채널",
-    description: "카드 2장을 소거하고 첫 카드의 오버클럭 복제본 1장을 생성합니다.",
-    price: 0,
-    symbol: "†",
+  "wild-signal": {
+    name: "와일드 시그널",
+    description: "핸드에서 선택한 기본 카드 1장에 무작위 강화를 부여합니다.",
+    price: 7,
+    symbol: "?",
   },
-  "white-noise": {
-    name: "화이트 노이즈",
-    description: "카드 최대 5장을 한 색으로 바꾸지만 보유 코인의 절반을 잃습니다.",
+  "chaos-cache": {
+    name: "카오스 캐시",
+    description: "핸드에서 무작위 카드 1장을 버리고, 무작위 강화 숫자 카드 3장을 핸드에 추가합니다.",
     price: 0,
-    symbol: "W",
+    symbol: "4+",
   },
-  blackout: {
-    name: "블랙아웃",
-    description: "카드 최대 5장을 0으로 바꾸지만 다음 라운드 손패가 1장 줄어듭니다.",
+  "bankrupt-bargain": {
+    name: "파산 거래",
+    description: "무작위 레어 등급 MOD 1장을 생성하고 보유 코인을 0¢로 만듭니다.",
     price: 0,
-    symbol: "0",
+    symbol: "¢0",
   },
-  "forbidden-port": {
-    name: "금지된 포트",
-    description: "MOD 슬롯을 1칸 늘리지만 라운드당 버리기가 1회 줄어듭니다.",
+  "spectrum-wash": {
+    name: "스펙트럼 워시",
+    description: "핸드의 모든 카드를 무작위로 선택된 같은 색으로 전환합니다.",
     price: 0,
-    symbol: "!",
+    symbol: "◈",
+  },
+  "universal-core": {
+    name: "유니버설 코어",
+    description: "모든 족보 레벨을 1씩 올립니다.",
+    price: 0,
+    symbol: "LV+",
   },
 };
 
@@ -276,6 +280,7 @@ export const CARD_PACK_CONFIG: Readonly<
       readonly description: string;
       readonly price: number;
       readonly symbol: string;
+      readonly artSrc: string;
     }
   >
 > = {
@@ -284,60 +289,70 @@ export const CARD_PACK_CONFIG: Readonly<
     description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
     price: 4,
     symbol: "ST",
+    artSrc: "/art/packs/Standard Pack.png",
   },
   large: {
     name: "LARGE PACK",
     description: "숫자 카드 5장을 공개하고 2장을 선택합니다.",
     price: 7,
     symbol: "LG",
+    artSrc: "/art/packs/Large Pack.png",
   },
   premium: {
     name: "PREMIUM PACK",
     description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
     price: 9,
     symbol: "PR",
+    artSrc: "/art/packs/Premium Pack.png",
   },
   modifier: {
     name: "MODIFIER PACK",
     description: "MOD 3개를 공개하고 1개를 장착합니다.",
     price: 7,
     symbol: "MD",
+    artSrc: "/art/packs/Modifier Pack.png",
   },
   upgrade: {
     name: "UPGRADE PACK",
     description: "강화 효과 3개 중 1개를 골라 덱 카드에 부여합니다.",
     price: 6,
     symbol: "UP",
+    artSrc: "/art/packs/Upgrade Pack.png",
   },
   core: {
     name: "CORE PACK",
     description: "족보 CORE 3개를 공개하고 1개를 선택합니다.",
     price: 6,
     symbol: "CR",
+    artSrc: "/art/packs/Core Pack.png",
   },
   protocol: {
     name: "PROTOCOL PACK",
     description: "안전한 일회용 PROTOCOL 3개를 공개하고 1개를 선택합니다.",
     price: 5,
     symbol: "PT",
+    artSrc: "/art/packs/Protocol Pack.png",
   },
   ghost: {
     name: "GHOST PACK",
     description: "강력한 대가를 가진 GHOST 2개를 공개하고 1개를 선택합니다.",
     price: 7,
     symbol: "GH",
+    artSrc: "/art/packs/Ghost Pack.png",
   },
   supply: {
     name: "STANDARD PACK",
     description: "숫자 카드 3장을 공개하고 1장을 선택합니다.",
     price: 4,
     symbol: "ST",
+    artSrc: "/art/packs/Standard Pack.png",
   },
   glitch: {
     name: "PREMIUM PACK",
     description: "희귀 개조 카드 5장을 공개하고 2장을 선택합니다.",
     price: 9,
     symbol: "PR",
+    artSrc: "/art/packs/Premium Pack.png",
   },
 };
 

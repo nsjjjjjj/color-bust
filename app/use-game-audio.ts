@@ -10,11 +10,16 @@ export type SampledSoundEffect =
   | "card-play"
   | "card-draw"
   | "deck-setup"
+  | "hand-sort-rank"
+  | "hand-sort-suit"
   | "score"
   | "buy"
   | "uno"
   | "pack-open"
   | "pack-reveal"
+  | "round-score-settle"
+  | "cashout-claim"
+  | "cashout-tick"
   | "win"
   | "lose";
 
@@ -23,10 +28,10 @@ export type SynthSoundEffect =
   | "ui-open"
   | "ui-error"
   | "discard"
-  | "sort"
   | "reroll"
   | "sell"
   | "coin"
+  | "score-deposit"
   | "round-clear"
   | "round-start"
   | "boss-alert"
@@ -82,12 +87,17 @@ export interface ScoreTickOptions {
   readonly semitoneOffset?: number;
   readonly gain?: number;
   readonly maxVoices?: number;
+  /** Runs when the browser confirms that this score voice has started. */
+  readonly onStarted?: () => void;
 }
 
 export const BGM_CROSSFADE_MS = 550;
 export const DEFAULT_EFFECT_VOICE_LIMIT = 4;
 export const DEFAULT_SCORE_TICK_VOICE_LIMIT = 3;
 export const DEFAULT_SCORE_TICK_SEMITONES = 1.25;
+/** Five-card score sweep: 0, +2.5, +5, +7.5, and +10 semitones. */
+export const CARD_SCORE_TICK_SEMITONES = 2.5;
+export const MAX_CARD_SCORE_TICK_STEP = 4;
 /** `score.mp3` has a short encoded lead-in; skip it for a tighter card hit. */
 export const SCORE_EFFECT_START_OFFSET_SECONDS = 0.028;
 /** Normal score beats are 240ms, so the tick must release before the next hit. */
@@ -108,11 +118,18 @@ export const AUDIO_EFFECTS = {
   "card-play": { src: "/audio/card-play.mp3", gain: 0.82 },
   "card-draw": { src: "/audio/card-draw.mp3", gain: 0.68 },
   "deck-setup": { src: "/audio/deck-setup.mp3", gain: 0.82 },
+  // Sorting is a frequent action, so the physical card shuffle should sit
+  // behind the UI rather than cut through the music on every press.
+  "hand-sort-rank": { src: "/audio/hand-sort-rank.m4a", gain: 0.4 },
+  "hand-sort-suit": { src: "/audio/hand-sort-suit.m4a", gain: 0.4 },
   score: { src: "/audio/score.mp3", gain: 0.58 },
   buy: { src: "/audio/buy.m4a", gain: 0.72 },
   uno: { src: "/audio/uno.m4a", gain: 0.68 },
   "pack-open": { src: "/audio/pack-open.m4a", gain: 0.82 },
   "pack-reveal": { src: "/audio/pack-reveal.m4a", gain: 0.6 },
+  "round-score-settle": { src: "/audio/round-score-settle.mp3", gain: 0.62 },
+  "cashout-claim": { src: "/audio/cashout-claim.mp3", gain: 0.52 },
+  "cashout-tick": { src: "/audio/cashout-tick.mp3", gain: 0.44 },
   win: { src: "/audio/win.m4a", gain: 0.8 },
   lose: { src: "/audio/lose.m4a", gain: 0.72 },
 } as const satisfies Readonly<Record<SampledSoundEffect, AudioAsset | null>>;
@@ -136,10 +153,6 @@ export const SYNTH_EFFECTS = {
     { startHz: 280, endHz: 72, durationMs: 150, gain: 0.13, type: "sawtooth" },
     { startHz: 190, endHz: 55, delayMs: 24, durationMs: 118, gain: 0.08, type: "square" },
   ] },
-  sort: { gain: 0.4, cooldownMs: 65, tones: [
-    { startHz: 360, endHz: 440, durationMs: 55, gain: 0.09, type: "square" },
-    { startHz: 480, endHz: 590, delayMs: 46, durationMs: 58, gain: 0.08, type: "square" },
-  ] },
   reroll: { gain: 0.52, cooldownMs: 150, tones: [
     { startHz: 250, endHz: 760, durationMs: 145, gain: 0.11, type: "square" },
     { startHz: 520, endHz: 210, delayMs: 72, durationMs: 130, gain: 0.09, type: "triangle" },
@@ -151,6 +164,14 @@ export const SYNTH_EFFECTS = {
   coin: { gain: 0.48, cooldownMs: 55, tones: [
     { startHz: 880, endHz: 1320, durationMs: 105, gain: 0.11, type: "triangle" },
     { startHz: 1320, endHz: 1760, delayMs: 72, durationMs: 95, gain: 0.08, type: "sine" },
+  ] },
+  // The hand total is banking into the round counter: a brief arcade-style
+  // rising chime with a final bright click, distinct from card score ticks.
+  "score-deposit": { gain: 0.52, cooldownMs: 360, tones: [
+    { startHz: 392, endHz: 587, durationMs: 105, gain: 0.09, type: "square" },
+    { startHz: 587, endHz: 880, delayMs: 82, durationMs: 125, gain: 0.1, type: "triangle" },
+    { startHz: 880, endHz: 1319, delayMs: 182, durationMs: 155, gain: 0.08, type: "sine" },
+    { startHz: 1760, endHz: 1480, delayMs: 300, durationMs: 54, gain: 0.045, type: "square" },
   ] },
   "round-clear": { gain: 0.58, cooldownMs: 500, tones: [
     { startHz: 330, endHz: 440, durationMs: 150, gain: 0.09, type: "square" },
@@ -222,6 +243,18 @@ function releaseAudio(audio: HTMLAudioElement): void {
   audio.load();
 }
 
+function disableMediaPitchCorrection(audio: HTMLAudioElement): void {
+  // Browsers preserve the original pitch when playbackRate changes by default.
+  // Score ticks intentionally use playbackRate as their pitch control.
+  audio.preservesPitch = false;
+  const legacyAudio = audio as HTMLAudioElement & {
+    mozPreservesPitch?: boolean;
+    webkitPreservesPitch?: boolean;
+  };
+  if ("mozPreservesPitch" in legacyAudio) legacyAudio.mozPreservesPitch = false;
+  if ("webkitPreservesPitch" in legacyAudio) legacyAudio.webkitPreservesPitch = false;
+}
+
 type ScorePoolVoice = {
   readonly audio: HTMLAudioElement;
   readonly timers: Set<ReturnType<typeof setTimeout>>;
@@ -266,6 +299,7 @@ export class ScoreEffectPool {
       const audio = new Audio(this.options.src);
       audio.preload = "auto";
       audio.volume = 0;
+      disableMediaPitchCorrection(audio);
       audio.load();
       this.voices.push({ audio, timers: new Set(), callGain: 1 });
     }
@@ -288,7 +322,7 @@ export class ScoreEffectPool {
 
   play(
     eventToken: string,
-    options: { readonly playbackRate: number; readonly gain?: number },
+    options: { readonly playbackRate: number; readonly gain?: number; readonly onStarted?: () => void },
   ): boolean {
     if (this.playedTokens.has(eventToken)) return false;
     this.rememberToken(eventToken);
@@ -316,7 +350,9 @@ export class ScoreEffectPool {
       // Safari can reject a seek before metadata is ready. The preloaded pool
       // still removes allocation/decode latency, so starting at zero is safe.
     }
-    voice.audio.play().catch(() => this.stopVoice(voice));
+    voice.audio.play()
+      .then(() => options.onStarted?.())
+      .catch(() => this.stopVoice(voice));
     this.scheduleTailRelease(voice);
     return true;
   }
@@ -836,6 +872,7 @@ export function useGameAudio(scene: AudioScene) {
     return pool.play(eventToken, {
       playbackRate,
       gain: options.gain,
+      onStarted: options.onStarted,
     });
   }, [effectsEnabled, effectsVolume, getScorePool, settingsHydrated]);
 
