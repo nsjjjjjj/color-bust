@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 
 import {
+  effectiveHandChips,
+  effectiveHandMultiplier,
   HAND_RULES,
   JOKER_CATALOG,
   UNO_SLOT_LIMIT,
@@ -230,11 +232,15 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
   if (offer.kind === "hand-upgrade") {
     const rule = HAND_RULES[offer.handType];
     const level = run.handLevels[offer.handType];
+    const currentChips = effectiveHandChips(rule, level);
+    const nextChips = effectiveHandChips(rule, level + 1);
+    const currentMultiplier = effectiveHandMultiplier(rule, level);
+    const nextMultiplier = effectiveHandMultiplier(rule, level + 1);
     return {
       category: "족보 CORE",
       rarity: level >= 4 ? "rare" : "uncommon",
       name: rule.name,
-      effect: `Lv.${level} → Lv.${level + 1} · POWER +${rule.chipsPerLevel} · HYPE +${rule.multiplierPerLevel}`,
+      effect: `Lv.${level} → Lv.${level + 1} · POWER ${currentChips}→${nextChips} · HYPE ${currentMultiplier}→${nextMultiplier}`,
       detail: "이 런 동안 같은 족보를 낼 때마다 영구 적용됩니다.",
       symbol: "▲",
       meta: `CURRENT LEVEL ${level}`,
@@ -606,7 +612,7 @@ function choiceCopy(choice: PackChoice): {
     const rule = HAND_RULES[choice.handType];
     return {
       name: `${rule.name} CORE`,
-      effect: `해당 족보 POWER +${rule.chipsPerLevel} · HYPE +${rule.multiplierPerLevel}`,
+      effect: `해당 족보 기본 POWER +${(rule.chipGrowthRate * 100).toFixed(1)}% · 기본 HYPE +${(rule.multGrowthRate * 100).toFixed(1)}%`,
       symbol: "▲",
     };
   }
