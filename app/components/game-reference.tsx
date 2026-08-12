@@ -2,7 +2,8 @@
 
 import type { CSSProperties } from "react";
 
-import { HAND_RULES } from "../../lib/game/constants";
+import { effectiveHandChips, effectiveHandMultiplier, HAND_RULES } from "../../lib/game/constants";
+import { COLOR_LABELS } from "../../lib/game/colors";
 import {
   HAND_TYPES,
   type GameCard,
@@ -97,9 +98,8 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
               {HAND_TYPES.map((type) => {
                 const rule = HAND_RULES[type];
                 const level = Math.max(1, handLevels[type] ?? 1);
-                const levelOffset = level - 1;
-                const currentChips = rule.baseChips + rule.chipsPerLevel * levelOffset;
-                const currentMultiplier = rule.baseMultiplier + rule.multiplierPerLevel * levelOffset;
+                const currentChips = effectiveHandChips(rule, level);
+                const currentMultiplier = effectiveHandMultiplier(rule, level);
 
                 return (
                   <tr key={type}>

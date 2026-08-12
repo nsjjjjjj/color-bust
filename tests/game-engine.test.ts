@@ -9,6 +9,7 @@ import {
   buyHandUpgrade,
   choosePackCard,
   claimRoundReward,
+  continueEndlessRun,
   createRun,
   drawCards,
   evaluateHand,
@@ -58,8 +59,8 @@ test("scores zero as 10 chips and does not mutate previews", () => {
   assert.equal(JSON.stringify(original), before);
 });
 
-test("ships 20 jokers and balanced one-turn UNO modules", () => {
-  assert.equal(JOKER_IDS.length, 20);
+test("ships 43 jokers and balanced one-turn UNO modules", () => {
+  assert.equal(JOKER_IDS.length, 43);
   assert.equal(Object.keys(UNO_MODULE_CATALOG).length, 16);
   for (const card of DEFAULT_COMMUNITY_UNO_CARDS) {
     const validation = validateCommunityUnoCard(card);
@@ -82,6 +83,21 @@ test("finishes standard after 15 cleared rounds and continues endless to ante 6"
   }
   assert.equal(standard.phase, "won");
   assert.equal(standard.ante, 5);
+
+  const continued = continueEndlessRun(standard);
+  assert.equal(continued.mode, "endless");
+  assert.equal(continued.phase, "shop");
+  assert.deepEqual(continued.deck, standard.deck);
+  assert.deepEqual(continued.jokers, standard.jokers);
+  assert.deepEqual(continued.communityUno, standard.communityUno);
+  assert.deepEqual(continued.handLevels, standard.handLevels);
+  assert.equal(continued.coins, standard.coins);
+  const endlessFromStandard = nextRound(continued);
+  assert.equal(endlessFromStandard.phase, "playing");
+  assert.equal(endlessFromStandard.ante, 6);
+  assert.equal(endlessFromStandard.round, "small");
+  assert.equal(endlessFromStandard.target, 4050);
+  assert.notEqual(endlessFromStandard.target, 500);
 
   let endless = createRun({ seed: "endless-15", mode: "endless" });
   for (let index = 0; index < 15; index += 1) {
@@ -262,4 +278,17 @@ test("takes modifier and upgrade pack rewards through their own acquisition path
   assert.ok(target);
   shop = takePackChoices(shop, [upgrade.id], target.id);
   assert.ok(shop.deck!.find((card) => card.id === target.id)?.enhancement);
+});
+
+test("consumes and removes a MAYHEM card from communityUno upon play", () => {
+  const starter = DEFAULT_COMMUNITY_UNO_CARDS[0];
+  const run = createRun({ seed: "uno-consume", starterUno: starter });
+  assert.equal(run.communityUno.length, 1);
+
+  const result = playHand(run, [run.hand[0].id], {
+    unoCardId: starter.id,
+    calledColor: "red",
+  });
+  assert.equal(result.state.communityUno.length, 0);
+  assert.ok(!result.state.communityUno.some((card) => card.id === starter.id));
 });

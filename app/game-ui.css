@@ -1366,14 +1366,15 @@
 .modifier-rail-tooltip {
   position: absolute;
   z-index: 100;
-  right: calc(100% + 12px);
-  top: 50%;
+  right: auto;
+  top: calc(100% + 12px);
+  left: 0;
   width: 310px;
   display: grid;
   gap: 10px;
   padding: 12px;
   border: 3px solid var(--dm-effect);
-  transform: translateY(-50%);
+  transform: none;
   color: var(--dm-text);
   background: #0b0e13;
   box-shadow: 7px 7px var(--dm-shadow);
@@ -1401,6 +1402,18 @@
 .modifier-rail-module-negative { border-left-color: var(--dm-danger); }
 .modifier-rail-module-negative b { color: #e77c73; }
 .modifier-rail-module i { color: var(--dm-score); font-size: 6px; font-style: normal; }
+
+.modifier-rail-tooltip-sell {
+  width: 100%;
+  padding: 8px;
+  border: 2px solid var(--dm-score);
+  color: var(--dm-score);
+  background: rgba(230, 189, 69, .1);
+  font: 800 9px/1 ui-monospace, monospace;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+.modifier-rail-tooltip-sell:hover { background: rgba(230, 189, 69, .2); }
 
 .modifier-rail-summary {
   display: grid;

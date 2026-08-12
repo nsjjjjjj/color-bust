@@ -1,9 +1,11 @@
-import { HAND_RULES } from "./constants";
+import { effectiveHandChips, effectiveHandMultiplier, HAND_RULES } from "./constants";
 import { CARD_ENHANCEMENT_CONFIG } from "./garage-config";
 import { evaluateHand } from "./hands";
 import { applyJokers } from "./jokers";
+import { jokerSlotLimitFor } from "./run-upgrades";
 import type {
   CardColor,
+  CommunityUnoCard,
   GameCard,
   JokerInstance,
   PlayHandOptions,
@@ -17,17 +19,19 @@ export interface CalculatedHandScore {
   readonly breakdown: ScoreBreakdown;
   readonly updatedJokers: readonly JokerInstance[];
   readonly usedUnoCardId?: string;
+  /** RNG cursor after probability-trigger MODs consumed their rolls. */
+  readonly rngState: number;
 }
 
-function findUnoCard(state: RunState, cardId: string) {
+function findUnoCard(state: RunState, cardId: string): CommunityUnoCard {
   const card = state.communityUno.find((candidate) => candidate.id === cardId);
-  if (!card) {
+  if (!card || ("kind" in card && card.kind === "hand-upgrade")) {
     throw new GameRuleError(
       "UNO_NOT_OWNED",
       "보유하고 있지 않은 커뮤니티 UNO 카드입니다.",
     );
   }
-  return card;
+  return card as CommunityUnoCard;
 }
 
 export function calculateHandScore(
@@ -40,20 +44,20 @@ export function calculateHandScore(
   const scoringCards = selectedCards.filter((card) => scoringIds.has(card.id));
   const handRule = HAND_RULES[evaluated.type];
   const handLevel = state.handLevels[evaluated.type];
-  const baseChips =
-    handRule.baseChips + handRule.chipsPerLevel * Math.max(0, handLevel - 1);
-  const baseMultiplier =
-    handRule.baseMultiplier +
-    handRule.multiplierPerLevel * Math.max(0, handLevel - 1);
+  const baseChips = effectiveHandChips(handRule, handLevel);
+  const baseMultiplier = effectiveHandMultiplier(handRule, handLevel);
 
   const jokerResult = applyJokers({
     jokers: state.jokers,
     selectedCards,
     scoringCards,
+    hand: state.hand,
     evaluatedHand: evaluated,
     handHistory: state.handHistory,
     handsLeftBeforePlay: state.handsLeft,
     discardsLeft: state.discardsLeft,
+    emptyJokerSlots: Math.max(0, jokerSlotLimitFor(state) - state.jokers.length),
+    rngState: state.rngState,
   });
 
   let cardChipBonus = 0;
@@ -90,12 +94,6 @@ export function calculateHandScore(
   let usedUnoCardId: string | undefined;
 
   if (options.unoCardId) {
-    if (state.unoUsedThisAnte) {
-      throw new GameRuleError(
-        "UNO_ALREADY_USED",
-        "커뮤니티 UNO 카드는 앤티마다 한 번만 사용할 수 있습니다.",
-      );
-    }
     if (!options.calledColor) {
       throw new GameRuleError(
         "UNO_COLOR_REQUIRED",
@@ -148,5 +146,6 @@ export function calculateHandScore(
     },
     updatedJokers: jokerResult.updatedJokers,
     usedUnoCardId,
+    rngState: jokerResult.rngState,
   };
 }
