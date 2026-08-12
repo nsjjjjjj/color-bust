@@ -5,9 +5,11 @@ import { useId, useRef, useState } from "react";
 import {
   JOKER_CATALOG,
   JOKER_SLOT_LIMIT,
+  CARD_COLORS,
   UNO_MODULE_CATALOG,
   UNO_SLOT_LIMIT,
 } from "../../lib/game/constants";
+import { COLOR_IDENTITIES, COLOR_LABELS } from "../../lib/game/colors";
 import type {
   AppliedEffect,
   CardColor,
@@ -49,18 +51,16 @@ const RARITY_LABELS = {
   rare: "RARE",
 } as const;
 
-const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
-  red: "빨강",
-  blue: "파랑",
-  green: "초록",
-  yellow: "노랑",
-};
-
 export interface ModifierRailProps {
   run: RunState;
   /** The hand currently resolving, or the most recently resolved hand. */
   breakdown?: ScoreBreakdown | null;
   scoreEvent?: ScoreEvent | null;
+  selectedUnoId?: string | null;
+  calledColor?: CardColor;
+  disabled?: boolean;
+  onSelectUno?: (id: string | null) => void;
+  onCallColor?: (color: CardColor) => void;
   className?: string;
 }
 
@@ -110,13 +110,22 @@ function unoPointTotal(card: CommunityUnoCard): number {
   );
 }
 
-export function ModifierRail({ run, breakdown, scoreEvent, className }: ModifierRailProps) {
+export function ModifierRail({
+  run,
+  breakdown,
+  scoreEvent,
+  selectedUnoId = null,
+  calledColor = "red",
+  disabled = false,
+  onSelectUno,
+  onCallColor,
+  className,
+}: ModifierRailProps) {
   const reactId = safeId(useId());
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
   const pointerOpenedTooltip = useRef<string | null>(null);
   const appliedJokerEffects = breakdown?.appliedJokers ?? [];
   const appliedUno = breakdown?.uno;
-  const appliedCount = appliedJokerEffects.length + (appliedUno ? 1 : 0);
   const outerClassName = ["modifier-rail-root", className].filter(Boolean).join(" ");
 
   const showTooltip = (key: string) => setOpenTooltip(key);
@@ -126,14 +135,6 @@ export function ModifierRail({ run, breakdown, scoreEvent, className }: Modifier
 
   return (
     <aside className={outerClassName} aria-label="보유 효과와 이번 핸드 적용 상태">
-      <header className="modifier-rail-header">
-        <span className="modifier-rail-header-icon" aria-hidden="true">✦</span>
-        <div className="modifier-rail-header-copy">
-          <strong>보유 효과</strong>
-          <small>MOD {run.jokers.length} · MAYHEM {run.communityUno.length}</small>
-        </div>
-      </header>
-
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-jokers-title`}>
         <header className="modifier-rail-section-header">
           <h2 id={`${reactId}-jokers-title`}>MOD</h2>
@@ -242,19 +243,15 @@ export function ModifierRail({ run, breakdown, scoreEvent, className }: Modifier
             );
           })}
 
-          {Array.from(
-            { length: Math.max(0, JOKER_SLOT_LIMIT - run.jokers.length) },
-            (_, index) => (
+          {run.jokers.length < JOKER_SLOT_LIMIT && (
               <div
                 className="modifier-rail-slot modifier-rail-empty-slot"
                 role="img"
-                aria-label={`빈 MOD 슬롯 ${run.jokers.length + index + 1}`}
-                key={`empty-joker-${index}`}
+                aria-label={`빈 MOD 슬롯 ${JOKER_SLOT_LIMIT - run.jokers.length}개`}
               >
                 <span aria-hidden="true">+</span>
-                <small>빈 슬롯</small>
+                <small>{JOKER_SLOT_LIMIT - run.jokers.length}칸</small>
               </div>
-            ),
           )}
         </div>
       </section>
@@ -269,19 +266,24 @@ export function ModifierRail({ run, breakdown, scoreEvent, className }: Modifier
             const key = `uno-${card.id}`;
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
             const isApplied = appliedUno?.cardId === card.id;
+            const isArmed = selectedUnoId === card.id;
             const isOpen = openTooltip === key;
             const points = unoPointTotal(card);
             const condition = run.unoUsedThisAnte
-              ? "이번 앤티 사용 완료"
-              : "사용 가능 · 앤티당 1회";
-            const statusLabel = isApplied ? "이번 핸드 적용됨" : "이번 핸드 미적용";
+              ? "이번 스테이지 사용 완료"
+              : "사용 가능 · 스테이지당 1회";
+            const statusLabel = isApplied
+              ? "이번 핸드 적용됨"
+              : isArmed
+                ? `이번 핸드 준비 · ${COLOR_IDENTITIES[calledColor].koreanColor}`
+                : "이번 핸드 미적용";
             const appliedModuleIds = new Set(
               isApplied ? appliedUno.appliedEffects.map((effect) => effect.sourceId) : [],
             );
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
+                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={card.id}
                 onMouseEnter={() => showTooltip(key)}
                 onMouseLeave={(event) => {
@@ -323,7 +325,7 @@ export function ModifierRail({ run, breakdown, scoreEvent, className }: Modifier
                     <small>버전 {card.version} · {points > 0 ? "+" : ""}{points}</small>
                   </span>
                   <i className="modifier-rail-slot-status" aria-hidden="true">
-                    {isApplied ? "적용" : run.unoUsedThisAnte ? "사용함" : "1회"}
+                    {isApplied ? "적용" : isArmed ? "이번 핸드" : run.unoUsedThisAnte ? "사용함" : "1회"}
                   </i>
                 </button>
 
@@ -369,63 +371,52 @@ export function ModifierRail({ run, breakdown, scoreEvent, className }: Modifier
                       );
                     })}
                   </ul>
+                  {!run.unoUsedThisAnte && (
+                    <div className="modifier-rail-mayhem-actions">
+                      <span>호출 색상</span>
+                      <div className="modifier-rail-mayhem-colors" role="group" aria-label="메이헴 호출 색상">
+                        {CARD_COLORS.map((color) => (
+                          <button
+                            type="button"
+                            key={color}
+                            className={`is-${color}${calledColor === color ? " is-active" : ""}`}
+                            aria-label={`${COLOR_IDENTITIES[color].koreanColor} 호출`}
+                            aria-pressed={calledColor === color}
+                            disabled={disabled}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => onCallColor?.(color)}
+                          >
+                            {COLOR_IDENTITIES[color].short}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className={`modifier-rail-mayhem-use${isArmed ? " is-cancel" : ""}`}
+                        disabled={disabled}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => onSelectUno?.(isArmed ? null : card.id)}
+                      >
+                        {isArmed ? "사용 취소" : "이번 핸드에 사용"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             );
           })}
 
-          {Array.from(
-            { length: Math.max(0, UNO_SLOT_LIMIT - run.communityUno.length) },
-            (_, index) => (
+          {run.communityUno.length < UNO_SLOT_LIMIT && (
               <div
                 className="modifier-rail-slot modifier-rail-empty-slot modifier-rail-empty-uno-slot"
                 role="img"
-                aria-label={`빈 커뮤니티 효과 카드 슬롯 ${run.communityUno.length + index + 1}`}
-                key={`empty-uno-${index}`}
+                aria-label={`빈 메이헴 카드 슬롯 ${UNO_SLOT_LIMIT - run.communityUno.length}개`}
               >
                 <span aria-hidden="true">M</span>
-                <small>빈 슬롯</small>
+                <small>{UNO_SLOT_LIMIT - run.communityUno.length}칸</small>
               </div>
-            ),
           )}
         </div>
-      </section>
-
-      <section className="modifier-rail-summary" aria-live="polite" aria-label="이번 핸드 적용 효과 요약">
-        <header className="modifier-rail-summary-header">
-          <span>제출 결과</span>
-          <strong>{breakdown ? `효과 ${appliedCount}개` : "비공개"}</strong>
-        </header>
-        {!breakdown && (
-          <p className="modifier-rail-summary-empty">카드를 내면 적용 결과를 표시합니다.</p>
-        )}
-        {breakdown && appliedCount === 0 && (
-          <p className="modifier-rail-summary-empty">현재 조건을 만족한 효과가 없습니다.</p>
-        )}
-        {breakdown && appliedCount > 0 && (
-          <ul className="modifier-rail-summary-effects">
-            {appliedJokerEffects.map((effect, index) => (
-              <li key={`joker-effect-${effect.sourceId}-${index}`}>
-                <span className="modifier-rail-summary-effect-icon" aria-hidden="true">J</span>
-                <span>
-                  <b>{effect.sourceName}</b>
-                  <small>{mayhemCopy(effect.description)}</small>
-                </span>
-                <strong>{effectValue(effect)}</strong>
-              </li>
-            ))}
-            {appliedUno && (
-              <li className="modifier-rail-summary-uno-effect">
-                <span className="modifier-rail-summary-effect-icon" aria-hidden="true">M</span>
-                <span>
-                  <b>{appliedUno.cardName}</b>
-                  <small>{COLOR_LABELS[appliedUno.calledColor]} 호출</small>
-                </span>
-                <strong>{signed(appliedUno.scoreAfterUno - appliedUno.scoreBeforeUno)}</strong>
-              </li>
-            )}
-          </ul>
-        )}
       </section>
     </aside>
   );

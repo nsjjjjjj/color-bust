@@ -134,6 +134,48 @@ export interface UnoValidationResult {
   readonly errors: readonly string[];
 }
 
+export type ProtocolId =
+  | "circuit-cut"
+  | "signal-clone"
+  | "channel-rewire"
+  | "voltage-up"
+  | "voltage-down"
+  | "power-cell"
+  | "hype-amp"
+  | "emergency-credit";
+
+export type GhostId =
+  | "dead-channel"
+  | "white-noise"
+  | "blackout"
+  | "forbidden-port";
+
+export type FirmwareId =
+  | "expanded-mod-bay"
+  | "hand-memory"
+  | "recycle-unit"
+  | "backup-power"
+  | "wholesale-link"
+  | "reroll-cache"
+  | "signal-scanner"
+  | "reward-amplifier";
+
+export interface ProtocolConsumable {
+  readonly instanceId: string;
+  readonly kind: "protocol";
+  readonly protocolId: ProtocolId;
+  readonly acquiredRound: number;
+}
+
+export interface GhostConsumable {
+  readonly instanceId: string;
+  readonly kind: "ghost";
+  readonly ghostId: GhostId;
+  readonly acquiredRound: number;
+}
+
+export type ConsumableInstance = ProtocolConsumable | GhostConsumable;
+
 export interface AppliedEffect {
   readonly sourceId: string;
   readonly sourceName: string;
@@ -206,6 +248,20 @@ export interface UnoShopOffer {
   readonly card: CommunityUnoCard;
 }
 
+export interface ProtocolShopOffer {
+  readonly id: string;
+  readonly kind: "protocol";
+  readonly price: number;
+  readonly protocolId: ProtocolId;
+}
+
+export interface FirmwareShopOffer {
+  readonly id: string;
+  readonly kind: "firmware";
+  readonly price: number;
+  readonly firmwareId: FirmwareId;
+}
+
 export type DeckWorkKind =
   | "remove"
   | "clone"
@@ -229,6 +285,9 @@ export type CardPackKind =
   | "premium"
   | "modifier"
   | "upgrade"
+  | "core"
+  | "protocol"
+  | "ghost"
   /** Legacy save aliases. New shops never generate these values. */
   | "supply"
   | "glitch";
@@ -244,12 +303,22 @@ export type ShopOffer =
   | JokerShopOffer
   | HandUpgradeShopOffer
   | UnoShopOffer
+  | ProtocolShopOffer
+  | FirmwareShopOffer
   | DeckWorkShopOffer
   | CardPackShopOffer;
 
 export interface ShopState {
   readonly id: string;
   readonly offers: readonly ShopOffer[];
+  /** IDs for the two rerollable Today's Signal slots. Legacy saves omit this. */
+  readonly signalOfferIds?: readonly string[];
+  /** The fixed Deck Lab slot. New shops use a firmware offer here. */
+  readonly deckLabOfferId?: string;
+  /** The two fixed Pack Bay slots. */
+  readonly packOfferIds?: readonly string[];
+  /** Guaranteed first-shop MAYHEM offers stay through signal rerolls until bought. */
+  readonly lockedSignalOfferIds?: readonly string[];
   /** Purchased slots stay visible until the player rerolls or leaves. */
   readonly soldOfferIds?: readonly string[];
   readonly rerollCost: number;
@@ -277,10 +346,34 @@ export interface UpgradePackChoice {
   readonly enhancement: CardEnhancement;
 }
 
+export interface CorePackChoice {
+  readonly id: string;
+  readonly kind: "core";
+  readonly rarity: CardRarity;
+  readonly handType: HandType;
+}
+
+export interface ProtocolPackChoice {
+  readonly id: string;
+  readonly kind: "protocol";
+  readonly rarity: CardRarity;
+  readonly protocolId: ProtocolId;
+}
+
+export interface GhostPackChoice {
+  readonly id: string;
+  readonly kind: "ghost";
+  readonly rarity: CardRarity;
+  readonly ghostId: GhostId;
+}
+
 export type PackChoice =
   | CardPackChoice
   | ModifierPackChoice
-  | UpgradePackChoice;
+  | UpgradePackChoice
+  | CorePackChoice
+  | ProtocolPackChoice
+  | GhostPackChoice;
 
 export interface PackOpening {
   readonly offerId: string;
@@ -314,6 +407,9 @@ export type RunActionType =
   | "buy-uno"
   | "buy-deck-work"
   | "buy-card-pack"
+  | "buy-protocol"
+  | "buy-firmware"
+  | "use-consumable"
   | "choose-pack-card"
   | "take-pack-choices"
   | "upgrade-hand"
@@ -355,6 +451,13 @@ export interface RunState {
   readonly jokers: readonly JokerInstance[];
   readonly communityUno: readonly CommunityUnoCard[];
   readonly communityUnoPool: readonly CommunityUnoCard[];
+  /** Shared two-slot inventory for PROTOCOL and GHOST cards. */
+  readonly consumables?: readonly ConsumableInstance[];
+  /** Run-wide Deck Lab upgrades. Duplicates represent stackable firmware. */
+  readonly firmware?: readonly FirmwareId[];
+  /** Optional penalties are omitted by legacy v1 saves. */
+  readonly nextRoundHandPenalty?: number;
+  readonly permanentDiscardPenalty?: number;
   readonly unoUsedThisAnte: boolean;
   readonly handLevels: Readonly<Record<HandType, number>>;
   readonly handHistory: readonly HandType[];
@@ -376,6 +479,11 @@ export interface CreateRunOptions {
 export interface PlayHandOptions {
   readonly unoCardId?: string;
   readonly calledColor?: CardColor;
+}
+
+export interface UseConsumableOptions {
+  readonly targetCardIds?: readonly string[];
+  readonly targetColor?: CardColor;
 }
 
 export interface PlayHandResult {

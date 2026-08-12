@@ -3,13 +3,16 @@
 import type { CSSProperties } from "react";
 
 import { HAND_RULES } from "../../lib/game/constants";
+import { COLOR_LABELS } from "../../lib/game/colors";
 import {
   HAND_TYPES,
   type CardColor,
   type GameCard,
+  type HandType,
   type RunState,
 } from "../../lib/game/types";
 import { Modal } from "./modal";
+import { DeckCardGrid } from "./deck-card-grid";
 import { PILE_COLOR_ACCESSIBILITY, summarizePile } from "./pile-inspector";
 
 const bodyStyle: CSSProperties = {
@@ -26,7 +29,7 @@ const tableWrapStyle: CSSProperties = {
 
 const tableStyle: CSSProperties = {
   width: "100%",
-  minWidth: 500,
+  minWidth: 720,
   borderCollapse: "collapse",
   fontSize: 12,
   textAlign: "left",
@@ -59,9 +62,21 @@ export interface HandGuideProps {
   onClose: () => void;
 }
 
+const HAND_REQUIREMENTS: Readonly<Record<HandType, string>> = {
+  "high-card": "어떤 족보도 없을 때 가장 높은 숫자 1장으로 득점",
+  pair: "같은 숫자 2장",
+  "two-pair": "서로 다른 같은 숫자 묶음 2개",
+  "three-of-a-kind": "같은 숫자 3장",
+  straight: "이어지는 숫자 5장",
+  flush: "같은 채널 카드 5장",
+  "full-house": "같은 숫자 3장과 다른 같은 숫자 2장",
+  "four-of-a-kind": "같은 숫자 4장",
+  "straight-flush": "같은 채널이면서 이어지는 숫자 5장",
+};
+
 export function HandGuide({ handLevels, onClose }: HandGuideProps) {
   return (
-    <Modal title="족보 가이드" onClose={onClose} wide>
+    <Modal title="런 정보 · 족보" onClose={onClose} wide>
       <div style={bodyStyle}>
         <p style={{ margin: 0, color: "var(--muted)", fontSize: 11, lineHeight: 1.6 }}>
           족보의 기본 능력치와 이번 런에서 적용되는 현재 레벨을 확인하세요.
@@ -74,6 +89,7 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
             <thead>
               <tr>
                 <th scope="col" style={headerCellStyle}>족보</th>
+                <th scope="col" style={headerCellStyle}>만드는 법</th>
                 <th scope="col" style={headerCellStyle}>기본 칩</th>
                 <th scope="col" style={headerCellStyle}>기본 배수</th>
                 <th scope="col" style={headerCellStyle}>현재 레벨</th>
@@ -91,6 +107,7 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
                 return (
                   <tr key={type}>
                     <th scope="row" style={{ ...cellStyle, fontWeight: 800 }}>{rule.name}</th>
+                    <td style={{ ...cellStyle, color: "var(--muted)", whiteSpace: "normal", lineHeight: 1.5 }} title={HAND_REQUIREMENTS[type]}>{HAND_REQUIREMENTS[type]}</td>
                     <td style={{ ...cellStyle, ...numberStyle, color: "var(--blue)" }}>{rule.baseChips}</td>
                     <td style={{ ...cellStyle, ...numberStyle, color: "var(--red)" }}>×{rule.baseMultiplier}</td>
                     <td style={{ ...cellStyle, ...numberStyle }}>레벨 {level}</td>
@@ -111,41 +128,36 @@ export function HandGuide({ handLevels, onClose }: HandGuideProps) {
 }
 
 export interface DeckInspectorProps {
+  /** Authoritative persistent run deck. Pack additions may not be in a round zone yet. */
+  deck?: readonly GameCard[];
   drawPile: readonly GameCard[];
   discardPile: readonly GameCard[];
   hand: readonly GameCard[];
   onClose: () => void;
 }
 
-const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
-  red: "빨강",
-  blue: "파랑",
-  green: "초록",
-  yellow: "노랑",
-};
-
-export function DeckInspector({ drawPile, discardPile, hand, onClose }: DeckInspectorProps) {
+export function DeckInspector({ deck, drawPile, discardPile, hand, onClose }: DeckInspectorProps) {
   const piles = [
     { id: "draw", label: "드로우 더미", cards: drawPile },
     { id: "discard", label: "버린 더미", cards: discardPile },
     { id: "hand", label: "현재 손패", cards: hand },
   ] as const;
-  const allCards = [...drawPile, ...discardPile, ...hand];
+  const zoneCards = [...drawPile, ...discardPile, ...hand];
+  const allCards = deck?.length ? [...deck] : zoneCards;
   const deckSize = allCards.length;
   const totalSummary = summarizePile(allCards);
-  const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+  const ranks = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
   const colorOrder: readonly CardColor[] = ["red", "yellow", "green", "blue"];
   const sortedPiles = piles.map((pile) => ({
     ...pile,
     summary: summarizePile(pile.cards),
-    sortedCards: [...pile.cards].sort((left, right) => left.rank - right.rank || colorOrder.indexOf(left.color) - colorOrder.indexOf(right.color)),
   }));
 
   return (
     <Modal title="덱 인스펙터" onClose={onClose} wide>
       <div className="deck-inspector-layout">
         <p className="deck-inspector-summary">
-          현재 숫자 덱 <strong>{deckSize}장</strong>의 위치와 구성을 보여줍니다. 커뮤니티 효과 카드는 숫자 덱과 분리되어 오른쪽 효과 슬롯에 보관됩니다.
+          현재 런 덱 <strong>{deckSize}장</strong>을 실제 카드 모습으로 보여줍니다. 팩에서 막 획득한 카드도 같은 덱 원본에서 즉시 반영됩니다.
         </p>
 
         <section className="deck-inspector-piles" aria-label="위치별 카드 분포">
@@ -156,8 +168,8 @@ export function DeckInspector({ drawPile, discardPile, hand, onClose }: DeckInsp
                 {colorOrder.map((color) => (
                   <span
                     key={color}
-                    title={`${PILE_COLOR_ACCESSIBILITY[color].koreanLabel} ${COLOR_LABELS[color]} ${pile.summary.byColor[color]}장`}
-                    aria-label={`${PILE_COLOR_ACCESSIBILITY[color].koreanLabel} ${COLOR_LABELS[color]} ${pile.summary.byColor[color]}장`}
+                    title={`${COLOR_LABELS[color]} (${PILE_COLOR_ACCESSIBILITY[color].colorLabel}) ${pile.summary.byColor[color]}장`}
+                    aria-label={`${COLOR_LABELS[color]} ${PILE_COLOR_ACCESSIBILITY[color].colorLabel} ${pile.summary.byColor[color]}장`}
                   >
                     <b aria-hidden="true">{PILE_COLOR_ACCESSIBILITY[color].symbol}</b>
                     {pile.summary.byColor[color]}
@@ -175,26 +187,7 @@ export function DeckInspector({ drawPile, discardPile, hand, onClose }: DeckInsp
           </div>
         </section>
 
-        <section className="deck-inspector-card-groups" aria-label="위치별 카드 목록">
-          {sortedPiles.map((pile) => (
-            <article className="deck-inspector-card-group" key={pile.id}>
-              <h3>{pile.label} · {pile.cards.length}</h3>
-              <div className="deck-inspector-card-list">
-                {pile.sortedCards.map((card) => (
-                  <span
-                    className={`deck-inspector-card card-${card.color}`}
-                    key={card.id}
-                    title={`${PILE_COLOR_ACCESSIBILITY[card.color].koreanLabel} ${COLOR_LABELS[card.color]} ${card.rank}`}
-                    aria-label={`${PILE_COLOR_ACCESSIBILITY[card.color].koreanLabel} ${COLOR_LABELS[card.color]} ${card.rank} 카드`}
-                  >
-                    <b>{card.rank}</b>
-                  </span>
-                ))}
-                {pile.cards.length === 0 && <small>비어 있음</small>}
-              </div>
-            </article>
-          ))}
-        </section>
+        <DeckCardGrid cards={allCards} ariaLabel="현재 런 덱 전체 카드" />
       </div>
     </Modal>
   );

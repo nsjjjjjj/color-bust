@@ -1,0 +1,46 @@
+services:
+  app:
+    image: ${DECK_IMAGE:-deck-mayhem:latest}
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /app/data
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+    volumes:
+      - deck-data:/app/data
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  caddy:
+    image: caddy:2.10-alpine
+    profiles: ["domain"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    command: tunnel --no-autoupdate --protocol http2 --url http://app:3000
+
+volumes:
+  deck-data:
+    name: deck-mayhem-data
+  caddy-data:
+  caddy-config:

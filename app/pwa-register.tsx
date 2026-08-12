@@ -14,7 +14,7 @@ export function PwaRegister() {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       const localHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-      if (import.meta.env.DEV || localHost) {
+      if (process.env.NODE_ENV !== "production" || localHost) {
         // A production service worker can outlive an earlier local preview and
         // cache Vite's CSS/HMR wrappers under the same URL. Remove both the
         // registration and DECK MAYHEM caches before continuing local work.

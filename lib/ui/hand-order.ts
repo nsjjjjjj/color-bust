@@ -55,3 +55,16 @@ export function sortHandOnce(
     })
     .map((card) => card.id);
 }
+
+/**
+ * Presents a hand using the most recently chosen sort. Unlike a one-shot
+ * order, this intentionally includes replacement cards drawn afterwards.
+ */
+export function orderHandWithSort(
+  hand: readonly GameCard[],
+  currentOrder: readonly string[],
+  sort: HandSort | null,
+): GameCard[] {
+  if (!sort) return orderHand(hand, currentOrder);
+  return orderHand(hand, sortHandOnce(hand, currentOrder, sort));
+}

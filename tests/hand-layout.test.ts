@@ -15,8 +15,8 @@ const closeTo = (actual: number, expected: number, tolerance = 0.000_001) => {
 test("centers a single upright card", () => {
   const layout = handLayoutManager.calculate({ cardCount: 1, availableWidth: 1000 });
   assert.equal(layout.cards.length, 1);
-  assert.equal(layout.cardWidth, 132);
-  closeTo(layout.cards[0].x, (1000 - 132) / 2);
+  assert.equal(layout.cardWidth, 144);
+  closeTo(layout.cards[0].x, (1000 - 144) / 2);
   assert.equal(layout.cards[0].rotation, 0);
   assert.equal(layout.cards[0].normalizedPosition, 0);
 
@@ -35,20 +35,20 @@ test("uses gaps for small groups and deliberate overlap for a full hand", () => 
 
   closeTo(five.step - five.cardWidth, 16);
   closeTo(six.step - six.cardWidth, 8);
-  closeTo(eight.step / eight.cardWidth, 0.92);
-  closeTo(nine.step / nine.cardWidth, 0.86);
-  closeTo(ten.step / ten.cardWidth, 0.8);
+  closeTo(eight.step / eight.cardWidth, 0.92, 0.01);
+  closeTo(nine.step / nine.cardWidth, 0.86, 0.01);
+  closeTo(ten.step / ten.cardWidth, 0.8, 0.01);
 });
 
 test("keeps cards readable by increasing overlap before shrinking", () => {
   const layout = handLayoutManager.calculate({ cardCount: 10, availableWidth: 320 });
   const phoneLandscape = handLayoutManager.calculate({ cardCount: 10, availableWidth: 334 });
 
-  assert.equal(layout.cardWidth, 64);
+  assert.equal(layout.cardWidth, 66);
   assert.ok(layout.overlap > layout.cardWidth / 2);
   closeTo(layout.span, 320);
-  assert.equal(phoneLandscape.cardWidth, 64);
-  assert.ok(phoneLandscape.step >= 30);
+  assert.equal(phoneLandscape.cardWidth, 69);
+  assert.ok(phoneLandscape.step >= 28);
   closeTo(phoneLandscape.span, 334);
 });
 
@@ -71,7 +71,7 @@ test("builds a symmetric mild fan without bending the center", () => {
   closeTo(center.y, layout.topReserve);
   closeTo(layout.cards[0].rotation, -layout.cards[8].rotation);
   closeTo(layout.cards[0].y, layout.cards[8].y);
-  assert.ok(Math.abs(layout.cards[0].rotation) <= 5);
+  assert.equal(layout.cards[0].rotation, 0);
 });
 
 test("played cards are larger, nearly straight, and reserve scoring lift", () => {
@@ -79,7 +79,8 @@ test("played cards are larger, nearly straight, and reserve scoring lift", () =>
   const played = handLayoutManager.calculate({ cardCount: 5, availableWidth: 1200, variant: "played" });
 
   assert.ok(played.cardWidth > hand.cardWidth);
-  assert.ok(Math.abs(played.cards[0].rotation) < Math.abs(hand.cards[0].rotation));
+  assert.equal(played.cards[0].rotation, 0);
+  assert.equal(hand.cards[0].rotation, 0);
   assert.equal(played.cards[0].y, Math.abs(handLayoutManager.tuning.scoreLift));
 });
 

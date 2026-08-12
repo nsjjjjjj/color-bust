@@ -19,6 +19,256 @@
   --dm-shadow: #020405;
 }
 
+/* Balatro-inspired scoring theatre -----------------------------------------
+ * The engine already resolves PATTERN -> CARD -> card MODs -> next CARD.
+ * These rules give that authoritative sequence room on the felt: the unplayed
+ * hand sinks, controls leave the viewport, and every scoring card gets one
+ * short, synchronized impact beat. */
+.deck-hand-stage .deck-hand-meta,
+.deck-hand-stage .deck-hand-layout,
+.deck-hand-stage .table-action-dock {
+  transition:
+    transform 260ms cubic-bezier(.22, .78, .18, 1),
+    opacity 190ms steps(4, end),
+    filter 220ms steps(4, end);
+  will-change: transform, opacity;
+}
+
+.deck-played-layout[data-score-phase="moving"] .deck-played-card {
+  animation: dm-selected-card-launch 260ms cubic-bezier(.16, .78, .18, 1) both;
+  animation-delay: calc(var(--hand-card-index) * 12ms);
+}
+
+.deck-played-card[data-card-score-state="active"] {
+  --hand-card-active-z: 220;
+  animation: dm-scoring-card-impact 290ms cubic-bezier(.18, .82, .22, 1) both;
+}
+
+/* A small table-wide recoil for a real score increase: impact, not camera pan. */
+.deck-game-view.is-score-impact {
+  animation: dm-score-screen-nudge 180ms steps(3, end) both;
+  will-change: transform;
+}
+
+.deck-played-card[data-card-score-state="active"] .number-card {
+  filter: brightness(1.24) saturate(1.16);
+  box-shadow:
+    0 0 0 4px rgba(240, 249, 246, .92),
+    0 0 0 8px rgba(52, 174, 224, .42),
+    8px 12px var(--dm-shadow);
+}
+
+.deck-card-score-popup {
+  isolation: isolate;
+  top: -72px;
+  min-width: 86px;
+  min-height: 62px;
+  padding: 9px 13px;
+  border: 0;
+  color: #fffdf0;
+  background: transparent;
+  box-shadow: none;
+  font-size: clamp(34px, 2.75vw, 46px);
+  line-height: 1;
+  letter-spacing: -.06em;
+  text-shadow: 3px 4px 0 rgba(7, 17, 25, .86);
+  animation: dm-score-badge-impact 290ms cubic-bezier(.15, .82, .18, 1) both;
+}
+
+.deck-card-score-popup::before {
+  content: "";
+  position: absolute;
+  inset: 2px 4px;
+  z-index: -1;
+  border: 3px solid rgba(230, 249, 255, .86);
+  -webkit-clip-path: polygon(50% 0, 96% 21%, 88% 77%, 48% 100%, 4% 72%, 10% 22%);
+  clip-path: polygon(50% 0, 96% 21%, 88% 77%, 48% 100%, 4% 72%, 10% 22%);
+  background: linear-gradient(145deg, #1cc9f0 0 42%, #1878dd 43% 100%);
+  filter: drop-shadow(5px 6px 0 rgba(2, 9, 15, .7));
+}
+
+.deck-card-score-popup-enhancement::before {
+  background: linear-gradient(145deg, #3be5e8 0 42%, #1688b8 43% 100%);
+}
+
+.deck-card-score-popup-mod::before {
+  background: linear-gradient(145deg, #d776f4 0 42%, #7040c6 43% 100%);
+}
+
+.deck-card-score-popup-mayhem::before {
+  background: linear-gradient(145deg, #ff6bc0 0 42%, #bc276f 43% 100%);
+}
+
+.mobile-run-rail-preview[data-score-pulse="power"] .mobile-run-rail-chips,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-chips,
+.mobile-run-rail-preview[data-score-pulse="hype"] .mobile-run-rail-mult,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-mult {
+  animation: dm-hud-score-panel-flash 290ms steps(5, end) both;
+}
+
+.mobile-run-rail-preview[data-score-pulse="power"] .mobile-run-rail-chips strong,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-chips strong,
+.mobile-run-rail-preview[data-score-pulse="hype"] .mobile-run-rail-mult strong,
+.mobile-run-rail-preview[data-score-pulse="both"] .mobile-run-rail-mult strong {
+  display: inline-block;
+  animation: dm-hud-score-value-punch 290ms cubic-bezier(.12, .86, .16, 1) both;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage {
+    transform: none;
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-meta {
+    opacity: 0;
+    transform: translateY(96px);
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .table-action-dock {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(clamp(150px, 18vh, 210px));
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
+    opacity: .9;
+    filter: saturate(.82) brightness(.72);
+    transform: translateY(clamp(118px, 13vh, 156px));
+  }
+
+  .deck-resolve-zone.has-played-cards .deck-played-layout {
+    transform: translateY(clamp(126px, 16vh, 176px));
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1000px) {
+  .deck-card-score-popup {
+    top: -42px;
+    min-width: 54px;
+    min-height: 39px;
+    padding: 5px 8px;
+    font-size: 23px;
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
+    opacity: .86;
+    transform: translateY(54px);
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .table-action-dock {
+    opacity: 0;
+    transform: translateY(96px);
+  }
+}
+
+@keyframes dm-selected-card-launch {
+  0% {
+    opacity: .72;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + min(24vh, 220px)), 0)
+      rotate(0deg)
+      scale(.88);
+  }
+  68% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) - 14px), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+}
+
+@keyframes dm-scoring-card-impact {
+  0%, 100% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift, 0px)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(var(--hand-card-scale, 1));
+  }
+  34% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift, 0px) - 22px), 0)
+      rotate(-1deg)
+      scale(1.16);
+  }
+  62% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift, 0px) + 4px), 0)
+      rotate(1deg)
+      scale(.99);
+  }
+}
+
+@keyframes dm-score-screen-nudge {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  18% { transform: translate3d(-2px, 1px, 0); }
+  38% { transform: translate3d(2px, -1px, 0); }
+  58% { transform: translate3d(-1px, 1px, 0); }
+  76% { transform: translate3d(1px, 0, 0); }
+}
+
+@keyframes dm-score-badge-impact {
+  0% { opacity: 0; transform: translate(-50%, 22px) scale(.26) rotate(-7deg); }
+  32% { opacity: 1; transform: translate(-50%, -12px) scale(1.28) rotate(3deg); }
+  62% { opacity: 1; transform: translate(-50%, -5px) scale(.96) rotate(-1deg); }
+  82% { opacity: 1; transform: translate(-50%, -8px) scale(1.04) rotate(0); }
+  100% { opacity: 1; transform: translate(-50%, -8px) scale(1) rotate(0); }
+}
+
+@keyframes dm-hud-score-value-punch {
+  0% { opacity: .66; transform: translate3d(0, 5px, 0) scale(.7) rotate(-3deg); }
+  22% { opacity: 1; transform: translate3d(-4px, -3px, 0) scale(1.42) rotate(3deg); filter: brightness(1.75); }
+  38% { transform: translate3d(4px, 1px, 0) scale(1.16) rotate(-2deg); }
+  54% { transform: translate3d(-3px, -1px, 0) scale(.96) rotate(1deg); }
+  72% { transform: translate3d(2px, 0, 0) scale(1.08) rotate(-1deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1) rotate(0); filter: brightness(1); }
+}
+
+@keyframes dm-hud-score-panel-flash {
+  0%, 100% { transform: translate3d(0, 0, 0); filter: brightness(1); }
+  18% { transform: translate3d(-5px, 1px, 0) scale(1.018); }
+  32% { transform: translate3d(5px, -1px, 0) scale(1.025); filter: brightness(1.72) saturate(1.42); }
+  48% { transform: translate3d(-3px, 0, 0) scale(1.01); }
+  64% { transform: translate3d(3px, 0, 0); filter: brightness(1.28) saturate(1.18); }
+  82% { transform: translate3d(-1px, 0, 0); }
+}
+
+.reduced-motion .deck-hand-stage .deck-hand-meta,
+.reduced-motion .deck-hand-stage .deck-hand-layout,
+.reduced-motion .deck-hand-stage .table-action-dock,
+.reduced-motion .deck-game-view.is-score-impact,
+.reduced-motion .deck-played-card[data-card-score-state="active"],
+.reduced-motion .deck-card-score-popup,
+.reduced-motion .mobile-run-rail-preview [class*="mobile-run-rail-"] {
+  animation: none !important;
+  transition-duration: 1ms !important;
+}
+
 .deck-game-view {
   min-height: 100vh;
   min-height: 100dvh;
@@ -3849,3 +4099,2872 @@
 }
 
 .number-card .card-suit { opacity: .2; }
+
+/* ── 1080p clarity pass ────────────────────────────────────────────────
+ * Keep the pixel character in headings, numbers and icons. Small Korean
+ * explanations use a screen-optimised face, higher contrast and whole-pixel
+ * geometry so inexpensive 1080p panels do not turn them into grey noise. */
+:root {
+  --dm-line: #4b6269;
+  --dm-line-soft: #34484e;
+  --dm-muted: #aebbbd;
+  --dm-text: #fff8e8;
+}
+
+.deck-game-view {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.deck-game-view .card-red,
+.deck-inspector-card.card-red { background-color: #c14b43; }
+.deck-game-view .card-yellow,
+.deck-inspector-card.card-yellow { color: #171309; background-color: #d9ad38; }
+.deck-game-view .card-green,
+.deck-inspector-card.card-green { background-color: #438a60; }
+.deck-game-view .card-blue,
+.deck-inspector-card.card-blue { background-color: #3e82a8; }
+
+.number-card .card-pixel-frame {
+  image-rendering: pixelated;
+  filter: saturate(1.16) contrast(1.12) brightness(1.04);
+}
+
+.number-card .card-suit { opacity: .28; }
+
+.deck-game-view .mobile-run-rail-round-effect p,
+.deck-game-view .mobile-run-rail-round-goal strong small,
+.deck-game-view .mobile-run-rail-score-target,
+.deck-game-view .mobile-run-rail-score-event b,
+.deck-game-view .deck-stage-header p,
+.deck-game-view .modifier-rail-slot-copy small,
+.deck-game-view .modifier-rail-tooltip-description,
+.deck-game-view .modifier-rail-tooltip-meta,
+.deck-game-view .modifier-rail-module span,
+.deck-game-view .modifier-rail-summary-empty,
+.deck-game-view .modifier-rail-summary-effects small,
+.deck-game-view .deck-score-event small,
+.deck-game-view .card-hover-info small,
+.deck-game-view .deck-pile-popover-hint,
+.deck-game-view .deck-pile-color-copy small,
+.deck-game-view .deck-pile-reference-note {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.deck-game-view .number-card:focus-visible,
+.deck-hand-card[data-selected="true"] .number-card {
+  outline: 4px solid #fff063;
+  outline-offset: 3px;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-hand-stage .deck-hand-card .card-number,
+  .deck-played-card .card-number { font-size: clamp(44px, 3.5vw, 62px); }
+
+  .deck-hand-stage .deck-hand-card .card-corner.top,
+  .deck-played-card .card-corner.top { font-size: clamp(17px, 1.2vw, 22px); }
+
+  .deck-hand-stage .deck-hand-card .card-type-label,
+  .deck-hand-stage .deck-hand-card .card-chip-value,
+  .deck-played-card .card-type-label,
+  .deck-played-card .card-chip-value { font-size: 11px; }
+
+  .deck-game-view .modifier-rail-slot-copy strong,
+  .deck-game-view .modifier-rail-slot-copy small,
+  .deck-game-view .modifier-rail-slot-status,
+  .deck-game-view .modifier-rail-section-header h2,
+  .deck-game-view .modifier-rail-section-header span,
+  .deck-game-view .deck-effect-quickbar header,
+  .deck-game-view .deck-effect-quickbar button b,
+  .deck-game-view .deck-effect-quickbar button small,
+  .deck-game-view .deck-pile-button-label,
+  .deck-game-view .deck-pile-open-hint,
+  .deck-game-view .deck-pile-color-copy b,
+  .deck-game-view .deck-pile-color-copy small,
+  .deck-game-view .deck-pile-popover-hint { font-size: 11px; }
+
+  .deck-game-view .mobile-run-rail-round-effect p,
+  .deck-game-view .mobile-run-rail-score-event b,
+  .deck-game-view .deck-stage-header p,
+  .deck-game-view .modifier-rail-tooltip-description,
+  .deck-game-view .modifier-rail-module span,
+  .deck-game-view .deck-score-event small,
+  .deck-game-view .card-hover-info small { font-size: 12px; }
+
+  .deck-game-view .mobile-run-rail-tools button,
+  .deck-game-view .table-hand-tools button,
+  .deck-game-view .table-action { font-size: 12px; }
+
+  .deck-game-view .modifier-rail-slot-trigger,
+  .deck-game-view .modifier-rail-empty-slot { min-height: 44px; }
+
+  .deck-game-view .deck-pile-count { font-size: 12px; }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --dm-line: #829399;
+    --dm-line-soft: #5e747b;
+    --dm-muted: #d3dcde;
+    --dm-text: #ffffff;
+  }
+
+  .deck-game-view .number-card {
+    filter: saturate(1.12) contrast(1.12);
+  }
+}
+
+/* Run resources: Balatro-style color coding makes the two action budgets
+   recognizable before the label is read. Keep these selectors last so every
+   desktop, portrait and short-landscape size inherits the same contrast. */
+.deck-game-view .mobile-run-rail-resources {
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 3px solid;
+  box-shadow:
+    4px 4px 0 #020405,
+    inset 0 0 0 2px rgba(255, 255, 255, .08);
+}
+
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  opacity: .32;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 8px,
+    rgba(255, 255, 255, .09) 8px 10px
+  );
+}
+
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource-hands {
+  border-color: #35bfff;
+  background: linear-gradient(180deg, #164b6e, #0b2b43);
+}
+
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource-discards {
+  border-color: #ff625c;
+  background: linear-gradient(180deg, #71302f, #3c171a);
+}
+
+.deck-game-view .mobile-run-resource-hands dt {
+  color: #b9eaff;
+  text-shadow: 1px 2px 0 #052236;
+}
+
+.deck-game-view .mobile-run-resource-hands dd {
+  color: #66d4ff;
+  text-shadow: 2px 3px 0 #041d31;
+}
+
+.deck-game-view .mobile-run-resource-discards dt {
+  color: #ffd0cc;
+  text-shadow: 1px 2px 0 #351012;
+}
+
+.deck-game-view .mobile-run-resource-discards dd {
+  color: #ff827b;
+  text-shadow: 2px 3px 0 #2d0b0e;
+}
+
+.high-contrast .deck-game-view .mobile-run-resource-hands {
+  border-color: #78ddff;
+  background: #073958;
+}
+
+.high-contrast .deck-game-view .mobile-run-resource-discards {
+  border-color: #ff938d;
+  background: #58191d;
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .deck-game-view .mobile-run-rail-resources { gap: 4px; }
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource {
+    border-width: 2px;
+    box-shadow: 2px 2px 0 #020405, inset 0 0 0 1px rgba(255, 255, 255, .08);
+  }
+}
+
+/* ── Notion playtest fixes ─────────────────────────────────────────── */
+.deck-game-view .mobile-run-rail.pixel-panel,
+.deck-game-view .modifier-rail-root,
+.deck-game-view .deck-effect-quickbar > div,
+.deck-inspector-card-list {
+  scrollbar-width: none;
+}
+
+.deck-game-view .mobile-run-rail.pixel-panel::-webkit-scrollbar,
+.deck-game-view .modifier-rail-root::-webkit-scrollbar,
+.deck-game-view .deck-effect-quickbar > div::-webkit-scrollbar,
+.deck-inspector-card-list::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-run-rail-lower-actions {
+  grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.deck-game-view .mobile-run-rail-options {
+  grid-template-columns: 1fr !important;
+}
+
+.deck-stage-status {
+  min-width: 0;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end;
+  gap: 12px !important;
+}
+
+.deck-stage-status p { max-width: min(520px, 55vw); }
+
+.deck-mode-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 2px solid #f0c64c;
+  color: #fff3b0;
+  background: #3a2c09;
+  box-shadow: 3px 3px 0 #020405;
+  font-size: 11px !important;
+  text-shadow: 1px 2px 0 #000;
+}
+
+.deck-mode-badge i { color: #ffdb55; font-size: 18px; font-style: normal; }
+
+.deck-hand-stage .table-hand-tools {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: stretch;
+}
+
+.deck-hand-stage .table-hand-tools .selection-discard {
+  border-color: #9b4540;
+  color: #ffd8d4;
+  background: #572725;
+}
+
+.deck-hand-stage .table-action-dock {
+  width: min(500px, 64%);
+  min-width: 360px;
+  grid-template-columns: minmax(150px, 1fr) minmax(150px, .9fr) !important;
+}
+
+.deck-card-score-popup {
+  top: calc(var(--hand-feedback-offset) - 10px);
+  min-width: 54px;
+  padding: 7px 10px;
+  border-width: 3px;
+  background: #060b0d;
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.deck-card-score-popup small { display: none; }
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="direct-discard"] .deck-hand-stage {
+    transform: translateY(38px);
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-effect-quickbar,
+  .deck-game-view[data-score-phase="scoring"] .deck-effect-quickbar,
+  .deck-game-view[data-score-phase="transferring"] .deck-effect-quickbar,
+  .deck-game-view[data-score-phase="discarding"] .deck-effect-quickbar {
+    opacity: .25;
+  }
+}
+
+.deck-inspector-layout { gap: 18px; padding: 24px; }
+.deck-inspector-summary { color: #d4dedc; font-size: 13px; }
+.deck-inspector-pile,
+.deck-inspector-ranks { border-width: 3px; }
+.deck-inspector-pile > header span,
+.deck-inspector-ranks > header span,
+.deck-inspector-card-group h3 { color: #e5efed; font-size: 12px; }
+.deck-inspector-pile > header strong { font-size: 14px; }
+.deck-inspector-color-row span { min-height: 38px; border-width: 2px; font-size: 11px; }
+.deck-inspector-rank-grid span { min-height: 48px; }
+.deck-inspector-rank-grid b { font-size: 16px; }
+.deck-inspector-rank-grid small { font-size: 11px; }
+.deck-inspector-card-list { max-height: 220px; gap: 7px; padding: 10px; }
+.deck-inspector-card { width: 42px; height: 60px; font-size: 15px; }
+
+.settings-game-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.settings-game-actions button {
+  min-height: 58px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 2px solid var(--dm-line);
+  color: var(--dm-text);
+  background: var(--dm-panel-raised);
+  text-align: left;
+}
+
+.settings-game-actions button b { font-size: 11px; }
+.settings-game-actions button small { color: var(--dm-muted); font-size: 9px; }
+.settings-game-actions button.is-exit { grid-column: 1 / -1; border-color: #984943; background: #3a1c1c; }
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .deck-game-view[data-score-phase]:not([data-score-phase="idle"]):not([data-score-phase="selecting"]) .deck-hand-stage {
+    transform: translateY(12px);
+  }
+  .deck-mode-badge { padding: 4px 6px; font-size: 9px !important; }
+  .deck-mode-badge i { font-size: 13px; }
+  .deck-hand-stage .table-action-dock { width: 280px; min-width: 280px; }
+}
+
+/* ── Card number reactor ───────────────────────────────────────────────
+ * The live numeral stays pixel-native. Two clipped circuit layers replace
+ * the plain dark patch in the raster frame with a compact energy core. */
+.number-card {
+  --card-core-bright: #ff4d49;
+  --card-core-mid: #9f2025;
+  --card-core-dark: #240609;
+  --card-core-ink: #080b0e;
+}
+
+.number-card.card-yellow {
+  --card-core-bright: #ffd955;
+  --card-core-mid: #aa7216;
+  --card-core-dark: #2c1b03;
+}
+
+.number-card.card-green {
+  --card-core-bright: #62e58b;
+  --card-core-mid: #237b48;
+  --card-core-dark: #061f12;
+}
+
+.number-card.card-blue {
+  --card-core-bright: #4fc9ff;
+  --card-core-mid: #236b9c;
+  --card-core-dark: #061b2d;
+}
+
+.number-card .card-number {
+  isolation: isolate;
+  width: 59%;
+  aspect-ratio: .92;
+  display: grid;
+  place-items: center;
+  color: #fff3ca;
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-weight: 700 !important;
+  font-synthesis: none;
+  line-height: 1;
+  letter-spacing: -.06em;
+  text-indent: -.06em;
+  text-shadow:
+    3px 0 #080b0e,
+    -3px 0 #080b0e,
+    0 3px #080b0e,
+    0 -3px #080b0e,
+    4px 5px 0 rgba(0, 0, 0, .85);
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--card-core-bright) 38%, transparent));
+}
+
+.number-card .card-number::before,
+.number-card .card-number::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  clip-path: polygon(24% 0, 76% 0, 100% 24%, 100% 76%, 76% 100%, 24% 100%, 0 76%, 0 24%);
+}
+
+.number-card .card-number::before {
+  z-index: -2;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, .7), transparent 19% 81%, rgba(255, 255, 255, .2)),
+    conic-gradient(
+      from 22.5deg,
+      var(--card-core-bright),
+      var(--card-core-dark) 12.5%,
+      var(--card-core-mid) 25%,
+      var(--card-core-dark) 37.5%,
+      var(--card-core-bright) 50%,
+      var(--card-core-dark) 62.5%,
+      var(--card-core-mid) 75%,
+      var(--card-core-dark) 87.5%,
+      var(--card-core-bright)
+    );
+}
+
+.number-card .card-number::after {
+  z-index: -1;
+  inset: 8%;
+  background:
+    linear-gradient(90deg, transparent 47%, color-mix(in srgb, var(--card-core-bright) 28%, transparent) 48% 52%, transparent 53%),
+    linear-gradient(0deg, transparent 47%, color-mix(in srgb, var(--card-core-bright) 20%, transparent) 48% 52%, transparent 53%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .035) 0 3px, transparent 3px 7px),
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--card-core-mid) 36%, #0a0e12), var(--card-core-ink) 67%);
+  box-shadow:
+    inset 0 0 0 3px var(--card-core-dark),
+    inset 0 0 0 5px color-mix(in srgb, var(--card-core-bright) 46%, transparent),
+    inset 0 -12px 18px rgba(0, 0, 0, .48);
+}
+
+.number-card .card-corner {
+  font-family: "Galmuri11", ui-monospace, monospace !important;
+  font-weight: 700 !important;
+  font-synthesis: none;
+}
+
+.number-card .card-suit {
+  width: 72%;
+  background: var(--card-core-bright);
+  opacity: .14;
+  filter: drop-shadow(0 0 8px var(--card-core-bright));
+}
+
+@media (max-width: 760px), (max-height: 640px) {
+  .number-card .card-number::after {
+    inset: 9%;
+    box-shadow:
+      inset 0 0 0 2px var(--card-core-dark),
+      inset 0 0 0 3px color-mix(in srgb, var(--card-core-bright) 48%, transparent),
+      inset 0 -8px 12px rgba(0, 0, 0, .45);
+  }
+}
+
+/* ── Focused play layout v3 ────────────────────────────────────────────
+ * Only turn-critical information remains persistent. The table receives the
+ * column previously reserved for a dashboard-style secondary rail. */
+.deck-game-shell {
+  grid-template-columns: clamp(236px, 19vw, 310px) minmax(0, 1fr) !important;
+}
+
+.deck-game-view .mobile-run-rail.pixel-panel {
+  gap: 8px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.deck-game-view .mobile-run-rail-round {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.deck-game-view .mobile-run-rail-blind {
+  min-height: 74px;
+  grid-template-columns: 54px minmax(0, 1fr);
+  border-width: 2px;
+  box-shadow: 3px 3px var(--dm-shadow);
+}
+
+.deck-game-view .mobile-run-rail-blind-mark {
+  width: 40px;
+  height: 52px;
+  margin: 8px 0 8px 7px;
+  font-size: 22px;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy {
+  gap: 3px;
+  padding: 8px 9px;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy > span,
+.deck-game-view .mobile-run-rail-blind-copy > small {
+  color: #9fb0b2;
+  font: 400 10px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.mobile-run-rail-round-reward {
+  min-width: 76px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 8px;
+  border: 2px solid #6f5a25;
+  color: #d8c36d;
+  background: #1d1a0e;
+  box-shadow: 3px 3px var(--dm-shadow);
+  text-align: center;
+}
+
+.mobile-run-rail-round-reward span,
+.mobile-run-rail-round-reward small {
+  font: 400 9px/1.25 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+}
+
+.mobile-run-rail-round-reward strong { color: #f4ce4f; font-size: 15px; }
+
+.deck-game-view .mobile-run-rail-score {
+  min-height: 118px;
+  gap: 8px;
+  padding: 10px;
+  border-color: #7b692e;
+}
+
+.mobile-run-rail-scoreboard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.mobile-run-rail-target,
+.deck-game-view .mobile-run-rail-current {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid var(--dm-line-soft);
+  background: #080d10;
+}
+
+.mobile-run-rail-target span,
+.deck-game-view .mobile-run-rail-current span { color: #a9b5b5; font-size: 10px; }
+.mobile-run-rail-target strong,
+.deck-game-view .mobile-run-rail-current strong {
+  overflow: hidden;
+  font-size: clamp(24px, 2vw, 34px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+.mobile-run-rail-target strong { color: #f0d264; }
+.deck-game-view .mobile-run-rail-current strong { color: #fff2b8; }
+.deck-game-view .mobile-run-rail-score-target {
+  color: #b6c2c1;
+  font: 400 10px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+  text-align: right;
+}
+
+.deck-game-view .mobile-run-rail-preview {
+  min-height: 154px;
+  padding: 10px;
+}
+.deck-game-view .mobile-run-rail-hand-name { margin-bottom: 7px; font-size: 17px; }
+.deck-game-view .mobile-run-rail-equation strong { font-size: 30px; }
+.deck-game-view .mobile-run-rail-preview-total { margin-top: 7px; padding-top: 7px; }
+.deck-game-view .mobile-run-rail-preview-total strong { font-size: 22px; }
+
+.mobile-run-rail-hot-swap { padding: 7px; }
+
+.mobile-run-rail-lower {
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: 94px minmax(0, 1fr) !important;
+  gap: 7px !important;
+  margin-top: auto;
+}
+.mobile-run-rail-lower-actions,
+.mobile-run-rail-lower-stats { display: grid; gap: 6px; min-width: 0; }
+.mobile-run-rail-lower-actions { grid-template-rows: repeat(2, minmax(42px, 1fr)) !important; }
+.deck-game-view .mobile-run-rail-tools,
+.deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 0 !important; height: 100%; }
+.deck-game-view .mobile-run-rail-tools .rail-tool-primary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-content: center;
+  padding: 7px;
+  font-size: 11px;
+}
+.deck-game-view .mobile-run-rail-tools button > span { font-size: 14px; }
+.deck-game-view .mobile-run-rail-tools kbd { display: none; }
+.deck-game-view .mobile-run-rail-resources { gap: 5px; }
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource { min-height: 48px; padding: 5px; }
+.deck-game-view .mobile-run-rail-resources dt { font-size: 9px; }
+.deck-game-view .mobile-run-rail-resources dd { margin-top: 2px; font-size: 22px; }
+.mobile-run-rail-wallet { min-height: 42px; padding: 6px 8px; }
+.mobile-run-rail-wallet span { font-size: 9px; }
+.mobile-run-rail-wallet strong { font-size: 22px; }
+
+.deck-play-table {
+  grid-template-rows: 36px auto minmax(150px, 1fr) auto !important;
+  gap: 6px;
+  padding: 10px var(--dm-pile-reserve) 10px 12px;
+}
+
+.deck-stage-header { min-height: 36px; padding: 5px 8px; }
+.deck-stage-header span { font-size: 9px; }
+.deck-stage-header strong { font-size: 13px; }
+.deck-stage-header p {
+  max-width: min(480px, 44vw);
+  overflow: hidden;
+  font: 400 11px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The shop title lives in the left HUD, leaving the market canvas unobstructed. */
+.deck-run-view-shop .mobile-run-rail-round.is-garage {
+  border-color: #2f7a80;
+  background: linear-gradient(135deg, rgba(40, 187, 196, .12), rgba(5, 18, 20, .96));
+}
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-mark {
+  color: #7cf1ef;
+  border-color: #3ca8ad;
+  background: #0b2b2e;
+  text-shadow: 0 0 10px rgba(72, 226, 226, .48);
+}
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy > span { color: #55dce8; }
+.deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 { color: #f4fbf9; }
+.deck-run-view-shop .deck-play-table {
+  grid-template-rows: auto minmax(210px, 1fr) auto !important;
+}
+
+.deck-play-table .modifier-rail-root {
+  min-height: 66px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(220px, .7fr) !important;
+  gap: 7px;
+}
+.deck-play-table .modifier-rail-section { padding: 5px; }
+.deck-play-table .modifier-rail-section-header h2,
+.deck-play-table .modifier-rail-section-header span { font-size: 9px; }
+.deck-play-table .modifier-rail-slots { grid-template-columns: repeat(5, minmax(54px, 1fr)); gap: 4px; }
+.deck-play-table .modifier-rail-uno-slots { grid-template-columns: repeat(4, minmax(54px, 1fr)); }
+.deck-play-table .modifier-rail-slot-trigger,
+.deck-play-table .modifier-rail-empty-slot { min-height: 40px; }
+.deck-play-table .modifier-rail-empty-slot { max-width: 62px; opacity: .36; border-style: dashed; }
+.deck-play-table .modifier-rail-slot-copy strong { font-size: 9px; }
+.deck-play-table .modifier-rail-slot-copy small { display: none; }
+
+.deck-resolve-zone { min-height: 150px; }
+.deck-resolve-idle { opacity: .22; }
+.deck-resolve-idle strong { font-size: 9px; }
+
+.deck-hand-stage {
+  grid-template-rows: auto minmax(210px, 25vh) 82px !important;
+}
+.deck-hand-meta { min-height: 34px; }
+.deck-effect-quickbar { max-width: 360px; }
+.deck-hand-stage .table-hand-tools {
+  width: auto;
+  min-height: 30px;
+  grid-template-columns: auto auto;
+  padding: 3px;
+}
+.deck-hand-stage .table-hand-tools button { min-height: 26px; }
+
+.deck-hand-stage .table-action-dock {
+  width: min(720px, 82%);
+  min-width: 560px;
+  min-height: 72px;
+  margin-top: 10px;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(150px, .8fr) minmax(170px, 1fr) !important;
+  gap: 9px;
+}
+.deck-hand-stage .table-action,
+.deck-hand-stage .discard-action { min-height: 62px; font-size: 15px; }
+.deck-hand-stage .play-action:not(:disabled) {
+  border-color: #61d8f0;
+  color: #f3fcff;
+  background: #187f9b;
+  box-shadow: inset 0 -6px rgba(0,0,0,.24), 5px 5px var(--dm-shadow), 0 0 18px rgba(71,211,235,.25);
+}
+.deck-hand-stage .discard-action:not(:disabled) { border-color: #d8615a; background: #71312e; }
+.deck-hand-stage .table-action:disabled { opacity: .28; filter: saturate(.35); }
+.deck-sort-control-two-way {
+  min-height: 0 !important;
+  height: 62px !important;
+  align-self: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  padding: 5px;
+}
+.deck-sort-control-two-way > span { font-size: 9px; }
+.deck-sort-control-two-way button { min-height: 29px; font-size: 11px; }
+
+/* Shared authoritative deck browser used by Inspector and Garage target flows. */
+.dm-card-browser { min-width: 0; display: grid; gap: 10px; }
+.dm-card-browser__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border: 2px solid #334b50;
+  background: #0a1518;
+}
+.dm-card-browser__sort,
+.dm-card-browser__filters { display: flex; align-items: center; gap: 5px; }
+.dm-card-browser__sort > span { color: #91a6a5; font-size: 10px; }
+.dm-card-browser__toolbar button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 2px solid #3c5357;
+  color: #cbd7d5;
+  background: #142326;
+  font-size: 11px;
+}
+.dm-card-browser__toolbar button[aria-pressed="true"] { border-color: #54cfe0; color: #e9feff; background: #17414a; }
+.dm-card-browser__filters .is-red { border-color: #8d403c; }
+.dm-card-browser__filters .is-blue { border-color: #397ca6; }
+.dm-card-browser__filters .is-green { border-color: #3f8659; }
+.dm-card-browser__filters .is-yellow { border-color: #9c7926; }
+.dm-card-browser__toolbar > strong { margin-left: auto; color: #f0ce58; font-size: 13px; }
+.dm-card-browser__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 10px;
+  max-height: min(54vh, 520px);
+  padding: 12px;
+  overflow: auto;
+  border: 2px solid #2d4448;
+  background: #071113;
+}
+.dm-card-browser__item { position: relative; min-width: 0; aspect-ratio: .69; }
+.dm-card-browser__item > .number-card { width: 100%; height: 100%; }
+.dm-card-browser__item[data-selected] { z-index: 4; transform: translateY(-5px); }
+.dm-card-browser__item[data-selected] > .number-card { box-shadow: 0 0 0 4px #f0ce58, 5px 7px #020405; }
+.dm-card-browser__reason {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  z-index: 7;
+  padding: 3px;
+  color: #ffc1bb;
+  background: rgba(43,12,12,.92);
+  font-size: 8px;
+  text-align: center;
+}
+.dm-card-browser__empty { grid-column: 1 / -1; color: #81918f; text-align: center; }
+.deck-inspector-card-groups { display: none; }
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  .deck-game-view .mobile-run-rail.pixel-panel { gap: 5px; padding: 7px; }
+  .deck-game-view .mobile-run-rail-round { gap: 4px; }
+  .deck-game-view .mobile-run-rail-blind { min-height: 62px; grid-template-columns: 44px minmax(0,1fr); }
+  .deck-game-view .mobile-run-rail-blind-mark { width: 34px; height: 44px; margin: 7px 0 7px 6px; font-size: 18px; }
+  .deck-game-view .mobile-run-rail-blind-copy h2 { font-size: 14px; }
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-blind-copy > small { font-size: 9px; }
+  .mobile-run-rail-round-reward { min-width: 68px; padding: 5px; }
+  .mobile-run-rail-round-reward span,
+  .mobile-run-rail-round-reward small { font-size: 8px; }
+  .mobile-run-rail-round-reward strong { font-size: 13px; }
+  .deck-game-view .mobile-run-rail-score { min-height: 92px; gap: 5px; padding: 7px; }
+  .mobile-run-rail-target,
+  .deck-game-view .mobile-run-rail-current { padding: 5px 6px; }
+  .mobile-run-rail-target strong,
+  .deck-game-view .mobile-run-rail-current strong { font-size: 24px; }
+  .deck-game-view .mobile-run-rail-preview { min-height: 124px; padding: 7px; }
+  .deck-game-view .mobile-run-rail-hand-name { font-size: 14px; }
+  .deck-game-view .mobile-run-rail-equation strong { font-size: 25px; }
+  .deck-game-view .mobile-run-rail-preview-total strong { font-size: 18px; }
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource { min-height: 40px; }
+  .deck-game-view .mobile-run-rail-resources dd,
+  .mobile-run-rail-wallet strong { font-size: 18px; }
+  .deck-play-table { grid-template-rows: 30px auto minmax(100px, 1fr) auto !important; padding-block: 6px; }
+  .deck-play-table .modifier-rail-root { min-height: 54px; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { min-height: 32px; }
+  .deck-resolve-zone { min-height: 100px; }
+  /* The card fan owns its measured height. Let the play area give it that room
+     instead of shrinking the cards or allowing them to cover the action dock. */
+  .deck-hand-stage { grid-template-rows: auto auto 68px !important; }
+  .deck-hand-stage .table-action-dock { min-height: 60px; margin-top: 5px; }
+  .deck-hand-stage .table-action,
+  .deck-hand-stage .discard-action,
+  .deck-sort-control-two-way { min-height: 52px; height: 52px !important; }
+}
+
+@media (orientation: portrait) and (max-width: 1100px),
+       (orientation: landscape) and (max-width: 1000px) {
+  .deck-game-shell { grid-template-columns: clamp(150px, 29vw, 220px) minmax(0, 1fr) !important; }
+  .deck-game-view .mobile-run-rail-round { grid-template-columns: 1fr; }
+  .mobile-run-rail-round-reward { display: none; }
+  .deck-game-view .mobile-run-rail-scoreboard { gap: 3px; }
+  .mobile-run-rail-target,
+  .deck-game-view .mobile-run-rail-current { padding: 4px; }
+  .mobile-run-rail-lower { grid-template-columns: 1fr !important; }
+  .mobile-run-rail-lower-actions { grid-template-columns: repeat(2, 1fr); grid-template-rows: 34px !important; }
+  .deck-play-table .modifier-rail-root { grid-template-columns: minmax(0,1.3fr) minmax(120px,.7fr) !important; }
+  .deck-play-table .modifier-rail-slot-copy { display: none; }
+  .deck-hand-stage .table-action-dock { width: min(430px, 94%); min-width: 310px; grid-template-columns: 1.1fr .85fr 1fr !important; }
+  .dm-card-browser__toolbar { align-items: stretch; flex-wrap: wrap; }
+  .dm-card-browser__filters { flex-wrap: wrap; }
+  .dm-card-browser__grid { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
+}
+
+/* Phone landscape: keep the full-size, overlapping hand while reserving a
+   dedicated row for the three primary controls. Older compact rules used a
+   fixed 210px hand row and pushed the dock below the viewport. */
+@media (orientation: landscape) and (max-width: 1000px) and (max-height: 600px) {
+  .deck-game-view .mobile-run-rail.pixel-panel {
+    gap: 4px;
+    padding: 4px;
+    overflow: hidden;
+  }
+  .deck-game-view .mobile-run-rail-round { min-height: 54px; height: 54px; }
+  .deck-game-view .mobile-run-rail-blind {
+    min-height: 54px;
+    height: 54px;
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .deck-game-view .mobile-run-rail-blind-mark {
+    width: 30px;
+    height: 40px;
+    margin: 6px 0 6px 4px;
+    font-size: 15px;
+  }
+  .deck-game-view .mobile-run-rail-blind-copy { padding: 4px 5px; }
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-blind-copy > small { font-size: 8px; }
+  .deck-game-view .mobile-run-rail-blind-copy h2 { font-size: 12px; }
+  .deck-game-view .mobile-run-rail-score {
+    min-height: 72px;
+    height: 72px;
+    gap: 3px;
+    padding: 5px;
+  }
+  .mobile-run-rail-target strong,
+  .deck-game-view .mobile-run-rail-current strong { font-size: 19px; }
+  .deck-game-view .mobile-run-rail-preview {
+    min-height: 100px;
+    height: 100px;
+    padding: 5px;
+  }
+  .deck-game-view .mobile-run-rail-hand-name {
+    min-height: 25px;
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+  .deck-game-view .mobile-run-rail-hand-name small,
+  .deck-game-view .mobile-run-rail-equation span,
+  .deck-game-view .mobile-run-rail-preview-total span { font-size: 8px; }
+  .deck-game-view .mobile-run-rail-equation strong { font-size: 18px; }
+  .deck-game-view .mobile-run-rail-preview-total { margin-top: 3px; padding-top: 3px; }
+  .deck-game-view .mobile-run-rail-preview-total strong { font-size: 14px; }
+  .mobile-run-rail-lower {
+    min-height: 0;
+    height: 108px;
+    margin-top: 0;
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 32px 72px;
+    gap: 4px;
+  }
+  .mobile-run-rail-lower-actions {
+    height: 32px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 32px !important;
+    gap: 4px;
+  }
+  .mobile-run-rail-lower-stats {
+    height: 72px;
+    grid-template-columns: minmax(0, 1.25fr) minmax(62px, .75fr);
+    grid-template-rows: 72px !important;
+    gap: 4px;
+  }
+  .deck-game-view .mobile-run-rail-tools,
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 32px; height: 32px; }
+  .deck-game-view .mobile-run-rail-tools b { font-size: 9px; }
+  .deck-game-view .mobile-run-rail-resources { height: 72px; }
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+  .mobile-run-rail-wallet { min-height: 0; height: 72px; }
+  .deck-game-view .mobile-run-rail-resources dt,
+  .mobile-run-rail-wallet span { font-size: 8px; }
+  .deck-game-view .mobile-run-rail-resources dd,
+  .mobile-run-rail-wallet strong { font-size: 17px; }
+
+  .deck-play-table {
+    grid-template-rows: 24px 44px minmax(24px, 1fr) auto !important;
+    gap: 3px;
+    padding-block: 4px;
+  }
+  .deck-play-table .modifier-rail-root {
+    min-height: 44px;
+    height: 44px;
+    overflow: hidden;
+  }
+  .deck-hand-stage { grid-template-rows: 26px auto 50px !important; }
+  .deck-hand-meta { min-height: 26px; height: 26px; }
+  .deck-hand-stage .table-action-dock {
+    min-height: 46px;
+    height: 46px;
+    margin-top: 2px;
+  }
+  .deck-hand-stage .table-action,
+  .deck-hand-stage .discard-action,
+  .deck-sort-control-two-way {
+    min-height: 42px;
+    height: 42px !important;
+  }
+}
+
+/* Run-flow shell v5 -------------------------------------------------------
+ * Gameplay, Cash Out and Garage share the same fixed HUD, build rack and
+ * deck anchor. Only the center content changes with the engine phase. */
+.deck-run-main-content {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(150px, 1fr) auto;
+  overflow: visible;
+}
+
+.deck-run-view .deck-play-table {
+  grid-template-rows: 34px 60px minmax(0, 1fr) !important;
+}
+
+.deck-run-main-content[data-run-content="reward"],
+.deck-run-main-content[data-run-content="shop"] {
+  display: block;
+  overflow: hidden;
+}
+
+.deck-run-view-reward .deck-pile-dock,
+.deck-run-view-shop .deck-pile-dock { z-index: 30; }
+
+.deck-game-view .mobile-run-rail-preview {
+  min-height: 116px;
+  display: grid;
+  align-content: center;
+  padding: 9px;
+}
+
+.deck-game-view .mobile-run-rail-hand-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.deck-game-view .mobile-run-rail-hand-name small {
+  color: #aebcbc;
+  font: 600 10px/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-game-view .mobile-run-rail-hand-name b {
+  color: var(--dm-score);
+  font-size: 12px;
+}
+
+.deck-game-view .mobile-run-rail-equation {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 7px;
+}
+
+.deck-game-view .mobile-run-rail-chips,
+.deck-game-view .mobile-run-rail-mult {
+  min-height: 62px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.deck-game-view .mobile-run-rail-equation-sign { color: #e7e1d2; font-size: 22px; }
+.deck-game-view .mobile-run-rail-equation strong { font-size: 28px; }
+
+.mobile-run-rail-lower-stats {
+  grid-template-columns: minmax(0, 1.2fr) minmax(72px, .8fr) !important;
+  grid-template-rows: 68px 46px !important;
+}
+
+.deck-game-view .mobile-run-rail-resources,
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+.mobile-run-rail-wallet { height: 68px !important; }
+
+.mobile-run-rail-run-meta {
+  grid-column: 1 / -1;
+  display: grid;
+  height: 46px;
+  margin: 0;
+  border: 2px solid var(--dm-line);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  background: var(--dm-panel-soft);
+  box-shadow: 3px 3px var(--dm-shadow);
+}
+
+.mobile-run-rail-run-meta > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border-right: 1px solid var(--dm-line-soft);
+}
+
+.mobile-run-rail-run-meta > div:last-child { border-right: 0; }
+.mobile-run-rail-run-meta dt {
+  color: #a9b6b5;
+  font: 600 9px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+.mobile-run-rail-run-meta dd {
+  margin: 0;
+  color: #f0e8d5;
+  font: 700 15px/1 "Galmuri11", ui-monospace, monospace !important;
+}
+
+/* Main menu → game-select bridge. */
+.game-select-screen {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 32px;
+  color: var(--dm-text);
+  background:
+    radial-gradient(circle at 15% 35%, rgba(201, 57, 50, .24), transparent 30%),
+    radial-gradient(circle at 84% 58%, rgba(42, 132, 174, .25), transparent 34%),
+    #071014;
+}
+
+.game-select-backdrop { position: absolute; inset: 0; opacity: .2; pointer-events: none; }
+.game-select-backdrop::before {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: repeating-linear-gradient(0deg, transparent 0 5px, rgba(255,255,255,.035) 5px 6px);
+}
+.game-select-backdrop i { position: absolute; width: 440px; height: 3px; background: #4ccbd4; box-shadow: 0 0 28px #4ccbd4; transform: rotate(-28deg); }
+.game-select-backdrop i:nth-child(1) { left: -100px; top: 20%; }
+.game-select-backdrop i:nth-child(2) { right: -90px; top: 58%; transform: rotate(24deg); }
+.game-select-backdrop i:nth-child(3) { left: 38%; bottom: 12%; transform: rotate(8deg); }
+
+.game-select-panel {
+  position: relative;
+  z-index: 1;
+  width: min(1060px, 100%);
+  padding: 24px;
+  border: 3px solid #39575c;
+  background: rgba(6, 16, 19, .96);
+  box-shadow: 9px 10px 0 #020607, inset 0 0 0 2px rgba(255,255,255,.025);
+}
+.game-select-panel::before { position: absolute; left: 28px; top: -3px; width: 150px; height: 5px; content: ""; background: #4bd1da; box-shadow: 0 0 16px rgba(75,209,218,.65); }
+.game-select-panel > header { text-align: center; }
+.game-select-panel > header span { color: #55dbe5; font-size: 11px; letter-spacing: .12em; }
+.game-select-panel > header h1 { margin: 7px 0 0; font-size: clamp(34px, 4vw, 54px); text-shadow: 4px 4px 0 #123e42; }
+.game-select-panel > header p { margin: 8px 0 0; color: #b8c7c5; font: 500 14px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important; }
+
+.game-select-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 25px; }
+.game-select-card {
+  min-height: 300px;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 24px;
+  border: 3px solid #3d5960;
+  cursor: pointer;
+  color: #eee9da;
+  background: #101b1f;
+  box-shadow: 6px 7px 0 #020607;
+  text-align: left;
+  transition: transform .16s steps(3, end), filter .16s ease, border-color .16s ease;
+}
+.game-select-card:hover:not(:disabled), .game-select-card:focus-visible { z-index: 2; transform: translateY(-7px); filter: brightness(1.13); }
+.game-select-card.is-continue { border-color: #4aa9bd; }
+.game-select-card.is-new { border-color: #b78342; }
+.game-select-card:disabled { cursor: not-allowed; opacity: .42; filter: grayscale(.4); }
+.game-select-card-icon { display: grid; width: 82px; height: 112px; place-items: center; border: 3px solid currentColor; color: #68d8e5; background: #081216; box-shadow: 5px 5px #020607; font-size: 34px; }
+.game-select-card.is-new .game-select-card-icon { color: #f0bd53; }
+.game-select-card-copy { min-width: 0; display: block; }
+.game-select-card-copy > small { color: #87a3a5; font-size: 10px; letter-spacing: .12em; }
+.game-select-card-copy > strong { display: block; margin-top: 5px; font-size: 28px; }
+.game-select-card-copy > p { margin: 13px 0 0; color: #becbc9; font: 500 13px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important; }
+.game-select-card dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 15px 0 0; }
+.game-select-card dl div { min-width: 0; padding: 8px; border: 1px solid #334b50; background: #081316; }
+.game-select-card dt { color: #8ca0a1; font-size: 9px; }
+.game-select-card dd { margin: 4px 0 0; overflow: hidden; color: #f2e8cc; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.game-select-new-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.game-select-new-tags i { padding: 5px 7px; border: 1px solid #796235; color: #e9c96d; background: #221d10; font-size: 8px; font-style: normal; }
+.game-select-panel > footer { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 15px; border-top: 1px solid #31484d; }
+.game-select-panel > footer button { min-height: 42px; padding: 8px 14px; border: 2px solid #3b575c; color: #d9e5e2; background: #132226; box-shadow: 3px 3px #020607; }
+.game-select-panel > footer p { margin: 0; color: #8da09f; font: 500 11px/1.4 system-ui, sans-serif !important; }
+
+.run-info-modal { display: grid; gap: 15px; padding: 20px; }
+.run-info-modal > header { display: grid; gap: 4px; padding: 14px; border-left: 5px solid #54cbd5; background: #0a171a; }
+.run-info-modal > header span { color: #55dce6; font-size: 10px; letter-spacing: .11em; }
+.run-info-modal > header strong { color: #f0e8d5; font-size: 28px; }
+.run-info-modal > header small { color: #9db0af; font: 500 12px/1.4 system-ui, sans-serif !important; }
+.run-info-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.run-info-grid > div { min-width: 0; display: grid; gap: 5px; padding: 11px; border: 1px solid #354d52; background: #0a1417; }
+.run-info-grid dt { color: #98aaa9; font: 600 10px/1.3 system-ui, sans-serif !important; }
+.run-info-grid dd { margin: 0; overflow: hidden; color: #f0cc5c; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
+.run-info-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  .deck-run-view .deck-play-table { grid-template-rows: 30px 54px minmax(0, 1fr) !important; }
+  .deck-game-view .mobile-run-rail-preview { min-height: 96px; padding: 7px; }
+  .deck-game-view .mobile-run-rail-chips,
+  .deck-game-view .mobile-run-rail-mult { min-height: 48px; }
+  .mobile-run-rail-lower-stats { grid-template-rows: 58px 40px !important; }
+  .deck-game-view .mobile-run-rail-resources,
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+  .mobile-run-rail-wallet { height: 58px !important; }
+  .mobile-run-rail-run-meta { height: 40px; }
+}
+
+@media (max-width: 760px) {
+  .game-select-screen { padding: 12px; overflow: auto; }
+  .game-select-panel { padding: 16px; }
+  .game-select-options { grid-template-columns: 1fr; }
+  .game-select-card { min-height: 210px; grid-template-columns: 68px 1fr; padding: 15px; }
+  .game-select-card-icon { width: 60px; height: 84px; }
+  .run-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .run-info-actions { grid-template-columns: 1fr; }
+}
+
+@media (orientation: landscape) and (max-width: 1000px) and (max-height: 340px) {
+  .deck-game-view .mobile-run-rail-round,
+  .deck-game-view .mobile-run-rail-blind { min-height: 46px; height: 46px; }
+  .deck-game-view .mobile-run-rail-blind-mark { height: 34px; margin-block: 5px; }
+  .deck-game-view .mobile-run-rail-score { min-height: 60px; height: 60px; }
+  .deck-game-view .mobile-run-rail-preview { min-height: 76px; height: 76px; }
+  .deck-game-view .mobile-run-rail-hand-name { min-height: 20px; margin-bottom: 1px; }
+  .deck-game-view .mobile-run-rail-preview-total { margin-top: 1px; padding-top: 1px; }
+  .mobile-run-rail-lower { height: 100px; grid-template-rows: 28px 68px; }
+  .mobile-run-rail-lower-actions,
+  .deck-game-view .mobile-run-rail-tools,
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary {
+    min-height: 28px;
+    height: 28px;
+    grid-template-rows: 28px !important;
+  }
+  .mobile-run-rail-lower-stats,
+  .deck-game-view .mobile-run-rail-resources,
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+  .mobile-run-rail-wallet { height: 68px; }
+  .mobile-run-rail-lower-stats { grid-template-rows: 68px !important; }
+  .deck-play-table { grid-template-rows: 22px 0 minmax(12px, 1fr) auto !important; }
+  .deck-play-table .modifier-rail-root {
+    min-height: 0;
+    height: 0;
+    visibility: hidden;
+  }
+  .deck-hand-stage { grid-template-rows: 24px auto 46px !important; }
+  .deck-hand-stage .table-action-dock { min-height: 42px; height: 42px; margin-top: 0; }
+  .deck-hand-stage .table-action,
+  .deck-hand-stage .discard-action,
+  .deck-sort-control-two-way { min-height: 40px; height: 40px !important; }
+}
+
+/* Approved core card sheet -------------------------------------------------
+ * Every gameplay surface now uses the 40 exact raster crops supplied by the
+ * user. None of the former CSS frame, reactor, corner or rank artwork is
+ * composited on top of these cards. Only state UI (selection, enhancement and
+ * tooltips) may sit above the source art. */
+.number-card,
+.deck-game-view .number-card,
+.deck-game-view .deck-hand-card > .number-card,
+.dm-card-browser__item > .number-card {
+  aspect-ratio: 47 / 70 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  overflow: visible;
+  clip-path: none !important;
+  background: #020708 !important;
+  image-rendering: pixelated;
+}
+
+.number-card .card-core-art {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+  image-rendering: pixelated;
+}
+
+.number-card .card-pixel-frame,
+.number-card .card-number,
+.number-card .card-corner,
+.number-card .card-suit,
+.number-card .card-shortcut,
+.number-card .card-type-label,
+.number-card .card-chip-value {
+  display: none !important;
+}
+
+.number-card::after,
+.number-card[class*="enhancement-"]::after { display: none !important; }
+
+.number-card .card-enhancement-badge,
+.number-card .card-hover-info { z-index: 6; }
+
+/* Core-sheet corner cleanup: the source raster's rank/brand marks are covered
+   with a tiny, upright pixel pictogram. The large center numeral and lower
+   center M brand remain part of the original card art. */
+.number-card .card-color-sigil {
+  --sigil-color: #ff514f;
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 17%;
+  aspect-ratio: 1;
+  color: var(--sigil-color);
+  /* Mask the old corner glyph without turning the new mark into a badge. */
+  background: #07100f;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.number-card .card-color-sigil-top { top: 4%; left: 4%; }
+.number-card .card-color-sigil-bottom { right: 4%; bottom: 4%; }
+.number-card .card-color-sigil[data-color="blue"] { --sigil-color: #55c9ff; }
+.number-card .card-color-sigil[data-color="green"] { --sigil-color: #67e891; }
+.number-card .card-color-sigil[data-color="yellow"] { --sigil-color: #ffd955; }
+.number-card .card-color-sigil svg { width: 86%; height: 84%; fill: currentColor; image-rendering: pixelated; filter: drop-shadow(1px 1px 0 #020607); }
+
+@media (max-width: 760px), (max-height: 640px) {
+  .number-card .card-color-sigil { width: 18%; }
+}
+
+/* Card-first play surface v4 ---------------------------------------------
+ * The table owns hand evaluation and score feedback. The left rail is now a
+ * compact run HUD, while MOD and Mayhem choices live in one build bar. */
+:root {
+  --dm-hud-width: clamp(238px, 18.5vw, 286px);
+  --dm-pile-reserve: clamp(86px, 7vw, 106px);
+}
+
+.deck-game-shell {
+  grid-template-columns: var(--dm-hud-width) minmax(0, 1fr) !important;
+}
+
+.deck-game-view .mobile-run-rail.pixel-panel {
+  gap: 8px;
+  padding: 9px;
+  overflow: hidden;
+}
+
+.deck-game-view .mobile-run-rail-round {
+  grid-template-columns: 1fr;
+  gap: 0;
+  border: 2px solid var(--dm-info);
+}
+
+.deck-game-view .mobile-run-rail-blind {
+  min-height: 78px;
+  grid-template-columns: 50px minmax(0, 1fr);
+}
+
+.deck-game-view .mobile-run-rail-blind-mark {
+  width: 36px;
+  height: 50px;
+  margin: 12px 0 12px 7px;
+  font-size: 20px;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy {
+  gap: 4px;
+  padding: 9px;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy > span,
+.deck-game-view .mobile-run-rail-blind-copy > small {
+  font: 500 11px/1.42 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  letter-spacing: 0;
+}
+
+.deck-game-view .mobile-run-rail-blind-copy h2 {
+  font-size: 16px;
+}
+
+.mobile-run-rail-round-reward {
+  min-width: 0;
+  min-height: 36px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 6px 9px;
+  border: 0;
+  border-top: 1px solid #6f5a25;
+  box-shadow: none;
+  text-align: left;
+}
+
+.mobile-run-rail-round-reward span,
+.mobile-run-rail-round-reward small {
+  font: 500 10px/1.25 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.mobile-run-rail-round-reward strong {
+  grid-row: 1 / 3;
+  grid-column: 2;
+  font-size: 16px;
+}
+
+.deck-game-view .mobile-run-rail-score {
+  min-height: 126px;
+  gap: 8px;
+  padding: 10px;
+}
+
+.mobile-run-rail-target span,
+.deck-game-view .mobile-run-rail-current span,
+.deck-game-view .mobile-run-rail-score-target {
+  font: 600 10px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  letter-spacing: 0;
+}
+
+.mobile-run-rail-target strong,
+.deck-game-view .mobile-run-rail-current strong {
+  font-size: clamp(25px, 2vw, 34px);
+}
+
+.mobile-run-rail-hot-swap {
+  padding: 9px;
+}
+
+.mobile-run-rail-hot-swap h3 {
+  margin: 0 0 7px;
+  font-size: 11px;
+}
+
+.mobile-run-rail-lower {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: auto 44px !important;
+  gap: 7px !important;
+  margin-top: auto;
+}
+
+.mobile-run-rail-lower-stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(76px, .75fr);
+  grid-template-rows: 76px !important;
+  gap: 6px;
+}
+
+.deck-game-view .mobile-run-rail-resources,
+.deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+.mobile-run-rail-wallet {
+  min-height: 0;
+  height: 76px;
+}
+
+.deck-game-view .mobile-run-rail-resources dt,
+.mobile-run-rail-wallet span {
+  font: 600 10px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-game-view .mobile-run-rail-resources dd,
+.mobile-run-rail-wallet strong {
+  font-size: 22px;
+}
+
+.mobile-run-rail-lower-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: 44px !important;
+  gap: 6px;
+}
+
+.deck-game-view .mobile-run-rail-tools,
+.deck-game-view .mobile-run-rail-tools .rail-tool-primary {
+  min-height: 44px !important;
+  height: 44px !important;
+}
+
+.deck-game-view .mobile-run-rail-tools .rail-tool-primary {
+  padding: 7px 8px;
+}
+
+.deck-game-view .mobile-run-rail-tools b {
+  font-size: 11px;
+}
+
+.deck-play-table {
+  grid-template-rows: 34px 60px minmax(210px, 1fr) auto !important;
+  gap: 6px;
+  padding: 8px var(--dm-pile-reserve) 8px 10px;
+  overflow: hidden;
+}
+
+.deck-stage-header {
+  min-height: 34px;
+  padding: 5px 9px;
+  border-width: 1px;
+  background: rgba(5, 14, 16, .48);
+}
+
+.deck-stage-header span { font-size: 9px; }
+.deck-stage-header strong { font-size: 13px; }
+.deck-stage-header p {
+  font: 500 11px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-play-table .modifier-rail-root {
+  position: relative;
+  z-index: 40;
+  min-height: 60px;
+  height: 60px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(240px, .75fr) !important;
+  gap: 6px;
+  overflow: visible;
+}
+
+.deck-play-table .modifier-rail-section {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-width: 1px;
+  background: rgba(8, 14, 17, .78);
+}
+
+.deck-play-table .modifier-rail-section-header {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+}
+
+.deck-play-table .modifier-rail-section-header h2,
+.deck-play-table .modifier-rail-section-header span {
+  font-size: 10px;
+}
+
+.deck-play-table .modifier-rail-slots,
+.deck-play-table .modifier-rail-uno-slots {
+  display: flex;
+  min-width: 0;
+  gap: 5px;
+}
+
+.deck-play-table .modifier-rail-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 150px;
+}
+
+.deck-play-table .modifier-rail-slot-trigger,
+.deck-play-table .modifier-rail-empty-slot {
+  min-height: 46px;
+  height: 46px;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 5px;
+  padding: 4px;
+  border-width: 1px;
+}
+
+.deck-play-table .modifier-rail-slot-icon {
+  width: 28px;
+  height: 34px;
+  font-size: 10px;
+}
+
+.deck-play-table .modifier-rail-slot-copy {
+  display: grid;
+}
+
+.deck-play-table .modifier-rail-slot-copy strong {
+  font-size: 9px;
+}
+
+.deck-play-table .modifier-rail-slot-copy small,
+.deck-play-table .modifier-rail-slot-status {
+  display: block;
+  font: 500 8px/1.25 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-play-table .modifier-rail-empty-slot {
+  max-width: 52px;
+  opacity: .28;
+}
+
+.modifier-rail-slot-armed .modifier-rail-slot-trigger {
+  border-color: #f0cf58;
+  background: #282112;
+  box-shadow: 0 0 0 2px rgba(240, 207, 88, .22), 0 0 14px rgba(240, 207, 88, .22);
+  animation: dm-mayhem-armed 720ms steps(4, end) infinite alternate;
+}
+
+.modifier-rail-slot-armed .modifier-rail-slot-status {
+  color: #f0cf58;
+}
+
+.deck-play-table .modifier-rail-tooltip {
+  left: 0;
+  right: auto;
+  top: calc(100% + 8px);
+  width: min(360px, 52vw);
+  max-height: min(58vh, 470px);
+  padding: 13px;
+  overflow: auto;
+  transform: none;
+}
+
+.modifier-rail-tooltip-description,
+.modifier-rail-tooltip-meta dd,
+.modifier-rail-module span {
+  font: 500 11px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.modifier-rail-tooltip-header strong,
+.modifier-rail-module b { font-size: 11px; }
+.modifier-rail-tooltip-header small,
+.modifier-rail-tooltip-meta dt,
+.modifier-rail-module i { font-size: 9px; }
+
+.modifier-rail-mayhem-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--dm-line-soft);
+}
+
+.modifier-rail-mayhem-actions > span {
+  color: var(--dm-muted);
+  font: 600 10px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.modifier-rail-mayhem-colors {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.modifier-rail-mayhem-colors button {
+  min-height: 30px;
+  padding: 3px;
+  border: 2px solid #314246;
+  color: #f2f6f4;
+  background: #172125;
+  font-size: 8px;
+}
+
+.modifier-rail-mayhem-colors .is-red { background: #7c2f2b; }
+.modifier-rail-mayhem-colors .is-yellow { color: #16120a; background: #c18e25; }
+.modifier-rail-mayhem-colors .is-green { background: #2f7046; }
+.modifier-rail-mayhem-colors .is-blue { background: #286884; }
+.modifier-rail-mayhem-colors button.is-active { border-color: #fff2b0; box-shadow: 0 0 0 2px rgba(255,242,176,.26); }
+
+.modifier-rail-mayhem-use {
+  grid-column: 1 / -1;
+  min-height: 38px;
+  border: 2px solid #d1aaff;
+  color: #f9f1ff;
+  background: #573d72;
+  box-shadow: inset 0 -4px rgba(0,0,0,.24), 3px 3px #020405;
+  font-size: 11px;
+}
+
+.modifier-rail-mayhem-use.is-cancel {
+  border-color: #7b8a8b;
+  color: #c8d1cf;
+  background: #263235;
+}
+
+.deck-resolve-zone {
+  min-height: 210px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.deck-hand-readout {
+  position: absolute;
+  z-index: 18;
+  left: 50%;
+  top: 10px;
+  width: min(580px, 76%);
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: minmax(150px, .85fr) minmax(280px, 1.4fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(80, 206, 224, .42);
+  transform: translateX(-50%);
+  color: var(--dm-text);
+  background: rgba(5, 13, 16, .9);
+  box-shadow: 4px 4px #020405, 0 0 20px rgba(53, 189, 207, .1);
+}
+
+.deck-hand-readout.is-idle {
+  width: min(360px, 64%);
+  min-height: 62px;
+  grid-template-columns: auto 1fr;
+  justify-content: center;
+  gap: 5px 10px;
+  opacity: .58;
+}
+
+.deck-hand-readout.is-idle > span {
+  grid-row: 1 / 3;
+  color: var(--dm-info);
+  font-size: 24px;
+}
+
+.deck-hand-readout.is-idle strong { font-size: 13px; }
+.deck-hand-readout.is-idle small {
+  color: var(--dm-muted);
+  font: 500 11px/1.4 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-hand-readout-name {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.deck-hand-readout-name small {
+  grid-column: 1 / -1;
+  color: var(--dm-muted);
+  font: 600 10px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-hand-readout-name strong {
+  overflow: hidden;
+  color: #f4d265;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deck-hand-readout-name i {
+  color: #94a8a8;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.deck-hand-readout-equation {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1.15fr;
+  align-items: center;
+  gap: 7px;
+}
+
+.deck-hand-readout-equation > span,
+.deck-hand-readout-equation output {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+
+.deck-hand-readout-equation small {
+  color: var(--dm-muted);
+  font: 600 9px/1.15 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-hand-readout-equation b {
+  overflow: hidden;
+  font-size: clamp(20px, 1.65vw, 28px);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+
+.deck-hand-readout-equation .is-power b { color: #63dbed; }
+.deck-hand-readout-equation .is-hype b { color: #ff7770; }
+.deck-hand-readout-equation output b { color: #f4d265; }
+.deck-hand-readout-equation > i { color: #d5dfdc; font-size: 16px; font-style: normal; }
+
+.deck-hand-readout-mayhem {
+  grid-column: 1 / -1;
+  margin-top: -5px;
+  color: #d7b8f3;
+  font: 600 10px/1.3 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  text-align: center;
+}
+
+.deck-hand-readout.is-scoring,
+.deck-hand-readout.is-transferring {
+  border-color: #f4d265;
+}
+
+.deck-resolve-zone.has-played-cards .deck-played-layout {
+  transform: translateY(42px);
+}
+
+.deck-card-score-popup {
+  min-width: 72px;
+  padding: 7px 10px;
+  font-size: 18px;
+}
+
+.deck-card-score-popup small {
+  font: 700 9px/1.2 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+.deck-hand-stage {
+  grid-template-rows: 32px auto 72px !important;
+  align-content: end;
+}
+
+.deck-hand-meta {
+  min-height: 32px;
+  justify-content: center;
+}
+
+.deck-hand-stage .table-hand-tools {
+  min-height: 30px;
+  gap: 8px;
+  padding: 3px 7px;
+}
+
+.deck-hand-stage .table-hand-tools button,
+.deck-hand-stage .table-hand-tools output {
+  min-height: 26px;
+  font-size: 10px;
+}
+
+.deck-hand-stage .table-action-dock {
+  width: min(700px, 78%);
+  min-width: 540px;
+  min-height: 68px;
+  margin-top: 8px;
+  grid-template-columns: minmax(180px, 1.15fr) minmax(150px, .78fr) minmax(180px, 1fr) !important;
+  gap: 8px;
+}
+
+.deck-hand-stage .table-action,
+.deck-hand-stage .discard-action,
+.deck-sort-control-two-way {
+  min-height: 62px;
+  height: 62px !important;
+}
+
+.deck-hand-stage .table-action {
+  font-size: 16px;
+}
+
+.deck-hand-stage .table-action span {
+  display: grid;
+  gap: 3px;
+}
+
+.deck-hand-stage .table-action span small {
+  font: 600 9px/1.15 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+  opacity: .78;
+}
+
+.deck-sort-control-two-way {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: 15px 1fr;
+  align-self: center;
+  gap: 4px;
+  padding: 5px;
+}
+
+.deck-sort-control-two-way > span {
+  font-size: 9px;
+  text-align: center;
+}
+
+.deck-sort-control-two-way button {
+  min-height: 31px;
+  font-size: 11px;
+}
+
+.deck-pile-dock {
+  right: 8px;
+  bottom: clamp(88px, 12vh, 118px);
+  width: clamp(74px, 6vw, 88px);
+}
+
+.deck-pile-button-label,
+.deck-pile-open-hint,
+.deck-pile-color-copy b,
+.deck-pile-popover-hint {
+  font: 500 9px/1.35 system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif !important;
+}
+
+@keyframes dm-mayhem-armed {
+  from { filter: brightness(.96); }
+  to { filter: brightness(1.18); }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  :root { --dm-hud-width: clamp(238px, 18.5vw, 258px); }
+
+  .deck-game-view .mobile-run-rail.pixel-panel { gap: 6px; padding: 7px; }
+  .deck-game-view .mobile-run-rail-blind { min-height: 66px; }
+  .deck-game-view .mobile-run-rail-blind-mark { height: 42px; margin-block: 10px; font-size: 17px; }
+  .deck-game-view .mobile-run-rail-blind-copy { padding: 7px; }
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-blind-copy > small { font-size: 10px; }
+  .mobile-run-rail-round-reward { min-height: 32px; padding-block: 4px; }
+  .mobile-run-rail-round-reward span,
+  .mobile-run-rail-round-reward small { font-size: 9px; }
+  .deck-game-view .mobile-run-rail-score { min-height: 104px; padding: 8px; }
+  .mobile-run-rail-target strong,
+  .deck-game-view .mobile-run-rail-current strong { font-size: 24px; }
+  .mobile-run-rail-lower { grid-template-rows: 68px 40px !important; }
+  .mobile-run-rail-lower-stats,
+  .deck-game-view .mobile-run-rail-resources,
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource,
+  .mobile-run-rail-wallet { height: 68px; }
+  .mobile-run-rail-lower-actions { grid-template-rows: 40px !important; }
+  .deck-game-view .mobile-run-rail-tools,
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 40px !important; height: 40px !important; }
+
+  .deck-play-table { grid-template-rows: 30px 54px minmax(178px, 1fr) auto !important; padding-block: 6px; }
+  .deck-play-table .modifier-rail-root { min-height: 54px; height: 54px; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { min-height: 40px; height: 40px; }
+  .deck-play-table .modifier-rail-slot-icon { height: 30px; }
+  .deck-resolve-zone { min-height: 178px; }
+  .deck-hand-readout { top: 5px; min-height: 66px; padding-block: 7px; }
+  .deck-hand-readout-name strong { font-size: 16px; }
+  .deck-hand-readout-equation b { font-size: 20px; }
+  .deck-resolve-zone.has-played-cards .deck-played-layout { transform: translateY(34px); }
+  .deck-hand-stage { grid-template-rows: 28px auto 62px !important; }
+  .deck-hand-stage .table-action-dock { min-height: 56px; margin-top: 5px; }
+  .deck-hand-stage .table-action,
+  .deck-hand-stage .discard-action,
+  .deck-sort-control-two-way { min-height: 54px; height: 54px !important; }
+}
+
+@media (orientation: portrait) and (max-width: 1100px),
+       (orientation: landscape) and (max-width: 1000px) {
+  :root { --dm-hud-width: clamp(156px, 29vw, 210px); --dm-pile-reserve: 70px; }
+  .deck-game-view .mobile-run-rail-round-reward { display: none; }
+  .deck-game-view .mobile-run-rail-blind-copy > span,
+  .deck-game-view .mobile-run-rail-blind-copy > small { font-size: 9px; }
+  .deck-game-view .mobile-run-rail-score-target { font-size: 9px; }
+  .mobile-run-rail-lower { grid-template-rows: auto 36px !important; }
+  .mobile-run-rail-lower-stats { grid-template-columns: 1fr; grid-template-rows: 58px 44px !important; }
+  .deck-game-view .mobile-run-rail-resources,
+  .deck-game-view .mobile-run-rail-resources > .mobile-run-resource { height: 58px; }
+  .mobile-run-rail-wallet { height: 44px; }
+  .mobile-run-rail-lower-actions { grid-template-rows: 36px !important; }
+  .deck-game-view .mobile-run-rail-tools,
+  .deck-game-view .mobile-run-rail-tools .rail-tool-primary { min-height: 36px !important; height: 36px !important; }
+
+  .deck-play-table .modifier-rail-root { grid-template-columns: minmax(0, 1fr) minmax(126px, .7fr) !important; }
+  .deck-play-table .modifier-rail-section-header { display: none; }
+  .deck-play-table .modifier-rail-section { grid-template-columns: 1fr; padding: 3px; }
+  .deck-play-table .modifier-rail-slot-copy,
+  .deck-play-table .modifier-rail-slot-status { display: none; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { grid-template-columns: 1fr; justify-items: center; }
+  .deck-play-table .modifier-rail-tooltip { width: min(330px, calc(100vw - var(--dm-hud-width) - 24px)); }
+  .deck-hand-readout { width: min(440px, 78%); grid-template-columns: 1fr; gap: 6px; }
+  .deck-hand-readout-name { grid-template-columns: 1fr auto; }
+  .deck-hand-readout-equation b { font-size: 17px; }
+  .deck-hand-readout-mayhem { display: none; }
+  .deck-hand-stage .table-action-dock { width: min(480px, 94%); min-width: 310px; }
+  .deck-hand-stage .table-action { font-size: 12px; }
+}
+
+@media (orientation: landscape) and (max-width: 1000px) and (max-height: 600px) {
+  .deck-play-table {
+    grid-template-rows: 24px 42px minmax(80px, 1fr) auto !important;
+    gap: 1px;
+    padding-block: 2px;
+  }
+  .deck-stage-header { min-height: 24px; height: 24px; padding-block: 2px; }
+  .deck-play-table .modifier-rail-root { min-height: 42px; height: 42px; }
+  .deck-play-table .modifier-rail-slot-trigger,
+  .deck-play-table .modifier-rail-empty-slot { min-height: 34px; height: 34px; }
+  .deck-play-table .modifier-rail-slot-icon { height: 27px; }
+  .deck-resolve-zone { min-height: 80px; }
+  .deck-hand-readout { top: 2px; min-height: 54px; padding: 5px 7px; }
+  .deck-hand-readout-name small,
+  .deck-hand-readout-equation small { font-size: 8px; }
+  .deck-hand-readout-name strong { font-size: 12px; }
+  .deck-hand-readout-equation b { font-size: 14px; }
+  .deck-resolve-zone.has-played-cards .deck-played-layout { transform: translateY(24px); }
+  .deck-hand-stage { grid-template-rows: 20px auto 48px !important; }
+  .deck-hand-meta {
+    position: relative;
+    z-index: 24;
+    min-height: 20px;
+    height: 20px;
+  }
+  .deck-hand-stage .table-action-dock { min-height: 44px; height: 44px; margin-top: 2px; }
+  .deck-hand-stage .table-action,
+  .deck-hand-stage .discard-action,
+  .deck-sort-control-two-way { min-height: 42px; height: 42px !important; }
+  .deck-sort-control-two-way { grid-template-rows: 10px 1fr; }
+  .deck-sort-control-two-way > span { font-size: 8px; }
+  .deck-sort-control-two-way button { min-height: 24px; font-size: 9px; }
+}
+
+/* Readability floor for dense but interactive table details. */
+.deck-play-table .modifier-rail-slot-copy small,
+.deck-play-table .modifier-rail-slot-status,
+.modifier-rail-mayhem-colors button {
+  font-size: 9px !important;
+}
+
+.deck-pile-card-matrix .deck-pile-mini-card > b,
+.deck-pile-card-matrix .deck-pile-mini-card-ratio,
+.deck-pile-card-matrix .deck-pile-mini-card-ratio b,
+.deck-pile-card-matrix .deck-pile-mini-card-ratio span {
+  font-size: 10px !important;
+}
+
+.deck-pile-card-matrix .deck-pile-mini-card > i,
+.deck-pile-card-matrix .deck-pile-mini-card-count {
+  font-size: 7px !important;
+}
+
+.deck-pile-mini-header small,
+.deck-pile-reference-note,
+.deck-pile-popover-hint {
+  font-size: 9px !important;
+}
+
+/* The run HUD follows the visible information order instead of pinning
+ * resources to the viewport bottom: stage → target/score → calculation →
+ * hands/discards/coin → progress/tools. */
+.deck-run-view .mobile-run-rail-lower {
+  margin-top: 0;
+}
+
+/* Shop has no center scene header; its GARAGE title is in the left HUD. */
+.deck-run-view-shop .deck-play-table {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+/* Garage keeps only a loose draw deck in the lower-right corner. */
+.deck-run-view-shop .deck-pile-dock {
+  top: auto;
+  right: 18px;
+  bottom: 16px;
+  width: 92px;
+  display: block;
+}
+
+.deck-run-view-shop .deck-pile-draw .deck-pile-button {
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  clip-path: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.deck-run-view-shop .deck-pile-draw .deck-pile-button::before,
+.deck-run-view-shop .deck-pile-draw .deck-pile-button::after,
+.deck-run-view-shop .deck-pile-button-label,
+.deck-run-view-shop .deck-pile-open-hint {
+  display: none;
+}
+
+.deck-run-view-shop .deck-pile-draw .deck-pile-card {
+  width: 82px;
+  border-width: 3px;
+  box-shadow: 4px 5px var(--dm-shadow);
+}
+
+/* Fixed run frame v6 -----------------------------------------------------
+ * The sidebar and build rack keep their exact tracks between PLAY, CASH OUT
+ * and GARAGE. Only the content below the rack is replaced. */
+.deck-run-view .deck-play-table,
+.deck-run-view-shop .deck-play-table {
+  grid-template-rows: 36px 66px minmax(0, 1fr) !important;
+}
+
+.deck-run-view .mobile-run-rail-scoreboard {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.deck-run-view .mobile-run-rail-current {
+  min-height: 55px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.deck-run-view .mobile-run-rail-current strong {
+  font-size: clamp(30px, 2.35vw, 42px);
+}
+
+.deck-run-view .mobile-run-rail-score {
+  min-height: 104px;
+}
+
+.deck-run-main-content[data-run-content="playing"] {
+  padding-bottom: clamp(14px, 2vh, 24px);
+}
+
+.deck-run-main-content[data-run-content="reward"],
+.deck-run-main-content[data-run-content="shop"] {
+  display: grid;
+  align-items: end;
+  overflow: hidden;
+  padding: 12px 16px 18px;
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
+  .deck-run-view .deck-play-table,
+  .deck-run-view-shop .deck-play-table {
+    grid-template-rows: 30px 54px minmax(0, 1fr) !important;
+  }
+
+  .deck-run-main-content[data-run-content="playing"] {
+    padding-bottom: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-run-view.has-rising-panel .deck-run-main-content > * {
+    animation: none !important;
+  }
+}
+
+@keyframes dm-run-panel-rise {
+  from { opacity: 0; transform: translateY(72px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Spacious desktop run frame ------------------------------------------------
+ * On tall desktop screens the compact/mobile measurements left the HUD with a
+ * large dead zone and made the build rack read like a thin status line. Keep
+ * the anchors fixed, but let each block consume a deliberate share of the
+ * viewport, matching the dense cabinet rhythm of the gameplay reference. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
+  .deck-run-view .deck-play-table,
+  .deck-run-view-shop .deck-play-table {
+    grid-template-rows: 40px 116px minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view .deck-stage-header {
+    min-height: 40px;
+    padding: 6px 11px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-root {
+    min-height: 116px;
+    height: 116px;
+    gap: 9px;
+    padding: 7px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-section {
+    min-height: 0;
+    grid-template-rows: 18px minmax(0, 1fr);
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-section-header h2,
+  .deck-run-view .deck-play-table .modifier-rail-section-header span {
+    font-size: 11px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slots {
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+  .deck-run-view .deck-play-table .modifier-rail-empty-slot {
+    min-height: 70px;
+    height: 70px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-empty-slot {
+    max-width: none;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-icon {
+    width: 44px;
+    height: 54px;
+    font-size: 15px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-copy strong {
+    font-size: 11px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-copy small {
+    display: block;
+    font-size: 9px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-status {
+    font-size: 8px !important;
+  }
+
+  .deck-run-view .mobile-run-rail.pixel-panel {
+    display: grid;
+    grid-template-rows:
+      minmax(165px, .95fr)
+      minmax(145px, .72fr)
+      minmax(180px, 1fr)
+      auto
+      minmax(240px, 1.15fr);
+    align-content: stretch;
+    gap: clamp(8px, 1vh, 12px);
+    padding: clamp(10px, 1.2vh, 14px);
+  }
+
+  .deck-run-view .mobile-run-rail-round {
+    grid-row: 1;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .deck-run-view .mobile-run-rail-blind {
+    min-height: 0;
+  }
+
+  .deck-run-view .mobile-run-rail-score {
+    grid-row: 2;
+    min-height: 0;
+    align-content: center;
+    padding: 14px;
+  }
+
+  .deck-run-view .mobile-run-rail-current {
+    min-height: 86px;
+    padding: 12px;
+  }
+
+  .deck-run-view .mobile-run-rail-current strong {
+    font-size: clamp(36px, 2.35vw, 46px);
+  }
+
+  .deck-run-view .mobile-run-rail-preview {
+    grid-row: 3;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .deck-run-view .mobile-run-rail-chips,
+  .deck-run-view .mobile-run-rail-mult {
+    min-height: 88px;
+  }
+
+  .deck-run-view .mobile-run-rail-equation strong {
+    font-size: 38px;
+  }
+
+  .deck-run-view .mobile-run-rail-hot-swap {
+    grid-row: 4;
+  }
+
+  .deck-run-view .mobile-run-rail-lower {
+    grid-row: 5;
+    min-height: 0 !important;
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr) 54px !important;
+    margin-top: 0;
+  }
+
+  .deck-run-view .mobile-run-rail-lower-stats {
+    height: 100%;
+    grid-template-rows: minmax(96px, 1fr) minmax(58px, .68fr) !important;
+  }
+
+  .deck-run-view .mobile-run-rail-resources,
+  .deck-run-view .mobile-run-rail-resources > .mobile-run-resource,
+  .deck-run-view .mobile-run-rail-wallet,
+  .deck-run-view .mobile-run-rail-run-meta {
+    height: auto !important;
+  }
+
+  .deck-run-view .mobile-run-rail-resources > .mobile-run-resource,
+  .deck-run-view .mobile-run-rail-wallet {
+    align-content: center;
+    padding: 10px;
+  }
+
+  .deck-run-view .mobile-run-rail-resources dd,
+  .deck-run-view .mobile-run-rail-wallet strong {
+    font-size: 28px;
+  }
+
+  .deck-run-view .mobile-run-rail-lower-actions {
+    grid-template-rows: 54px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-tools,
+  .deck-run-view .mobile-run-rail-tools .rail-tool-primary {
+    min-height: 54px !important;
+    height: 54px !important;
+  }
+}
+
+.deck-run-view-shop .deck-pile-draw .deck-pile-count {
+  width: max-content;
+  margin: 5px auto 0;
+  padding: 2px 4px;
+  border: 0;
+  color: #f4d254;
+  background: rgba(4, 11, 13, .86);
+  font-size: 11px;
+}
+
+/* Balatro-proportioned desktop cabinet -------------------------------------
+ * Reference ratio at 16:9: HUD ≈23.6%, build rack ≈21–23vh, playfield fills
+ * the rest. These rules intentionally live last so old compact limits cannot
+ * collapse the desktop shell back to a mobile-sized strip. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
+  :root {
+    --dm-hud-width: clamp(340px, 23.6vw, 470px);
+    --dm-pile-reserve: clamp(138px, 9.6vw, 190px);
+    --dm-pile-edge-gap: clamp(24px, 1.55vw, 32px);
+  }
+
+  /* Keep the deck inside its reserved right-hand lane. Moving the dock does
+   * not reflow the hand, score theatre, reward panel, or Garage shelf. */
+  .deck-run-view .deck-pile-dock,
+  .deck-run-view-shop .deck-pile-dock {
+    right: var(--dm-pile-edge-gap);
+  }
+
+  .deck-game-shell {
+    grid-template-columns: var(--dm-hud-width) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view .deck-play-table,
+  .deck-run-view-shop .deck-play-table {
+    grid-template-rows: 44px clamp(196px, 21vh, 240px) minmax(0, 1fr) !important;
+    gap: 8px;
+    padding: 10px var(--dm-pile-reserve) 10px 12px;
+  }
+
+  .deck-run-view .deck-stage-header {
+    min-height: 44px;
+    padding: 7px 13px;
+  }
+
+  .deck-run-view .deck-stage-header span { font-size: 11px; }
+  .deck-run-view .deck-stage-header strong { font-size: 16px; }
+  .deck-run-view .deck-stage-header p { font-size: 13px !important; }
+
+  .deck-run-view .deck-play-table .modifier-rail-root {
+    min-height: 0;
+    height: 100%;
+    grid-template-columns: minmax(0, 1.35fr) minmax(330px, .65fr) !important;
+    gap: 10px;
+    padding: 9px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-section {
+    min-height: 0;
+    height: 100%;
+    grid-template-rows: 25px minmax(0, 1fr);
+    gap: 7px;
+    padding: 9px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-section-header h2,
+  .deck-run-view .deck-play-table .modifier-rail-section-header span {
+    font-size: 13px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slots {
+    min-height: 0;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slots {
+    grid-template-columns: repeat(4, minmax(96px, 1fr));
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots {
+    grid-template-columns: repeat(3, minmax(96px, 1fr));
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot {
+    height: 100%;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+  .deck-run-view .deck-play-table .modifier-rail-empty-slot {
+    min-height: 0;
+    height: 100%;
+    grid-template-columns: 58px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-empty-slot {
+    max-width: none;
+    grid-template-columns: 1fr;
+    place-content: center;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-icon {
+    width: 56px;
+    height: 78px;
+    font-size: 20px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-copy strong {
+    font-size: 13px;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-copy small {
+    display: block;
+    font-size: 11px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot-status {
+    font-size: 10px !important;
+  }
+
+  .deck-run-view .mobile-run-rail.pixel-panel {
+    grid-template-rows:
+      minmax(190px, .95fr)
+      minmax(135px, .68fr)
+      minmax(175px, .9fr)
+      auto
+      minmax(250px, 1.12fr);
+    gap: clamp(9px, .9vh, 12px);
+    padding: clamp(12px, 1.25vh, 16px);
+  }
+
+  .deck-run-view .mobile-run-rail-blind {
+    grid-template-columns: 92px minmax(0, 1fr);
+  }
+
+  .deck-run-view .mobile-run-rail-blind-mark {
+    width: 68px;
+    height: 94px;
+    margin: auto;
+    font-size: 31px;
+  }
+
+  .deck-run-view .mobile-run-rail-blind-copy {
+    align-content: center;
+    gap: 7px;
+    padding: 14px;
+  }
+
+  .deck-run-view .mobile-run-rail-blind-copy > span,
+  .deck-run-view .mobile-run-rail-blind-copy > small {
+    font-size: 14px !important;
+    line-height: 1.45 !important;
+  }
+
+  .deck-run-view .mobile-run-rail-blind-copy h2 {
+    font-size: 25px;
+  }
+
+  .deck-run-view .mobile-run-rail-round-reward {
+    min-height: 64px;
+    padding: 10px 15px;
+  }
+
+  .deck-run-view .mobile-run-rail-round-reward span,
+  .deck-run-view .mobile-run-rail-round-reward small {
+    font-size: 13px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-round-reward strong {
+    font-size: 27px;
+  }
+
+  .deck-run-view .mobile-run-rail-score {
+    padding: 16px;
+  }
+
+  .deck-run-view .mobile-run-rail-current {
+    min-height: 92px;
+    padding: 14px 16px;
+  }
+
+  .deck-run-view .mobile-run-rail-current span,
+  .deck-run-view .mobile-run-rail-score-target {
+    font-size: 14px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-current strong {
+    font-size: clamp(48px, 3.3vw, 64px);
+  }
+
+  .deck-run-view .mobile-run-rail-progress {
+    height: 18px;
+  }
+
+  .deck-run-view .mobile-run-rail-preview {
+    padding: 17px;
+  }
+
+  .deck-run-view .mobile-run-rail-hand-name small,
+  .deck-run-view .mobile-run-rail-hand-name b,
+  .deck-run-view .mobile-run-rail-equation span {
+    font-size: 14px !important;
+  }
+
+  .deck-run-view .mobile-run-rail[data-score-phase="selecting"] .mobile-run-rail-hand-name {
+    align-items: baseline;
+    margin-bottom: 12px;
+  }
+
+  .deck-run-view .mobile-run-rail[data-score-phase="selecting"] .mobile-run-rail-hand-name small {
+    font-size: 15px !important;
+  }
+
+  .deck-run-view .mobile-run-rail[data-score-phase="selecting"] .mobile-run-rail-hand-name b {
+    color: #fff1a1;
+    font-size: clamp(24px, 1.9vw, 32px) !important;
+    line-height: 1.04;
+    letter-spacing: -.045em;
+    text-shadow: 3px 3px 0 var(--dm-shadow), 0 0 12px rgba(244, 210, 101, .28);
+  }
+
+  .deck-run-view .mobile-run-rail-chips,
+  .deck-run-view .mobile-run-rail-mult {
+    min-height: 104px;
+  }
+
+  .deck-run-view .mobile-run-rail-equation strong {
+    font-size: 52px;
+  }
+
+  .deck-run-view .mobile-run-rail-equation-sign {
+    font-size: 34px;
+  }
+
+  .deck-run-view .mobile-run-rail-lower {
+    grid-template-rows: minmax(0, 1fr) 72px !important;
+    gap: 10px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-lower-stats {
+    grid-template-columns: minmax(0, 1.25fr) minmax(120px, .75fr) !important;
+    grid-template-rows: minmax(120px, 1fr) minmax(78px, .72fr) !important;
+    gap: 9px;
+  }
+
+  .deck-run-view .mobile-run-rail-resources {
+    gap: 9px;
+  }
+
+  .deck-run-view .mobile-run-rail-resources > .mobile-run-resource,
+  .deck-run-view .mobile-run-rail-wallet {
+    padding: 13px;
+  }
+
+  .deck-run-view .mobile-run-rail-resources dt,
+  .deck-run-view .mobile-run-rail-wallet span,
+  .deck-run-view .mobile-run-rail-run-meta dt {
+    font-size: 14px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-resources dd,
+  .deck-run-view .mobile-run-rail-wallet strong {
+    font-size: 39px;
+  }
+
+  .deck-run-view .mobile-run-rail-run-meta > div {
+    padding: 10px 14px;
+  }
+
+  .deck-run-view .mobile-run-rail-run-meta dd {
+    font-size: 23px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-lower-actions {
+    grid-template-rows: 72px !important;
+    gap: 10px;
+  }
+
+  .deck-run-view .mobile-run-rail-tools,
+  .deck-run-view .mobile-run-rail-tools .rail-tool-primary {
+    min-height: 72px !important;
+    height: 72px !important;
+  }
+
+  .deck-run-view .mobile-run-rail-tools .rail-tool-primary {
+    padding: 12px 16px;
+  }
+
+  .deck-run-view .mobile-run-rail-tools button > span {
+    font-size: 22px;
+  }
+
+  .deck-run-view .mobile-run-rail-tools b {
+    font-size: 17px;
+  }
+
+  .deck-run-view-shop .deck-pile-dock {
+    bottom: 34px;
+    width: clamp(130px, 9vw, 176px);
+  }
+
+  .deck-run-view-shop .deck-pile-draw .deck-pile-card {
+    width: clamp(112px, 7.5vw, 146px);
+  }
+
+  .deck-run-view-shop .deck-pile-draw .deck-pile-count {
+    margin-top: 10px;
+    font-size: 18px;
+  }
+}
+
+/* Scoring theatre cascade guard. Keep this after every legacy breakpoint. */
+.deck-played-layout[data-score-phase="moving"] .deck-played-card {
+  animation: dm-selected-card-launch 260ms cubic-bezier(.16, .78, .18, 1) both;
+  animation-delay: calc(var(--hand-card-index) * 12ms);
+}
+
+.deck-played-card[data-card-score-state="active"] {
+  --hand-card-active-z: 220;
+  animation: dm-scoring-card-impact 290ms cubic-bezier(.18, .82, .22, 1) both;
+}
+
+.deck-played-card[data-card-score-state="active"] .number-card {
+  filter: brightness(1.24) saturate(1.16);
+  box-shadow:
+    0 0 0 4px rgba(240, 249, 246, .92),
+    0 0 0 8px rgba(52, 174, 224, .42),
+    8px 12px var(--dm-shadow);
+}
+
+.deck-card-score-popup,
+.deck-played-card .deck-card-score-popup {
+  isolation: isolate;
+  top: -72px;
+  min-width: 86px;
+  min-height: 62px;
+  padding: 9px 13px;
+  border: 0;
+  color: #fffdf0;
+  background: transparent;
+  box-shadow: none;
+  font-size: clamp(34px, 2.75vw, 46px);
+  line-height: 1;
+  letter-spacing: -.06em;
+  text-shadow: 3px 4px 0 rgba(7, 17, 25, .86);
+  animation: dm-score-badge-impact 290ms cubic-bezier(.15, .82, .18, 1) both;
+}
+
+.deck-card-score-popup::before {
+  content: "";
+  position: absolute;
+  inset: 2px 4px;
+  z-index: -1;
+  border: 3px solid rgba(230, 249, 255, .86);
+  -webkit-clip-path: polygon(50% 0, 96% 21%, 88% 77%, 48% 100%, 4% 72%, 10% 22%);
+  clip-path: polygon(50% 0, 96% 21%, 88% 77%, 48% 100%, 4% 72%, 10% 22%);
+  background: linear-gradient(145deg, #1cc9f0 0 42%, #1878dd 43% 100%);
+  filter: drop-shadow(5px 6px 0 rgba(2, 9, 15, .7));
+}
+
+.deck-card-score-popup-enhancement::before { background: linear-gradient(145deg, #3be5e8 0 42%, #1688b8 43% 100%); }
+.deck-card-score-popup-mod::before { background: linear-gradient(145deg, #d776f4 0 42%, #7040c6 43% 100%); }
+.deck-card-score-popup-mayhem::before { background: linear-gradient(145deg, #ff6bc0 0 42%, #bc276f 43% 100%); }
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage {
+    transform: none;
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-meta,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-meta {
+    opacity: 0;
+    transform: translateY(96px);
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .table-action-dock {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(clamp(150px, 18vh, 210px));
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
+    opacity: .9;
+    filter: saturate(.82) brightness(.72);
+    transform: translateY(clamp(118px, 13vh, 156px));
+  }
+
+  .deck-resolve-zone.has-played-cards .deck-played-layout {
+    transform: translateY(clamp(126px, 16vh, 176px));
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1000px) {
+  .deck-card-score-popup,
+  .deck-played-card .deck-card-score-popup {
+    top: -42px;
+    min-width: 54px;
+    min-height: 39px;
+    padding: 5px 8px;
+    font-size: 23px;
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .deck-hand-layout,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .deck-hand-layout {
+    opacity: .86;
+    transform: translateY(54px);
+  }
+
+  .deck-game-view[data-score-phase="moving"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="scoring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="transferring"] .deck-hand-stage .table-action-dock,
+  .deck-game-view[data-score-phase="discarding"] .deck-hand-stage .table-action-dock {
+    opacity: 0;
+    transform: translateY(96px);
+  }
+}
+
+/* Build rack paint order ----------------------------------------------------
+ * The felt ornament is purely decorative. Keep it below the MOD/MAYHEM rack,
+ * including at desktop breakpoints that create separate stacking contexts. */
+.deck-run-view .deck-play-table,
+.deck-run-view-shop .deck-play-table { isolation: isolate; }
+
+.deck-run-view .deck-play-table > .felt-watermark,
+.deck-run-view-shop .deck-play-table > .felt-watermark { z-index: 0; }
+
+.deck-run-view .deck-play-table > .modifier-rail-root,
+.deck-run-view-shop .deck-play-table > .modifier-rail-root {
+  z-index: 50 !important;
+  isolation: isolate;
+  overflow: visible;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-section,
+.deck-run-view-shop .deck-play-table .modifier-rail-section,
+.deck-run-view .deck-play-table .modifier-rail-slots,
+.deck-run-view-shop .deck-play-table .modifier-rail-slots,
+.deck-run-view .deck-play-table .modifier-rail-slot,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot,
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot-trigger {
+  position: relative;
+  overflow: visible;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-section,
+.deck-run-view-shop .deck-play-table .modifier-rail-section { z-index: 1; }
+.deck-run-view .deck-play-table .modifier-rail-slots,
+.deck-run-view-shop .deck-play-table .modifier-rail-slots { z-index: 2; }
+.deck-run-view .deck-play-table .modifier-rail-slot,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot { z-index: 3; }
+.deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot-trigger { z-index: 4; }
+
+/* The compact rail left a two-column grid active on tall desktop screens.
+ * Header and card slots then occupied the same first row, so a blank layer
+ * covered the actual cards. Give both areas explicit rows. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 801px) {
+  .deck-run-view .deck-play-table .modifier-rail-section,
+  .deck-run-view-shop .deck-play-table .modifier-rail-section {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 25px minmax(0, 1fr) !important;
+    align-items: stretch;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-section-header,
+  .deck-run-view-shop .deck-play-table .modifier-rail-section-header {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slots {
+    grid-column: 1;
+    grid-row: 2;
+    height: 100%;
+    align-items: stretch;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot,
+  .deck-run-view .deck-play-table .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot-trigger,
+  .deck-run-view .deck-play-table .modifier-rail-empty-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-empty-slot {
+    min-height: 0;
+    height: 100%;
+  }
+}
+
+/* Hand selection is deliberate: selected cards rise and settle with a short
+ * pixel shake. Hovering an unselected card only gives a passing wobble; it no
+ * longer lifts above every neighbouring card. */
+.deck-hand-stage--clean {
+  grid-template-rows: minmax(0, 1fr) auto !important;
+}
+
+.deck-hand-stage--clean .deck-hand-layout {
+  grid-row: 1;
+}
+
+.deck-hand-stage--clean .table-action-dock {
+  grid-row: 2;
+}
+
+/* While choosing cards, the play controls deserve a larger, calmer dock.
+ * Scoring already pushes this dock out of frame, so reserve a little bottom
+ * breathing room here rather than making the resting hand compete with it. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-hand-stage--clean {
+    grid-template-rows: minmax(0, 1fr) 98px !important;
+    padding-bottom: clamp(22px, 3vh, 38px);
+  }
+
+  .deck-hand-stage--clean .table-action-dock {
+    width: min(780px, 82%);
+    min-width: 580px;
+    min-height: 92px;
+    height: 92px;
+    margin-top: 0;
+    align-self: start;
+    grid-template-columns: minmax(218px, 1.16fr) minmax(176px, .78fr) minmax(218px, 1fr) !important;
+  }
+
+  .deck-hand-stage--clean .table-action,
+  .deck-hand-stage--clean .discard-action,
+  .deck-hand-stage--clean .deck-sort-control-two-way {
+    min-height: 86px;
+    height: 86px !important;
+  }
+
+  .deck-hand-stage--clean .table-action { font-size: 20px; }
+  .deck-hand-stage--clean .table-action span small { font-size: 11px; }
+  .deck-hand-stage--clean .deck-sort-control-two-way {
+    grid-template-rows: 24px 1fr;
+    gap: 6px;
+    padding: 6px;
+    border-color: #d6e9e4;
+    background: #10282c;
+    box-shadow: 0 0 0 2px #0a1113, 4px 5px #020405;
+  }
+  .deck-hand-stage--clean .deck-sort-control-two-way > span {
+    color: #f4d265;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .deck-hand-stage--clean .deck-sort-control-two-way button {
+    min-height: 50px;
+    border-color: #5f8d97;
+    background: #172f35;
+    color: #f1fffd;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .deck-hand-stage--clean .deck-sort-control-two-way button:hover:not(:disabled) {
+    border-color: #f4d265;
+    background: #25454c;
+    color: #fff3a6;
+  }
+}
+
+.deck-hand-card[data-selected="true"] {
+  animation: dm-hand-selection-settle 260ms cubic-bezier(.18, .82, .2, 1) both;
+}
+
+/* The initial deal animation belongs to newly drawn cards only. Without this
+ * override, toggling `data-selected` off falls back to dm-hand-deal-in and
+ * makes a card look as though it was drawn again. */
+.deck-hand-card[data-dealt="true"]:not([data-selected="true"]) {
+  animation: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .deck-hand-card:not([data-selected="true"]) > .number-card {
+    transition: scale 110ms ease-out, filter 110ms ease-out;
+  }
+
+  .deck-hand-card:not([data-selected="true"]):hover {
+    --hand-card-lift: 0px;
+    --hand-card-scale: 1;
+    --hand-card-active-z: var(--hand-card-z);
+    filter: brightness(1.08);
+  }
+
+  .deck-hand-card:not([data-selected="true"]):hover > .number-card {
+    z-index: auto;
+    scale: 1.025;
+    transform: none !important;
+    animation: dm-card-face-hover-wobble 170ms steps(3, end) both;
+  }
+
+  .deck-hand-card[data-selected="true"]:hover {
+    --hand-card-scale: var(--hand-selected-scale);
+  }
+}
+
+@keyframes dm-card-face-hover-wobble {
+  0% { translate: 0 0; rotate: 0deg; scale: 1.01; }
+  35% { translate: 2px 1px; rotate: .45deg; scale: 1.045; }
+  68% { translate: -1px 0; rotate: -.3deg; scale: 1.015; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1.025; }
+}
+
+@keyframes dm-hand-selection-settle {
+  0% {
+    transform:
+      translate3d(var(--hand-card-x), var(--hand-card-y), 0)
+      rotate(var(--hand-card-rotation))
+      scale(1);
+  }
+  38% {
+    transform:
+      translate3d(calc(var(--hand-card-x) + 3px), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px) - 3px), 0)
+      rotate(calc(var(--hand-card-rotation) + 1deg))
+      scale(var(--hand-selected-scale));
+  }
+  70% {
+    transform:
+      translate3d(calc(var(--hand-card-x) - 2px), calc(var(--hand-card-y) + var(--hand-selected-lift, -34px) + 1px), 0)
+      rotate(calc(var(--hand-card-rotation) - .7deg))
+      scale(var(--hand-selected-scale));
+  }
+  100% {
+    transform:
+      translate3d(var(--hand-card-x), calc(var(--hand-card-y) + var(--hand-card-lift)), 0)
+      rotate(var(--hand-card-rotation))
+      scale(var(--hand-card-scale));
+  }
+}
+
+/* A selected card already communicates its state by staying raised. Keep its
+ * original frame/shadow and remove the additional bright outline and glow. */
+.deck-hand-card[data-selected="true"] .number-card {
+  outline: 0 !important;
+  outline-offset: 0;
+  box-shadow: 7px 12px var(--dm-shadow) !important;
+}

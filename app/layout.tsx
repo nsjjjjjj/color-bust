@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./game-ui.css";
 import "./garage-ui.css";
+import "./auth.css";
 import { PwaRegister } from "./pwa-register";
 
 const description =
@@ -28,7 +29,14 @@ export async function generateMetadata(): Promise<Metadata> {
     manifest: "/manifest.webmanifest",
     applicationName: "DECK MAYHEM",
     appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "DECK MAYHEM" },
-    icons: { icon: "/icons/icon.svg", shortcut: "/icons/icon.svg", apple: "/icons/icon.svg" },
+    icons: {
+      icon: [
+        { url: "/icons/icon-192.png", type: "image/png", sizes: "192x192" },
+        { url: "/icons/icon-512.png", type: "image/png", sizes: "512x512" },
+      ],
+      shortcut: "/icons/icon-192.png",
+      apple: { url: "/icons/apple-touch-icon.png", type: "image/png", sizes: "180x180" },
+    },
     openGraph: {
       type: "website",
       title: "DECK MAYHEM",

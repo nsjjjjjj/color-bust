@@ -110,7 +110,7 @@ export function CommunityHub({
         <div>
           <span className="kicker">커뮤니티 덱</span>
           <h1>다른 정글러의 한 수</h1>
-          <p>효과와 비용의 합이 0인 메이헴 카드를 만들고, 누군가의 다음 앤티에 등장시키세요.</p>
+          <p>효과와 비용의 합이 0인 메이헴 카드를 만들고, 누군가의 다음 스테이지에 등장시키세요.</p>
         </div>
         <button type="button" className="primary-button" onClick={() => setCreatorOpen(true)}>
           + 메이헴 카드 제작

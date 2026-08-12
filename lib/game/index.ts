@@ -12,6 +12,8 @@ export {
   buyJoker,
   buyUnoCard,
   buyHandUpgrade,
+  buyProtocol,
+  buyFirmware,
   buyDeckWork,
   buyCardPack,
   choosePackCard,
@@ -19,9 +21,18 @@ export {
   buyShopOffer,
   sellJoker,
   rerollShop,
+  useConsumable,
   setHotSwapColor,
   nextRound,
 } from "./engine";
+
+export {
+  runConsumables,
+  runFirmware,
+  firmwareCount,
+  jokerSlotLimitFor,
+  consumableSlotsFree,
+} from "./run-upgrades";
 
 export { PACK_DEFINITIONS, PackGenerator, RARITY_ORDER } from "./packs";
 

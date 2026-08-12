@@ -20,41 +20,38 @@ const SAMPLE_GUESTBOOK: GuestbookEntry[] = [
   { id: "sample-g2", authorUserId: "sample", authorName: "BUG_HUNTER", message: "친구가 만든 메이헴 카드가 보스 마지막 손에 나와서 살았습니다. 카드 설명이 더 크게 보이면 좋겠어요!", rating: 4, createdAt: new Date().toISOString() },
 ];
 
+const RATING_LABELS = ["", "별로예요", "아쉬워요", "괜찮아요", "좋아요", "최고예요"] as const;
+
 export function LeaderboardView() {
-  const [mode, setMode] = useState<"standard" | "endless">("endless");
   const [entries, setEntries] = useState<LeaderboardEntry[]>(SAMPLE_RANKS);
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/leaderboard?mode=${mode}`, { credentials: "include" })
+    fetch("/api/leaderboard?mode=endless", { credentials: "include" })
       .then(async (response) => {
         if (!response.ok) throw new Error("network");
         return (await response.json()) as ListLeaderboardResponse;
       })
       .then((data) => {
         if (!cancelled) {
-          setEntries(data.entries.length ? data.entries : SAMPLE_RANKS.filter((entry) => entry.mode === mode));
+          setEntries(data.entries.length ? data.entries : SAMPLE_RANKS);
           setOffline(false);
         }
       })
       .catch(() => {
         if (!cancelled) {
-          setEntries(SAMPLE_RANKS.filter((entry) => entry.mode === mode));
+          setEntries(SAMPLE_RANKS);
           setOffline(true);
         }
       });
     return () => { cancelled = true; };
-  }, [mode]);
+  }, []);
 
   return (
     <section className="content-view leaderboard-view">
       <div className="view-heading">
-        <div><span className="kicker">전체 기록</span><h1>무한 모드 랭킹</h1><p>동일 규칙 버전에서 서버가 검증한 기록만 올라갑니다.</p></div>
-        <div className="segmented">
-          <button className={mode === "endless" ? "active" : ""} onClick={() => setMode("endless")}>무한</button>
-          <button className={mode === "standard" ? "active" : ""} onClick={() => setMode("standard")}>5 앤티</button>
-        </div>
+        <div><span className="kicker">전체 기록</span><h1>랭킹</h1></div>
       </div>
       {offline && <div className="status-strip">오프라인 예시 기록을 표시하고 있습니다.</div>}
       <div className="leaderboard-table" role="table" aria-label="랭킹">
@@ -63,12 +60,11 @@ export function LeaderboardView() {
           <div className={`leaderboard-row rank-${index + 1}`} role="row" key={`${entry.userId}-${entry.mode}`}>
             <span className="rank-number">{String(entry.rank ?? index + 1).padStart(2, "0")}</span>
             <span><i className="player-avatar">{entry.displayName.slice(0, 1)}</i><b>{entry.displayName}</b></span>
-            <span>앤티 {entry.ante}</span>
+            <span>STAGE {entry.ante}</span>
             <strong>{entry.score.toLocaleString()}</strong>
           </div>
         ))}
       </div>
-      <div className="rank-rule"><b>랭킹 규칙</b><p>오프라인 런은 계속 플레이할 수 있지만, 연결 후 전체 행동 기록을 검증한 경우에만 공식 랭킹으로 전환됩니다.</p></div>
     </section>
   );
 }
@@ -76,7 +72,8 @@ export function LeaderboardView() {
 export function GuestbookView({ signedIn }: { signedIn: boolean }) {
   const [entries, setEntries] = useState<GuestbookEntry[]>(SAMPLE_GUESTBOOK);
   const [message, setMessage] = useState("");
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState(0);
+  const [previewRating, setPreviewRating] = useState(0);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -91,7 +88,7 @@ export function GuestbookView({ signedIn }: { signedIn: boolean }) {
 
   async function submit() {
     const trimmed = message.trim();
-    if (trimmed.length < 2) return;
+    if (trimmed.length < 2 || rating < 1) return;
     const body = { message: trimmed, rating };
     try {
       if (!navigator.onLine || !signedIn) {
@@ -106,6 +103,8 @@ export function GuestbookView({ signedIn }: { signedIn: boolean }) {
         setNotice("평가가 등록되었습니다. 고마워요!");
       }
       setMessage("");
+      setRating(0);
+      setPreviewRating(0);
     } catch {
       await enqueueSync({ url: "/api/guestbook", method: "POST", body });
       setNotice("전송하지 못해 기기에 안전하게 보관했습니다.");
@@ -113,16 +112,42 @@ export function GuestbookView({ signedIn }: { signedIn: boolean }) {
   }
 
   const average = entries.length ? entries.reduce((sum, entry) => sum + entry.rating, 0) / entries.length : 0;
+  const visibleRating = previewRating || rating;
   return (
     <section className="content-view guestbook-view">
       <div className="view-heading"><div><span className="kicker">런 평가</span><h1>플레이 평가소</h1><p>한 판을 마친 정글러의 평가와 다음 패치를 위한 피드백입니다.</p></div><div className="rating-summary"><strong>{average.toFixed(1)}</strong><span>★★★★★</span><small>{entries.length}개의 평가</small></div></div>
       <div className="guestbook-layout">
         <form className="guestbook-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
           <span className="kicker">평가 남기기</span><h2>어땠나요?</h2>
-          <div className="star-input" aria-label="별점 선택">{[1,2,3,4,5].map((value) => <button type="button" key={value} aria-label={`${value}점`} className={value <= rating ? "active" : ""} onClick={() => setRating(value)}>★</button>)}</div>
+          <div
+            className="star-rating-control"
+            onPointerLeave={() => setPreviewRating(0)}
+          >
+            <div className="star-input" role="radiogroup" aria-label="플레이 별점">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  type="button"
+                  role="radio"
+                  key={value}
+                  aria-checked={rating === value}
+                  aria-label={`별 ${value}개, ${RATING_LABELS[value]}`}
+                  className={value <= visibleRating ? "active" : ""}
+                  onPointerEnter={() => setPreviewRating(value)}
+                  onFocus={() => setPreviewRating(value)}
+                  onBlur={() => setPreviewRating(0)}
+                  onClick={() => setRating(value)}
+                >
+                  <span aria-hidden="true">{value <= visibleRating ? "★" : "☆"}</span>
+                </button>
+              ))}
+            </div>
+            <p className={`rating-choice${rating ? " selected" : ""}`} aria-live="polite">
+              {visibleRating ? `${visibleRating}점 · ${RATING_LABELS[visibleRating]}` : "별을 눌러 평가해 주세요"}
+            </p>
+          </div>
           <textarea value={message} maxLength={300} onChange={(event) => setMessage(event.target.value)} placeholder="재미있었던 빌드, 불편했던 점, 다음에 보고 싶은 카드를 알려주세요." />
           {notice && <p className="form-note">{notice}</p>}
-          <button className="primary-button full" disabled={message.trim().length < 2}>평가 남기기</button>
+          <button className="primary-button full" disabled={rating < 1 || message.trim().length < 2}>평가 남기기</button>
         </form>
         <div className="guestbook-list">
           {entries.map((entry) => <article key={entry.id} className="guest-entry"><header><i>{entry.authorName.slice(0,1)}</i><div><b>{entry.authorName}</b><span>{"★".repeat(entry.rating)}{"☆".repeat(5-entry.rating)}</span></div><time>{new Date(entry.createdAt).toLocaleDateString("ko-KR")}</time></header><p>{entry.message}</p></article>)}

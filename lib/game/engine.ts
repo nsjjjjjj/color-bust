@@ -4,7 +4,6 @@ import {
   DISCARDS_PER_ROUND,
   HANDS_PER_ROUND,
   JOKER_CATALOG,
-  JOKER_SLOT_LIMIT,
   MAX_PLAY_CARDS,
   ROUND_REWARDS,
   STARTING_HAND_SIZE,
@@ -21,12 +20,24 @@ import {
 import { PACK_DEFINITIONS, PackGenerator } from "./packs";
 import { hashSeed, shuffle } from "./rng";
 import { calculateHandScore } from "./scoring";
-import { generateShop } from "./shop";
+import { generateShop, rerollShopSignals } from "./shop";
+import {
+  canInstallFirmware,
+  consumableSlotsFree,
+  firmwareCount,
+  jokerSlotLimitFor,
+  nextRoundHandSizeFor,
+  packRevealBonusFor,
+  roundRewardBonusFor,
+  runConsumables,
+  runFirmware,
+} from "./run-upgrades";
 import {
   HAND_TYPES,
   GameRuleError,
   type CardColor,
   type CardRank,
+  type ConsumableInstance,
   type CreateRunOptions,
   type GameCard,
   type HandType,
@@ -39,6 +50,7 @@ import {
   type RunState,
   type ShopOffer,
   type ScoreBreakdown,
+  type UseConsumableOptions,
 } from "./types";
 import { assertValidCommunityUnoCard } from "./uno";
 
@@ -120,7 +132,7 @@ function roundRewardFor(
   modIncome: number,
   finalBoss: boolean,
 ): NonNullable<RunState["pendingReward"]> {
-  const baseCoins = ROUND_REWARDS[state.round];
+  const baseCoins = ROUND_REWARDS[state.round] + roundRewardBonusFor(state);
   const handBonus = Math.min(UNUSED_HAND_BONUS_CAP, handsLeft);
   const reserveBonus = Math.min(
     RESERVE_BONUS_CAP,
@@ -245,6 +257,10 @@ export function createRun(options: CreateRunOptions = {}): RunState {
     jokers: [],
     communityUno,
     communityUnoPool: pool,
+    consumables: [],
+    firmware: [],
+    nextRoundHandPenalty: 0,
+    permanentDiscardPenalty: 0,
     unoUsedThisAnte: false,
     handLevels: initialHandLevels(),
     handHistory: [],
@@ -456,7 +472,7 @@ export function buyJoker(state: RunState, offerId: string): RunState {
   if (offer.kind !== "joker") {
     throw new GameRuleError("NOT_A_JOKER", "이 상품은 조커가 아닙니다.");
   }
-  if (state.jokers.length >= JOKER_SLOT_LIMIT) {
+  if (state.jokers.length >= jokerSlotLimitFor(state)) {
     throw new GameRuleError("JOKER_SLOTS_FULL", "조커 슬롯이 가득 찼습니다.");
   }
   if (state.jokers.some((joker) => joker.jokerId === offer.jokerId)) {
@@ -527,6 +543,52 @@ export function buyHandUpgrade(state: RunState, offerId: string): RunState {
     },
     "upgrade-hand",
     { offerId, handType: offer.handType, price: offer.price },
+  );
+}
+
+export function buyProtocol(state: RunState, offerId: string): RunState {
+  const offer = findOffer(state, offerId);
+  if (offer.kind !== "protocol") {
+    throw new GameRuleError("NOT_A_PROTOCOL", "이 상품은 프로토콜 카드가 아닙니다.");
+  }
+  if (consumableSlotsFree(state) < 1) {
+    throw new GameRuleError("CONSUMABLE_SLOTS_FULL", "유틸리티 슬롯이 가득 찼습니다.");
+  }
+  const purchase = payAndMarkSold(state, offer);
+  const instance: ConsumableInstance = {
+    instanceId: `protocol-${state.runId}-${state.actionLog.length + 1}-${offer.protocolId}`,
+    kind: "protocol",
+    protocolId: offer.protocolId,
+    acquiredRound: state.roundNumber,
+  };
+  return addAction(
+    {
+      ...state,
+      ...purchase,
+      consumables: [...runConsumables(state), instance],
+    },
+    "buy-protocol",
+    { offerId, protocolId: offer.protocolId, price: offer.price },
+  );
+}
+
+export function buyFirmware(state: RunState, offerId: string): RunState {
+  const offer = findOffer(state, offerId);
+  if (offer.kind !== "firmware") {
+    throw new GameRuleError("NOT_FIRMWARE", "이 상품은 DECK LAB 펌웨어가 아닙니다.");
+  }
+  if (!canInstallFirmware(state, offer.firmwareId)) {
+    throw new GameRuleError("FIRMWARE_MAX_STACKS", "이 펌웨어는 최대 단계입니다.");
+  }
+  const purchase = payAndMarkSold(state, offer);
+  return addAction(
+    {
+      ...state,
+      ...purchase,
+      firmware: [...runFirmware(state), offer.firmwareId],
+    },
+    "buy-firmware",
+    { offerId, firmwareId: offer.firmwareId, price: offer.price },
   );
 }
 
@@ -632,6 +694,172 @@ export function buyDeckWork(
   );
 }
 
+function consumableTargets(
+  state: RunState,
+  options: UseConsumableOptions,
+  minimum: number,
+  maximum = minimum,
+): readonly GameCard[] {
+  const ids = options.targetCardIds ?? [];
+  if (ids.length < minimum || ids.length > maximum || new Set(ids).size !== ids.length) {
+    throw new GameRuleError(
+      "INVALID_CONSUMABLE_TARGETS",
+      `이 카드에는 ${minimum === maximum ? `${minimum}장` : `${minimum}~${maximum}장`}을 선택해야 합니다.`,
+    );
+  }
+  return ids.map((id) => deckCardOrThrow(state, id));
+}
+
+function removeConsumed(
+  state: RunState,
+  instanceId: string,
+): readonly ConsumableInstance[] {
+  return runConsumables(state).filter((item) => item.instanceId !== instanceId);
+}
+
+/** Uses a stored PROTOCOL or GHOST card from the Garage utility rack. */
+export function useConsumable(
+  state: RunState,
+  instanceId: string,
+  options: UseConsumableOptions = {},
+): RunState {
+  ensurePhase(state, "shop");
+  if (state.packOpening) {
+    throw new GameRuleError("PACK_CHOICE_REQUIRED", "열린 팩의 선택을 먼저 끝내야 합니다.");
+  }
+  const consumable = runConsumables(state).find((item) => item.instanceId === instanceId);
+  if (!consumable) {
+    throw new GameRuleError("CONSUMABLE_NOT_FOUND", "사용할 유틸리티 카드를 찾을 수 없습니다.");
+  }
+
+  let next: RunState = { ...state };
+  let effectId: string;
+  if (consumable.kind === "protocol") {
+    effectId = consumable.protocolId;
+    switch (consumable.protocolId) {
+      case "circuit-cut": {
+        const [target] = consumableTargets(state, options, 1);
+        if (persistentDeck(state).length <= MINIMUM_RUN_DECK_SIZE) {
+          throw new GameRuleError("DECK_MINIMUM_REACHED", `런 덱은 최소 ${MINIMUM_RUN_DECK_SIZE}장을 유지해야 합니다.`);
+        }
+        next = { ...next, ...removeCardEverywhere(state, target.id) };
+        break;
+      }
+      case "signal-clone": {
+        const [target] = consumableTargets(state, options, 1);
+        const clone: GameCard = {
+          ...target,
+          id: `protocol-clone-${state.runId}-${state.actionLog.length + 1}-${target.id}`,
+        };
+        next = { ...next, deck: [...persistentDeck(state), clone] };
+        break;
+      }
+      case "channel-rewire": {
+        const targets = consumableTargets(state, options, 1, 3);
+        if (!options.targetColor) {
+          throw new GameRuleError("COLOR_TARGET_REQUIRED", "변경할 채널 색을 선택해야 합니다.");
+        }
+        for (const target of targets) {
+          next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, color: options.targetColor! })) };
+        }
+        break;
+      }
+      case "voltage-up":
+      case "voltage-down": {
+        const [target] = consumableTargets(state, options, 1);
+        const delta = consumable.protocolId === "voltage-up" ? 1 : -1;
+        if (target.rank + delta < 0 || target.rank + delta > 9) {
+          throw new GameRuleError("RANK_LIMIT", "이 카드의 숫자는 더 변경할 수 없습니다.");
+        }
+        next = {
+          ...next,
+          ...updateCardEverywhere(state, target.id, (card) => ({
+            ...card,
+            rank: (card.rank + delta) as CardRank,
+          })),
+        };
+        break;
+      }
+      case "power-cell":
+      case "hype-amp": {
+        const [target] = consumableTargets(state, options, 1);
+        if (target.enhancement) {
+          throw new GameRuleError("CARD_ALREADY_ENHANCED", "이미 개조 효과가 있는 카드입니다.");
+        }
+        next = {
+          ...next,
+          ...updateCardEverywhere(state, target.id, (card) => ({
+            ...card,
+            enhancement: consumable.protocolId === "power-cell" ? "charged" : "amplified",
+          })),
+        };
+        break;
+      }
+      case "emergency-credit":
+        next = { ...next, coins: next.coins + 4 };
+        break;
+    }
+  } else {
+    effectId = consumable.ghostId;
+    switch (consumable.ghostId) {
+      case "dead-channel": {
+        const [source, sacrifice] = consumableTargets(state, options, 2);
+        if (persistentDeck(state).length - 1 < MINIMUM_RUN_DECK_SIZE) {
+          throw new GameRuleError("DECK_MINIMUM_REACHED", `런 덱은 최소 ${MINIMUM_RUN_DECK_SIZE}장을 유지해야 합니다.`);
+        }
+        let removed = removeCardEverywhere(state, source.id);
+        removed = removeCardEverywhere({ ...state, ...removed }, sacrifice.id);
+        const reborn: GameCard = {
+          ...source,
+          id: `ghost-${state.runId}-${state.actionLog.length + 1}-${source.id}`,
+          enhancement: "overclocked",
+          rarity: "legendary",
+        };
+        next = { ...next, ...removed, deck: [...(removed.deck ?? []), reborn] };
+        break;
+      }
+      case "white-noise": {
+        const targets = consumableTargets(state, options, 1, 5);
+        if (!options.targetColor) {
+          throw new GameRuleError("COLOR_TARGET_REQUIRED", "변경할 채널 색을 선택해야 합니다.");
+        }
+        for (const target of targets) {
+          next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, color: options.targetColor! })) };
+        }
+        next = { ...next, coins: Math.floor(next.coins / 2) };
+        break;
+      }
+      case "blackout": {
+        const targets = consumableTargets(state, options, 1, 5);
+        for (const target of targets) {
+          next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, rank: 0 })) };
+        }
+        next = { ...next, nextRoundHandPenalty: (state.nextRoundHandPenalty ?? 0) + 1 };
+        break;
+      }
+      case "forbidden-port":
+        next = {
+          ...next,
+          firmware: [...runFirmware(next), "expanded-mod-bay"],
+          permanentDiscardPenalty: (state.permanentDiscardPenalty ?? 0) + 1,
+        };
+        break;
+    }
+  }
+
+  return addAction(
+    { ...next, consumables: removeConsumed(state, instanceId) },
+    "use-consumable",
+    {
+      instanceId,
+      kind: consumable.kind,
+      effectId,
+      targetCardIds: [...(options.targetCardIds ?? [])],
+      ...(options.targetColor ? { targetColor: options.targetColor } : {}),
+    },
+  );
+}
+
 export function buyCardPack(state: RunState, offerId: string): RunState {
   const offer = findOffer(state, offerId);
   if (offer.kind !== "card-pack") {
@@ -640,7 +868,7 @@ export function buyCardPack(state: RunState, offerId: string): RunState {
   const definition = PACK_DEFINITIONS[offer.packKind];
   if (
     definition.contents === "modifier" &&
-    state.jokers.length + definition.pickCount > JOKER_SLOT_LIMIT
+    state.jokers.length + definition.pickCount > jokerSlotLimitFor(state)
   ) {
     throw new GameRuleError("JOKER_SLOTS_FULL", "MOD 팩을 받을 빈 슬롯이 부족합니다.");
   }
@@ -650,10 +878,17 @@ export function buyCardPack(state: RunState, offerId: string): RunState {
   ) {
     throw new GameRuleError("NO_UPGRADE_TARGET", "강화할 수 있는 기본 카드가 없습니다.");
   }
+  if (
+    (definition.contents === "protocol" || definition.contents === "ghost") &&
+    consumableSlotsFree(state) < definition.pickCount
+  ) {
+    throw new GameRuleError("CONSUMABLE_SLOTS_FULL", "유틸리티 슬롯이 부족합니다.");
+  }
   const generated = PackGenerator.generate(
     offer.packKind,
     `pack-${state.runId}-${state.actionLog.length + 1}-${offer.packKind}`,
     state.rngState,
+    packRevealBonusFor(state),
   );
   const purchase = payAndMarkSold(state, offer);
   return addAction(
@@ -723,6 +958,8 @@ export function takePackChoices(
   let nextDrawPile = state.drawPile;
   let nextDiscardPile = state.discardPile;
   let nextJokers = state.jokers;
+  let nextConsumables = runConsumables(state);
+  let nextHandLevels = state.handLevels;
 
   if (choices.every((choice) => choice.kind === "card")) {
     const cards = choices.map((choice) => choice.card);
@@ -732,7 +969,7 @@ export function takePackChoices(
     }
     nextDeck = [...deck, ...cards];
   } else if (choices.every((choice) => choice.kind === "modifier")) {
-    if (state.jokers.length + choices.length > JOKER_SLOT_LIMIT) {
+    if (state.jokers.length + choices.length > jokerSlotLimitFor(state)) {
       throw new GameRuleError("JOKER_SLOTS_FULL", "MOD 슬롯이 부족합니다.");
     }
     const newJokers: JokerInstance[] = choices.map((choice, index) => ({
@@ -742,6 +979,36 @@ export function takePackChoices(
       ...(choice.jokerId === "combo-compiler" ? { counter: 0 } : {}),
     }));
     nextJokers = [...state.jokers, ...newJokers];
+  } else if (choices.every((choice) => choice.kind === "core")) {
+    nextHandLevels = choices.reduce(
+      (levels, choice) => ({
+        ...levels,
+        [choice.handType]: levels[choice.handType] + 1,
+      }),
+      state.handLevels,
+    );
+  } else if (choices.every((choice) => choice.kind === "protocol")) {
+    if (consumableSlotsFree(state) < choices.length) {
+      throw new GameRuleError("CONSUMABLE_SLOTS_FULL", "유틸리티 슬롯이 부족합니다.");
+    }
+    const added: ConsumableInstance[] = choices.map((choice, index) => ({
+      instanceId: `protocol-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.protocolId}`,
+      kind: "protocol",
+      protocolId: choice.protocolId,
+      acquiredRound: state.roundNumber,
+    }));
+    nextConsumables = [...nextConsumables, ...added];
+  } else if (choices.every((choice) => choice.kind === "ghost")) {
+    if (consumableSlotsFree(state) < choices.length) {
+      throw new GameRuleError("CONSUMABLE_SLOTS_FULL", "유틸리티 슬롯이 부족합니다.");
+    }
+    const added: ConsumableInstance[] = choices.map((choice, index) => ({
+      instanceId: `ghost-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.ghostId}`,
+      kind: "ghost",
+      ghostId: choice.ghostId,
+      acquiredRound: state.roundNumber,
+    }));
+    nextConsumables = [...nextConsumables, ...added];
   } else if (choices.every((choice) => choice.kind === "upgrade")) {
     if (!targetCardId) {
       throw new GameRuleError("UPGRADE_TARGET_REQUIRED", "강화할 덱 카드를 선택해야 합니다.");
@@ -771,6 +1038,8 @@ export function takePackChoices(
       drawPile: nextDrawPile,
       discardPile: nextDiscardPile,
       jokers: nextJokers,
+      consumables: nextConsumables,
+      handLevels: nextHandLevels,
       packOpening: null,
     },
     "take-pack-choices",
@@ -810,6 +1079,10 @@ export function buyShopOffer(
       return buyUnoCard(state, offerId);
     case "hand-upgrade":
       return buyHandUpgrade(state, offerId);
+    case "protocol":
+      return buyProtocol(state, offerId);
+    case "firmware":
+      return buyFirmware(state, offerId);
     case "deck-work":
       if (!targetCardId) {
         throw new GameRuleError("DECK_TARGET_REQUIRED", "개조할 덱 카드를 선택해야 합니다.");
@@ -861,7 +1134,7 @@ export function rerollShop(state: RunState): RunState {
   const cost = state.shop.rerollCost;
   const rerolls = state.shop.rerolls + 1;
   const paidState = { ...state, coins: state.coins - cost };
-  const generated = generateShop(paidState, rerolls);
+  const generated = rerollShopSignals(paidState, rerolls);
   return addAction(
     {
       ...paidState,
@@ -936,10 +1209,11 @@ export function nextRound(state: RunState): RunState {
 
   const roundNumber = state.roundNumber + 1;
   const shuffled = shuffle(persistentDeck(state), state.rngState);
+  const handSize = nextRoundHandSizeFor(state);
   const draw = drawCards(
     shuffled.values,
     [],
-    STARTING_HAND_SIZE,
+    handSize,
     shuffled.nextState,
   );
   const defaultHotSwapColor = CARD_COLORS[(roundNumber - 1) % CARD_COLORS.length];
@@ -958,8 +1232,14 @@ export function nextRound(state: RunState): RunState {
       deck: persistentDeck(state),
       score: 0,
       target: targetForRound(ante, round),
-      handsLeft: HANDS_PER_ROUND,
-      discardsLeft: DISCARDS_PER_ROUND,
+      handsLeft: HANDS_PER_ROUND + firmwareCount(state, "backup-power"),
+      discardsLeft: Math.max(
+        0,
+        DISCARDS_PER_ROUND +
+          firmwareCount(state, "recycle-unit") -
+          Math.max(0, state.permanentDiscardPenalty ?? 0),
+      ),
+      nextRoundHandPenalty: 0,
       roundIncome: 0,
       jokers: state.jokers.map((joker) => ({
         ...joker,

@@ -2,15 +2,181 @@ import type {
   CardEnhancement,
   CardPackKind,
   DeckWorkKind,
+  FirmwareId,
+  GhostId,
+  ProtocolId,
 } from "./types";
 
 export const GARAGE_OFFER_COUNTS = {
+  signal: 2,
+  deckLab: 1,
+  /** @deprecated New shops mix MODs into the two signal slots. */
   mods: 2,
+  /** @deprecated Card surgery moved to PROTOCOL cards. */
   deckWork: 1,
+  /** @deprecated CORE cards are mixed into the signal slots. */
   pattern: 1,
+  /** @deprecated MAYHEM is now a rare signal result. */
   mayhem: 1,
   packs: 2,
 } as const;
+
+export const CONSUMABLE_SLOT_LIMIT = 2;
+
+export const TODAY_SIGNAL_WEIGHTS = {
+  mod: 45,
+  core: 30,
+  protocol: 20,
+  mayhem: 5,
+} as const;
+
+type UtilityCardConfig = {
+  readonly name: string;
+  readonly description: string;
+  readonly price: number;
+  readonly symbol: string;
+};
+
+export const PROTOCOL_CONFIG: Readonly<Record<ProtocolId, UtilityCardConfig>> = {
+  "circuit-cut": {
+    name: "회로 절단",
+    description: "선택한 숫자 카드 1장을 런 덱에서 안전하게 제거합니다.",
+    price: 4,
+    symbol: "−",
+  },
+  "signal-clone": {
+    name: "신호 복제",
+    description: "선택한 숫자 카드와 같은 카드 1장을 런 덱에 추가합니다.",
+    price: 5,
+    symbol: "+",
+  },
+  "channel-rewire": {
+    name: "채널 재배선",
+    description: "선택한 숫자 카드 최대 3장의 색을 지정 채널로 변경합니다.",
+    price: 4,
+    symbol: "C",
+  },
+  "voltage-up": {
+    name: "전압 상승",
+    description: "선택한 숫자 카드 1장의 숫자를 +1 합니다.",
+    price: 3,
+    symbol: "↑",
+  },
+  "voltage-down": {
+    name: "전압 하강",
+    description: "선택한 숫자 카드 1장의 숫자를 -1 합니다.",
+    price: 3,
+    symbol: "↓",
+  },
+  "power-cell": {
+    name: "POWER 셀",
+    description: "선택한 기본 카드 1장에 충전 효과를 부여합니다.",
+    price: 4,
+    symbol: "P",
+  },
+  "hype-amp": {
+    name: "HYPE 앰프",
+    description: "선택한 기본 카드 1장에 증폭 효과를 부여합니다.",
+    price: 5,
+    symbol: "H",
+  },
+  "emergency-credit": {
+    name: "긴급 송금",
+    description: "즉시 4¢를 획득합니다.",
+    price: 3,
+    symbol: "¢",
+  },
+};
+
+export const GHOST_CONFIG: Readonly<Record<GhostId, UtilityCardConfig>> = {
+  "dead-channel": {
+    name: "데드 채널",
+    description: "카드 2장을 소거하고 첫 카드의 오버클럭 복제본 1장을 생성합니다.",
+    price: 0,
+    symbol: "†",
+  },
+  "white-noise": {
+    name: "화이트 노이즈",
+    description: "카드 최대 5장을 한 색으로 바꾸지만 보유 코인의 절반을 잃습니다.",
+    price: 0,
+    symbol: "W",
+  },
+  blackout: {
+    name: "블랙아웃",
+    description: "카드 최대 5장을 0으로 바꾸지만 다음 라운드 손패가 1장 줄어듭니다.",
+    price: 0,
+    symbol: "0",
+  },
+  "forbidden-port": {
+    name: "금지된 포트",
+    description: "MOD 슬롯을 1칸 늘리지만 라운드당 버리기가 1회 줄어듭니다.",
+    price: 0,
+    symbol: "!",
+  },
+};
+
+type FirmwareConfig = UtilityCardConfig & {
+  readonly maxStacks: number;
+};
+
+export const FIRMWARE_CONFIG: Readonly<Record<FirmwareId, FirmwareConfig>> = {
+  "expanded-mod-bay": {
+    name: "MOD 슬롯 확장",
+    description: "MOD 최대 보유량 +1",
+    price: 10,
+    symbol: "M+",
+    maxStacks: 1,
+  },
+  "hand-memory": {
+    name: "핸드 메모리",
+    description: "다음 라운드부터 손패 크기 +1",
+    price: 9,
+    symbol: "H+",
+    maxStacks: 2,
+  },
+  "recycle-unit": {
+    name: "재활용 장치",
+    description: "다음 라운드부터 버리기 +1",
+    price: 8,
+    symbol: "D+",
+    maxStacks: 2,
+  },
+  "backup-power": {
+    name: "예비 전원",
+    description: "다음 라운드부터 핸드 +1",
+    price: 10,
+    symbol: "P+",
+    maxStacks: 2,
+  },
+  "wholesale-link": {
+    name: "도매 연결",
+    description: "이후 생성되는 모든 팩 가격 -1¢",
+    price: 8,
+    symbol: "$−",
+    maxStacks: 2,
+  },
+  "reroll-cache": {
+    name: "리롤 캐시",
+    description: "상점 리롤 기본 비용 -1¢",
+    price: 8,
+    symbol: "R−",
+    maxStacks: 1,
+  },
+  "signal-scanner": {
+    name: "신호 스캐너",
+    description: "이후 여는 팩의 공개 선택지 +1",
+    price: 9,
+    symbol: "S+",
+    maxStacks: 2,
+  },
+  "reward-amplifier": {
+    name: "보상 증폭기",
+    description: "라운드 클리어 기본 보상 +1¢",
+    price: 7,
+    symbol: "¢+",
+    maxStacks: 3,
+  },
+};
 
 export const DECK_WORK_CONFIG: Readonly<
   Record<
@@ -142,6 +308,24 @@ export const CARD_PACK_CONFIG: Readonly<
     description: "강화 효과 3개 중 1개를 골라 덱 카드에 부여합니다.",
     price: 6,
     symbol: "UP",
+  },
+  core: {
+    name: "CORE PACK",
+    description: "족보 CORE 3개를 공개하고 1개를 선택합니다.",
+    price: 6,
+    symbol: "CR",
+  },
+  protocol: {
+    name: "PROTOCOL PACK",
+    description: "안전한 일회용 PROTOCOL 3개를 공개하고 1개를 선택합니다.",
+    price: 5,
+    symbol: "PT",
+  },
+  ghost: {
+    name: "GHOST PACK",
+    description: "강력한 대가를 가진 GHOST 2개를 공개하고 1개를 선택합니다.",
+    price: 7,
+    symbol: "GH",
   },
   supply: {
     name: "STANDARD PACK",

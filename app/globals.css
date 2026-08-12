@@ -8,6 +8,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 /* DECK MAYHEM title lockup: a pixel-card fan with the game name layered on top. */
 .deck-mayhem-lockup {
   position: relative;
@@ -225,15 +233,8 @@ body {
     var(--black);
   color: var(--ink);
   font-family: "Galmuri11", ui-monospace, monospace;
-  -webkit-font-smoothing: none;
-}
-
-body *,
-button,
-input,
-textarea,
-select {
-  font-family: "Galmuri11", ui-monospace, monospace !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button, input, textarea, select { font: inherit; }
@@ -248,6 +249,30 @@ a { color: inherit; text-decoration: none; }
 .app-shell.is-immersive { padding: 0; }
 .app-shell.is-immersive > .topbar,
 .app-shell.is-immersive > .mobile-nav { display: none; }
+
+/* Installed-PWA game surfaces are a fixed viewport. Lists and dialogs keep
+   their own overflow, but Safari may no longer rubber-band the whole page. */
+html:has(.app-shell.is-immersive),
+body:has(.app-shell.is-immersive) {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.app-shell.is-immersive {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.app-shell.is-immersive [data-scrollable],
+.app-shell.is-immersive [role="dialog"],
+.app-shell.is-immersive .mobile-run-rail,
+.app-shell.is-immersive .shop-mobile-rail {
+  overscroll-behavior: contain;
+}
 .topbar {
   position: fixed;
   z-index: 50;
@@ -264,11 +289,13 @@ a { color: inherit; text-decoration: none; }
   backdrop-filter: blur(18px);
 }
 .brand { display: inline-flex; align-items: center; gap: 10px; width: max-content; border: 0; background: transparent; padding: 0; }
-.brand-mark { width: 28px; height: 28px; display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--ink); transform: rotate(-4deg); }
-.brand-mark i:nth-child(1) { background: var(--red); }
-.brand-mark i:nth-child(2) { background: var(--blue); }
-.brand-mark i:nth-child(3) { background: var(--yellow); }
-.brand-mark i:nth-child(4) { background: var(--green); }
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 7px rgba(0, 229, 222, .28));
+}
 .brand b { font: 900 17px/1 ui-monospace, monospace; letter-spacing: -.06em; }
 .brand b span { color: var(--red); }
 .topnav { display: flex; gap: 4px; }
@@ -446,7 +473,13 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
 .guestbook-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
 .guestbook-form { position: sticky; top: 90px; padding: 23px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); }
 .guestbook-form h2 { margin: 7px 0 13px; font: 900 23px/1 ui-monospace, monospace; }
-.star-input { display: flex; margin-bottom: 13px; }.star-input button { border: 0; background: transparent; padding: 3px; color: #414858; font-size: 26px; }.star-input button.active { color: var(--yellow); }
+.star-rating-control { margin-bottom: 16px; }
+.star-input { display: flex; gap: 5px; }
+.star-input button { width: 48px; height: 48px; display: grid; place-items: center; border: 0; background: transparent; padding: 0; color: #6e7582; font-size: 38px; line-height: 1; }
+.star-input button.active { color: var(--yellow); text-shadow: 0 0 11px rgba(255, 210, 63, .42); }
+.star-input button[aria-checked="true"] { transform: translateY(-2px) scale(1.08); }
+.rating-choice { min-height: 18px; margin: 7px 0 0; color: var(--dim); font-size: 11px; font-weight: 800; }
+.rating-choice.selected { color: var(--yellow); }
 .guestbook-form textarea { min-height: 150px; margin-bottom: 12px; }
 .guestbook-list { display: grid; gap: 10px; }
 .guest-entry { padding: 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
@@ -1578,4 +1611,173 @@ textarea { min-height: 86px; resize: vertical; line-height: 1.5; }
   .shop-table-deck { right: clamp(16px, 1.5vw, 28px); bottom: clamp(16px, 2.3vh, 28px); gap: 8px; }
   .shop-table-deck .pile-card { width: clamp(70px, 5.2vw, 94px); height: clamp(96px, 7.1vw, 128px); border-width: 4px; }
   .shop-table-deck strong { font-size: clamp(10px, .72vw, 14px); }
+}
+
+/* Main menu: clear connectivity, visible feedback, crown ranking shortcut. */
+.mobile-menu-connectivity {
+  position: absolute;
+  z-index: 6;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+}
+
+.mobile-menu-connectivity .mobile-menu-cloud {
+  position: static;
+  inset: auto;
+  max-width: none;
+  min-height: 38px;
+  padding: 7px 10px;
+  border-color: #315e70;
+  color: #dff7ff;
+  background: rgba(7, 19, 27, .9);
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.mobile-menu-cloud strong {
+  font: 900 9px/1 ui-monospace, monospace;
+  letter-spacing: .06em;
+}
+
+.mobile-menu-status-light {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border: 1px solid #c9f5ff;
+  background: #28bfff;
+  box-shadow: 0 0 5px #28bfff, 0 0 13px rgba(40, 191, 255, .9);
+}
+
+.mobile-menu-cloud:not([data-online]) {
+  border-color: #71343b;
+  color: #ffdfe1;
+  background: rgba(30, 8, 12, .9);
+}
+
+.mobile-menu-cloud:not([data-online]) .mobile-menu-status-light {
+  border-color: #ffd2d2;
+  background: #ff3d45;
+  box-shadow: 0 0 5px #ff3d45, 0 0 13px rgba(255, 61, 69, .9);
+}
+
+.mobile-menu-feedback {
+  min-height: 38px;
+  display: flex;
+  padding: 6px 11px;
+  border: 2px solid #a8792c;
+  align-items: center;
+  gap: 7px;
+  color: #fff5cf;
+  background: linear-gradient(180deg, #5b4317, #2f220e);
+  font-weight: 900;
+}
+
+.mobile-menu-feedback b { color: #ffd54c; font-size: 14px; text-shadow: 0 0 8px rgba(255, 213, 76, .65); }
+.mobile-menu-feedback span { font-size: 9px; letter-spacing: .04em; }
+
+.mobile-menu-side-controls .mobile-menu-ranking {
+  width: 88px;
+  min-height: 43px;
+  grid-template-columns: 29px 1fr;
+  padding: 5px 8px;
+  border-color: #8e7130;
+  color: #fff0b8;
+  background: linear-gradient(180deg, #3a3018, #19160e);
+}
+
+.mobile-menu-side-controls .mobile-menu-ranking b {
+  color: #ffd34c;
+  font-size: 22px;
+  text-shadow: 0 0 9px rgba(255, 211, 76, .65);
+}
+
+.mobile-menu-side-controls .mobile-menu-ranking small {
+  color: #f2dfa1;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .04em;
+}
+
+@media (min-width: 1001px) {
+  .mobile-menu-connectivity {
+    top: clamp(14px, 2vh, 25px);
+    right: clamp(18px, 2.5vw, 48px);
+    gap: 10px;
+  }
+
+  .mobile-menu-connectivity .mobile-menu-cloud,
+  .mobile-menu-feedback { min-height: 48px; border-width: 3px; padding-inline: 14px; }
+  .mobile-menu-cloud strong,
+  .mobile-menu-feedback span { font-size: clamp(10px, .65vw, 13px); }
+  .mobile-menu-feedback b { font-size: clamp(17px, 1.1vw, 22px); }
+  .mobile-menu-status-light { width: 11px; height: 11px; }
+  .mobile-menu-side-controls .mobile-menu-ranking {
+    width: 124px;
+    min-height: 56px;
+    grid-template-columns: 38px 1fr;
+    padding-inline: 11px;
+  }
+  .mobile-menu-side-controls .mobile-menu-ranking b { font-size: 29px; }
+  .mobile-menu-side-controls .mobile-menu-ranking small { font-size: 13px; }
+}
+
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) {
+  .mobile-menu-connectivity { top: max(6px, env(safe-area-inset-top)); right: max(8px, env(safe-area-inset-right)); }
+  .mobile-menu-connectivity .mobile-menu-cloud,
+  .mobile-menu-feedback { min-height: 30px; padding: 4px 7px; }
+}
+
+@media (orientation: portrait) and (max-width: 760px) {
+  .mobile-menu-connectivity { top: max(8px, env(safe-area-inset-top)); right: max(9px, env(safe-area-inset-right)); gap: 5px; }
+  .mobile-menu-feedback { padding-inline: 8px; }
+  .mobile-menu-side-controls .mobile-menu-ranking { width: 78px; }
+  .mobile-menu-side-controls .mobile-menu-ranking small { font-size: 9px; }
+}
+
+/* Account/options split and contextual navigation for secondary screens. */
+.topnav-contextual {
+  align-items: center;
+  gap: 8px;
+}
+
+.topnav-contextual .nav-button {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--panel);
+}
+
+.nav-current {
+  padding: 9px 13px;
+  color: var(--yellow);
+  font: 900 12px/1 ui-monospace, monospace;
+  letter-spacing: .06em;
+}
+
+.online-pill i {
+  background: var(--blue);
+  box-shadow: 0 0 12px rgba(71, 179, 255, .85);
+}
+
+.online-pill.offline i {
+  background: var(--red);
+  box-shadow: 0 0 12px rgba(255, 79, 75, .72);
+}
+
+.account-modal-body section { border-bottom: 0; }
+.account-modal-body .account-card { margin-bottom: 13px; }
+
+@media (max-width: 760px) {
+  .mobile-nav-contextual { grid-template-columns: 1fr 1fr; }
+  .mobile-nav-contextual > span {
+    display: grid;
+    place-content: center;
+    color: var(--yellow);
+    font-size: 9px;
+    font-weight: 900;
+    text-align: center;
+  }
+  .mobile-nav-contextual > span b { display: block; margin-bottom: 3px; font-size: 13px; }
 }

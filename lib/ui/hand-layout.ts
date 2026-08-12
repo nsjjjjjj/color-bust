@@ -84,25 +84,29 @@ export type HandCSSVariables = Record<`--hand-${string}`, string | number>;
 
 export const DEFAULT_HAND_LAYOUT_TUNING: Readonly<HandLayoutTuning> = Object.freeze({
   maximumCards: 10,
-  // Existing cards use width / height ~= .69.
-  cardAspectRatio: 0.69,
+  // The approved core card raster is exactly 94 × 140 pixels.
+  cardAspectRatio: 94 / 140,
   // Keep the card readable first. Dense hands should overlap before shrinking.
-  minimumCardWidth: 64,
-  maximumHandCardWidth: 132,
-  maximumPlayedCardWidth: 136,
-  responsiveCardWidthRatio: 0.135,
+  minimumCardWidth: 72,
+  maximumHandCardWidth: 144,
+  maximumPlayedCardWidth: 152,
+  responsiveCardWidthRatio: 0.145,
   roomyGap: 16,
   regularGap: 8,
   compactGap: 4,
   maximumOverlapRatio: 0.58,
-  maximumFanRotation: 3.5,
-  playedFanRotation: 1.5,
+  // Rotating raster-backed pixel cards forces the browser to resample their
+  // frame and text. Keep cards upright and use the vertical fan drop instead.
+  maximumFanRotation: 0,
+  playedFanRotation: 0,
   maximumFanDrop: 10,
   hoverLift: -20,
   selectedLift: -35,
   scoreLift: -12,
+  // A restrained scale gives the hand a tactile card-table response while the
+  // source raster remains the single piece of card artwork.
   hoverScale: 1.07,
-  selectedScale: 1.025,
+  selectedScale: 1.03,
   scoreScale: 1.08,
   motionDuration: 150,
   scoreDuration: 360,
@@ -173,13 +177,14 @@ export class HandLayoutManager {
   }
 
   calculate(input: HandLayoutInput): HandLayout {
-    const { cardCount, availableWidth } = input;
+    const { cardCount } = input;
+    assertFinitePositive(input.availableWidth, "availableWidth");
+    const availableWidth = Math.max(1, Math.floor(input.availableWidth));
     const variant = input.variant ?? "hand";
 
     if (!Number.isInteger(cardCount) || cardCount < 0 || cardCount > this.tuning.maximumCards) {
       throw new RangeError(`cardCount must be an integer from 0 to ${this.tuning.maximumCards}.`);
     }
-    assertFinitePositive(availableWidth, "availableWidth");
     if (input.preferredCardWidth !== undefined) {
       assertFinitePositive(input.preferredCardWidth, "preferredCardWidth");
     }
@@ -206,11 +211,11 @@ export class HandLayoutManager {
     const responsiveWidth = availableWidth * this.tuning.responsiveCardWidthRatio *
       (variant === "played" ? 1.1 : 1);
     const requestedWidth = input.preferredCardWidth ?? responsiveWidth;
-    let cardWidth = clamp(
+    let cardWidth = Math.round(clamp(
       requestedWidth,
       this.tuning.minimumCardWidth,
       maximumCardWidth,
-    );
+    ));
     const gap = preferredGap(cardCount, this.tuning);
     if (cardCount === 1 && cardWidth > availableWidth) {
       cardWidth = availableWidth;
@@ -230,16 +235,16 @@ export class HandLayoutManager {
         // Containment wins on narrow screens. The readable minimum is a target,
         // but an exceptionally small host may require a smaller card rather than
         // sending cards outside the play field.
-        cardWidth = Math.min(
+        cardWidth = Math.floor(Math.min(
           cardWidth,
           availableWidth / (1 + (cardCount - 1) * minimumStepRatio),
-        );
-        step = cardWidth * minimumStepRatio;
+        ));
+        step = (availableWidth - cardWidth) / (cardCount - 1);
       }
     }
 
     const span = cardWidth + step * Math.max(0, cardCount - 1);
-    const startX = Math.max(0, (availableWidth - span) / 2);
+    const startX = Math.max(0, Math.round((availableWidth - span) / 2));
     const fanRotation = variant === "played"
       ? this.tuning.playedFanRotation
       : handFanRotation(cardCount, this.tuning);
@@ -247,15 +252,15 @@ export class HandLayoutManager {
     const topReserve = variant === "played"
       ? Math.abs(this.tuning.scoreLift)
       : Math.abs(this.tuning.selectedLift);
-    const cardHeight = cardWidth / this.tuning.cardAspectRatio;
+    const cardHeight = Math.round(cardWidth / this.tuning.cardAspectRatio);
     const cards = Array.from({ length: cardCount }, (_, index): HandCardLayout => {
       const normalized = normalizedPosition(index, cardCount);
       return {
         index,
         normalizedPosition: normalized,
-        x: startX + index * step,
-        y: topReserve + Math.pow(Math.abs(normalized), 1.6) * maximumFanDrop,
-        rotation: normalized * fanRotation,
+        x: Math.round(startX + index * step),
+        y: Math.round(topReserve + Math.pow(Math.abs(normalized), 1.6) * maximumFanDrop),
+        rotation: fanRotation === 0 ? 0 : normalized * fanRotation,
         baseZIndex: 10 + index,
       };
     });

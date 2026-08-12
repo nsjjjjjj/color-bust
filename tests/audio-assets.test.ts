@@ -11,6 +11,7 @@ import {
   SCORE_EFFECT_FADE_DURATION_MS,
   SCORE_EFFECT_MAX_DURATION_MS,
   SCORE_EFFECT_START_OFFSET_SECONDS,
+  SYNTH_EFFECTS,
   ScoreEffectPool,
   audioSceneForBossAnte,
   scoreTickPlaybackRate,
@@ -45,7 +46,7 @@ const expectedEffects = {
 const expectedAudioPaths = [
   ...Object.values(expectedTracks),
   ...Object.values(expectedEffects),
-].filter((path): path is string => path !== null).sort();
+].flatMap((path) => path === null ? [] : [String(path)]).sort();
 
 function sources(definitions: Record<string, { readonly src: string } | null>) {
   return Object.fromEntries(
@@ -211,6 +212,38 @@ test("ships sixteen non-empty audio files with valid container signatures", asyn
       assert.ok(isM4a(bytes), `${pathname} is not an ISO BMFF/M4A file`);
     } else {
       assert.ok(isMp3(bytes), `${pathname} is not an MP3 file`);
+    }
+  }
+});
+
+test("procedural effects cover the previously silent interaction and scoring beats", () => {
+  const required = [
+    "ui-click",
+    "ui-error",
+    "discard",
+    "sort",
+    "reroll",
+    "sell",
+    "coin",
+    "round-clear",
+    "round-start",
+    "boss-alert",
+    "mod-trigger",
+    "multiplier",
+    "enhancement",
+    "mayhem-arm",
+    "pack-pick",
+    "equip",
+  ] as const;
+  assert.ok(required.every((name) => name in SYNTH_EFFECTS));
+  for (const definition of Object.values(SYNTH_EFFECTS)) {
+    assert.ok(definition.gain > 0 && definition.gain <= 1);
+    assert.ok(definition.cooldownMs >= 0);
+    assert.ok(definition.tones.length > 0);
+    for (const tone of definition.tones) {
+      assert.ok(tone.startHz >= 35 && tone.endHz >= 35);
+      assert.ok(tone.durationMs >= 40 && tone.durationMs <= 500);
+      assert.ok(tone.gain > 0 && tone.gain <= 0.2);
     }
   }
 });
@@ -395,10 +428,18 @@ test("service worker precaches every audio asset and serves byte ranges offline"
   for (const pathname of expectedAudioPaths) {
     assert.ok(cachedPaths.has(pathname), `${pathname} is missing from the install cache`);
   }
+  assert.ok(cachedPaths.has("/"), "the offline navigation shell is missing");
+  assert.ok(cachedPaths.has("/art/deck-mayhem-card-frame-v1.png"), "the gameplay card frame is missing");
+  const staticPaths = [...cachedPaths].filter((pathname) => pathname.startsWith("/_next/static/"));
+  assert.ok(staticPaths.some((pathname) => pathname.endsWith(".js")), "compiled client JavaScript is missing");
+  assert.ok(staticPaths.some((pathname) => pathname.endsWith(".css")), "compiled CSS is missing");
 
   const pathname = "/audio/card-play.mp3";
   const original = await readFile(new URL(`public${pathname}`, root));
   harness.goOffline();
+
+  const staticResponse = await harness.dispatchFetch(new Request(`${origin}${staticPaths.find((path) => path.endsWith(".js"))}`));
+  assert.equal(staticResponse.status, 200, "client JavaScript must remain available offline");
 
   const full = await harness.dispatchFetch(new Request(`${origin}${pathname}`));
   assert.equal(full.status, 200);

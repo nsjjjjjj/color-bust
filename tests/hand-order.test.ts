@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { GameCard } from "../lib/game/types";
-import { orderHand, reconcileHandOrder, sortHandOnce } from "../lib/ui/hand-order";
+import { orderHand, orderHandWithSort, reconcileHandOrder, sortHandOnce } from "../lib/ui/hand-order";
 
 const cards = [
   { id: "blue-7", color: "blue", rank: 7 },
@@ -28,6 +28,21 @@ test("replacement cards append on the right after a one-shot sort", () => {
   const nextOrder = reconcileHandOrder(rankOrder, nextHand);
 
   assert.deepEqual(nextOrder, ["yellow-1", "green-4", "blue-7", "red-9"]);
+});
+
+test("replacement cards follow the most recently chosen persistent sort", () => {
+  const rankOrder = sortHandOnce(cards, [], "rank");
+  const replacement = { id: "red-9", color: "red", rank: 9 } satisfies GameCard;
+  const nextHand = [cards[0], cards[2], cards[3], replacement];
+
+  assert.deepEqual(
+    orderHandWithSort(nextHand, rankOrder, "rank").map((card) => card.id),
+    ["yellow-1", "green-4", "blue-7", "red-9"],
+  );
+  assert.deepEqual(
+    orderHandWithSort(nextHand, rankOrder, "color").map((card) => card.id),
+    ["red-9", "blue-7", "green-4", "yellow-1"],
+  );
 });
 
 test("a later color-sort applies to the whole current hand only when pressed", () => {

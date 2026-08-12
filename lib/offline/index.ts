@@ -115,6 +115,12 @@ export async function deleteLocalRun(id: string): Promise<void> {
   await deleteValue(STORES.runs, id);
 }
 
+/** Keeps the single active run model used by the game-select screen. */
+export async function pruneLocalRuns(keepId: string): Promise<void> {
+  const records = await listLocalRuns<unknown>();
+  await Promise.all(records.filter((record) => record.id !== keepId).map((record) => deleteLocalRun(record.id)));
+}
+
 export async function enqueueSync(
   operation: Omit<SyncOperation, "operationId" | "createdAt" | "attempts"> &
     Partial<Pick<SyncOperation, "operationId" | "createdAt" | "attempts">>,

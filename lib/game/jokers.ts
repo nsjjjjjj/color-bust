@@ -98,7 +98,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
       case "redline": {
         for (const card of input.scoringCards.filter(({ color }) => color === "red")) {
           jokerChipBonus += 12;
-          appliedEffects.push(applied(joker, "빨강 채널 과부하", { chips: 12 }, card.id));
+          appliedEffects.push(applied(joker, "RAGE 채널 과부하", { chips: 12 }, card.id));
         }
         break;
       }
@@ -108,7 +108,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
           if (blueCards.length < 2) break;
           jokerChipBonus += 45;
           appliedEffects.push(
-            applied(joker, "파랑 버퍼 2장 연결", { chips: 45 }, blueCards[1].id),
+            applied(joker, "GLITCH 버퍼 2장 연결", { chips: 45 }, blueCards[1].id),
           );
         }
         break;
@@ -130,7 +130,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
           if (input.handHistory.length !== 0 || !yellow) break;
           coinGain += 2;
           appliedEffects.push(
-            applied(joker, "첫 핸드 노랑 티켓", { coins: 2 }, yellow.id),
+            applied(joker, "첫 핸드 VOLT 티켓", { coins: 2 }, yellow.id),
           );
         }
         break;
@@ -151,7 +151,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
       case "cache-hit":
         if (input.handHistory.includes(input.evaluatedHand.type)) {
           multiplierBonus += 4;
-          appliedEffects.push(applied(joker, "재사용 패턴 캐시", { multiplier: 4 }));
+          appliedEffects.push(applied(joker, "재사용 족보 캐시", { multiplier: 4 }));
         }
         break;
       case "splash-mode":
@@ -170,7 +170,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
           jokerChipBonus += 60;
           multiplierBonus += 5;
           appliedEffects.push(
-            applied(joker, "단색 패턴 감지", { chips: 60, multiplier: 5 }),
+            applied(joker, "단색 족보 감지", { chips: 60, multiplier: 5 }),
           );
         }
         break;
@@ -201,7 +201,7 @@ export function applyJokers(input: ApplyJokersInput): JokerScoreResult {
       case "version-control":
         if (previousHand && previousHand !== input.evaluatedHand.type) {
           jokerChipBonus += 60;
-          appliedEffects.push(applied(joker, "직전과 다른 패턴", { chips: 60 }));
+          appliedEffects.push(applied(joker, "직전과 다른 족보", { chips: 60 }));
         }
         break;
       case "cmyk-core":

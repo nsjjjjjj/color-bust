@@ -5,7 +5,7 @@ import { getLocalSetting, setLocalSetting } from "../lib/offline";
 
 export type AudioScene = "menu" | "run" | "shop" | "boss" | "final-boss" | "silent";
 export type AudioChannel = "music" | "effects";
-export type SoundEffect =
+export type SampledSoundEffect =
   | "card-select"
   | "card-play"
   | "card-draw"
@@ -18,6 +18,27 @@ export type SoundEffect =
   | "win"
   | "lose";
 
+export type SynthSoundEffect =
+  | "ui-click"
+  | "ui-open"
+  | "ui-error"
+  | "discard"
+  | "sort"
+  | "reroll"
+  | "sell"
+  | "coin"
+  | "round-clear"
+  | "round-start"
+  | "boss-alert"
+  | "mod-trigger"
+  | "multiplier"
+  | "enhancement"
+  | "mayhem-arm"
+  | "pack-pick"
+  | "equip";
+
+export type SoundEffect = SampledSoundEffect | SynthSoundEffect;
+
 type AudioAsset = {
   readonly src: string;
   readonly gain: number;
@@ -25,6 +46,21 @@ type AudioAsset = {
 };
 
 type AudioSetting = "musicEnabled" | "effectsEnabled" | "musicVolume" | "effectsVolume";
+
+type SynthTone = {
+  readonly startHz: number;
+  readonly endHz: number;
+  readonly delayMs?: number;
+  readonly durationMs: number;
+  readonly gain: number;
+  readonly type: OscillatorType;
+};
+
+type SynthEffectDefinition = {
+  readonly gain: number;
+  readonly cooldownMs: number;
+  readonly tones: readonly SynthTone[];
+};
 
 export interface EffectPlaybackOptions {
   /** Additional pitch in semitones. */
@@ -79,7 +115,80 @@ export const AUDIO_EFFECTS = {
   "pack-reveal": { src: "/audio/pack-reveal.m4a", gain: 0.6 },
   win: { src: "/audio/win.m4a", gain: 0.8 },
   lose: { src: "/audio/lose.m4a", gain: 0.72 },
-} as const satisfies Readonly<Record<SoundEffect, AudioAsset | null>>;
+} as const satisfies Readonly<Record<SampledSoundEffect, AudioAsset | null>>;
+
+/**
+ * Short procedural cues fill interaction gaps without adding licensed assets.
+ * Gains are intentionally conservative because several tones may form a chord.
+ */
+export const SYNTH_EFFECTS = {
+  "ui-click": { gain: 0.42, cooldownMs: 28, tones: [
+    { startHz: 430, endHz: 310, durationMs: 46, gain: 0.12, type: "square" },
+  ] },
+  "ui-open": { gain: 0.38, cooldownMs: 70, tones: [
+    { startHz: 260, endHz: 520, durationMs: 88, gain: 0.1, type: "triangle" },
+  ] },
+  "ui-error": { gain: 0.55, cooldownMs: 140, tones: [
+    { startHz: 170, endHz: 105, durationMs: 105, gain: 0.14, type: "sawtooth" },
+    { startHz: 145, endHz: 82, delayMs: 82, durationMs: 115, gain: 0.12, type: "square" },
+  ] },
+  discard: { gain: 0.52, cooldownMs: 80, tones: [
+    { startHz: 280, endHz: 72, durationMs: 150, gain: 0.13, type: "sawtooth" },
+    { startHz: 190, endHz: 55, delayMs: 24, durationMs: 118, gain: 0.08, type: "square" },
+  ] },
+  sort: { gain: 0.4, cooldownMs: 65, tones: [
+    { startHz: 360, endHz: 440, durationMs: 55, gain: 0.09, type: "square" },
+    { startHz: 480, endHz: 590, delayMs: 46, durationMs: 58, gain: 0.08, type: "square" },
+  ] },
+  reroll: { gain: 0.52, cooldownMs: 150, tones: [
+    { startHz: 250, endHz: 760, durationMs: 145, gain: 0.11, type: "square" },
+    { startHz: 520, endHz: 210, delayMs: 72, durationMs: 130, gain: 0.09, type: "triangle" },
+  ] },
+  sell: { gain: 0.52, cooldownMs: 120, tones: [
+    { startHz: 760, endHz: 430, durationMs: 95, gain: 0.11, type: "triangle" },
+    { startHz: 520, endHz: 330, delayMs: 68, durationMs: 100, gain: 0.09, type: "square" },
+  ] },
+  coin: { gain: 0.48, cooldownMs: 55, tones: [
+    { startHz: 880, endHz: 1320, durationMs: 105, gain: 0.11, type: "triangle" },
+    { startHz: 1320, endHz: 1760, delayMs: 72, durationMs: 95, gain: 0.08, type: "sine" },
+  ] },
+  "round-clear": { gain: 0.58, cooldownMs: 500, tones: [
+    { startHz: 330, endHz: 440, durationMs: 150, gain: 0.09, type: "square" },
+    { startHz: 440, endHz: 660, delayMs: 105, durationMs: 180, gain: 0.1, type: "triangle" },
+    { startHz: 660, endHz: 990, delayMs: 220, durationMs: 240, gain: 0.09, type: "sine" },
+  ] },
+  "round-start": { gain: 0.48, cooldownMs: 350, tones: [
+    { startHz: 180, endHz: 320, durationMs: 150, gain: 0.1, type: "square" },
+    { startHz: 270, endHz: 540, delayMs: 92, durationMs: 170, gain: 0.08, type: "triangle" },
+  ] },
+  "boss-alert": { gain: 0.62, cooldownMs: 600, tones: [
+    { startHz: 105, endHz: 72, durationMs: 230, gain: 0.14, type: "sawtooth" },
+    { startHz: 105, endHz: 72, delayMs: 210, durationMs: 230, gain: 0.14, type: "sawtooth" },
+  ] },
+  "mod-trigger": { gain: 0.46, cooldownMs: 22, tones: [
+    { startHz: 390, endHz: 690, durationMs: 92, gain: 0.1, type: "square" },
+    { startHz: 780, endHz: 980, delayMs: 34, durationMs: 84, gain: 0.06, type: "triangle" },
+  ] },
+  multiplier: { gain: 0.56, cooldownMs: 35, tones: [
+    { startHz: 240, endHz: 960, durationMs: 175, gain: 0.12, type: "sawtooth" },
+    { startHz: 480, endHz: 1440, delayMs: 42, durationMs: 190, gain: 0.07, type: "sine" },
+  ] },
+  enhancement: { gain: 0.42, cooldownMs: 24, tones: [
+    { startHz: 620, endHz: 980, durationMs: 88, gain: 0.08, type: "sine" },
+    { startHz: 930, endHz: 1280, delayMs: 28, durationMs: 90, gain: 0.06, type: "triangle" },
+  ] },
+  "mayhem-arm": { gain: 0.56, cooldownMs: 110, tones: [
+    { startHz: 150, endHz: 460, durationMs: 165, gain: 0.12, type: "sawtooth" },
+    { startHz: 610, endHz: 230, delayMs: 36, durationMs: 190, gain: 0.08, type: "square" },
+  ] },
+  "pack-pick": { gain: 0.44, cooldownMs: 55, tones: [
+    { startHz: 700, endHz: 1040, durationMs: 100, gain: 0.09, type: "triangle" },
+  ] },
+  equip: { gain: 0.48, cooldownMs: 120, tones: [
+    { startHz: 420, endHz: 560, durationMs: 105, gain: 0.09, type: "square" },
+    { startHz: 630, endHz: 840, delayMs: 72, durationMs: 125, gain: 0.08, type: "triangle" },
+  ] },
+} as const satisfies Readonly<Record<SynthSoundEffect, SynthEffectDefinition>>;
 
 export function audioSceneForBossAnte(ante: number): Extract<AudioScene, "boss" | "final-boss"> {
   return ante >= 5 ? "final-boss" : "boss";
@@ -278,6 +387,91 @@ export class ScoreEffectPool {
   }
 }
 
+function isSynthSoundEffect(name: SoundEffect): name is SynthSoundEffect {
+  return name in SYNTH_EFFECTS;
+}
+
+/** A reusable Web Audio voice bank for short, latency-sensitive game cues. */
+export class SynthEffectPlayer {
+  private context: AudioContext | null = null;
+  private readonly active = new Set<OscillatorNode>();
+  private readonly lastPlayedAt = new Map<SynthSoundEffect, number>();
+
+  play(
+    name: SynthSoundEffect,
+    masterVolume: number,
+    options: EffectPlaybackOptions = {},
+  ): boolean {
+    if (typeof window === "undefined" || typeof window.AudioContext === "undefined") return false;
+    const definition = SYNTH_EFFECTS[name];
+    const nowMs = performance.now();
+    if (nowMs - (this.lastPlayedAt.get(name) ?? -Infinity) < definition.cooldownMs) return false;
+    this.lastPlayedAt.set(name, nowMs);
+
+    this.context ??= new window.AudioContext({ latencyHint: "interactive" });
+    const context = this.context;
+    if (context.state === "suspended") context.resume().catch(() => undefined);
+    const pitchRate = options.playbackRate ?? scoreTickPlaybackRate(
+      options.progressionStep ?? 0,
+      options.semitonesPerStep ?? 0,
+      options.semitoneOffset,
+    );
+    const callGain = Number.isFinite(options.gain) ? Math.max(0, options.gain ?? 1) : 1;
+    const effectGain = clampVolume(masterVolume * definition.gain * callGain);
+    const startedAt = context.currentTime + 0.004;
+
+    for (const tone of definition.tones) {
+      const delayMs = "delayMs" in tone ? tone.delayMs : 0;
+      const toneStart = startedAt + (delayMs / 1_000);
+      const toneEnd = toneStart + (tone.durationMs / 1_000);
+      const attackEnd = Math.min(toneEnd, toneStart + 0.008);
+      const oscillator = context.createOscillator();
+      const envelope = context.createGain();
+      oscillator.type = tone.type;
+      oscillator.frequency.setValueAtTime(Math.max(35, tone.startHz * pitchRate), toneStart);
+      oscillator.frequency.exponentialRampToValueAtTime(
+        Math.max(35, tone.endHz * pitchRate),
+        toneEnd,
+      );
+      envelope.gain.setValueAtTime(0.0001, toneStart);
+      envelope.gain.exponentialRampToValueAtTime(
+        Math.max(0.0001, effectGain * tone.gain),
+        attackEnd,
+      );
+      envelope.gain.exponentialRampToValueAtTime(0.0001, toneEnd);
+      oscillator.connect(envelope).connect(context.destination);
+      oscillator.addEventListener("ended", () => {
+        this.active.delete(oscillator);
+        oscillator.disconnect();
+        envelope.disconnect();
+      }, { once: true });
+      this.active.add(oscillator);
+      oscillator.start(toneStart);
+      oscillator.stop(toneEnd + 0.01);
+    }
+    return true;
+  }
+
+  stop(): void {
+    for (const oscillator of this.active) {
+      try {
+        oscillator.stop();
+      } catch {
+        // A voice that ended between iteration and stop is already released.
+      }
+      oscillator.disconnect();
+    }
+    this.active.clear();
+  }
+
+  dispose(): void {
+    this.stop();
+    this.context?.close().catch(() => undefined);
+    this.context = null;
+    this.lastPlayedAt.clear();
+  }
+}
+
 type ManagedBgmTrack = {
   definition: AudioAsset;
   readonly audio: HTMLAudioElement;
@@ -441,10 +635,11 @@ export function useGameAudio(scene: AudioScene) {
   const [musicVolume, setMusicVolume] = useState(0.35);
   const [effectsVolume, setEffectsVolume] = useState(0.65);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
-  const activeEffectsRef = useRef(new Map<SoundEffect, Set<HTMLAudioElement>>());
+  const activeEffectsRef = useRef(new Map<SampledSoundEffect, Set<HTMLAudioElement>>());
   const preloadedEffectsRef = useRef<HTMLAudioElement[]>([]);
   const effectGainsRef = useRef(new WeakMap<HTMLAudioElement, number>());
   const scorePoolRef = useRef<ScoreEffectPool | null>(null);
+  const synthPlayerRef = useRef<SynthEffectPlayer | null>(null);
   const legacyScoreTokenRef = useRef(0);
   const scoreSequenceRef = useRef({ lastPlayedAt: 0, step: -1 });
   const changesBeforeHydrationRef = useRef(new Set<AudioSetting>());
@@ -455,7 +650,7 @@ export function useGameAudio(scene: AudioScene) {
 
   const getScorePool = useCallback((): ScoreEffectPool | null => {
     if (typeof Audio === "undefined") return null;
-    const definition = AUDIO_EFFECTS.score;
+    const definition: AudioAsset = AUDIO_EFFECTS.score;
     scorePoolRef.current ??= new ScoreEffectPool({
       src: definition.src,
       gain: definition.gain,
@@ -471,6 +666,7 @@ export function useGameAudio(scene: AudioScene) {
     activeEffectsRef.current.clear();
     effectGainsRef.current = new WeakMap<HTMLAudioElement, number>();
     scorePoolRef.current?.stop();
+    synthPlayerRef.current?.stop();
   }, []);
 
   useEffect(() => {
@@ -628,7 +824,7 @@ export function useGameAudio(scene: AudioScene) {
     const pool = getScorePool();
     if (!pool) return false;
     pool.configure(settingsHydrated && effectsEnabled, effectsVolume);
-    const definition = AUDIO_EFFECTS.score;
+    const definition: AudioAsset = AUDIO_EFFECTS.score;
     const playbackRate = options.playbackRate ?? (
       (definition.playbackRate ?? 1)
       * scoreTickPlaybackRate(
@@ -657,6 +853,11 @@ export function useGameAudio(scene: AudioScene) {
 
   const playEffect = useCallback((name: SoundEffect, options: EffectPlaybackOptions = {}) => {
     if (!settingsHydrated || !effectsEnabled) return;
+    if (isSynthSoundEffect(name)) {
+      synthPlayerRef.current ??= new SynthEffectPlayer();
+      synthPlayerRef.current.play(name, effectsVolume, options);
+      return;
+    }
     const definition: AudioAsset | null = AUDIO_EFFECTS[name];
     if (!definition) return;
 
@@ -733,6 +934,8 @@ export function useGameAudio(scene: AudioScene) {
     stopEffects();
     scorePoolRef.current?.dispose();
     scorePoolRef.current = null;
+    synthPlayerRef.current?.dispose();
+    synthPlayerRef.current = null;
   }, [stopEffects]);
 
   return {

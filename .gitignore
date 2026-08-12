@@ -40,3 +40,5 @@ yarn-error.log*
 /.wrangler/
 /outputs/
 /work/
+/data/*
+!/data/.gitkeep

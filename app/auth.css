@@ -1,0 +1,21 @@
+.auth-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 20%, #173a3b 0, #081416 45%, #05090b 100%);
+}
+.auth-card { width: min(440px, 100%); padding: 28px; border: 3px solid #4bafb4; background: #0b1417; box-shadow: 8px 8px 0 #020405; }
+.auth-card h1 { margin: 10px 0 8px; color: #f5d04e; font-size: 28px; }
+.auth-card > p, .auth-card > small { color: #b8c6c7; line-height: 1.55; }
+.auth-back { display: inline-block; margin-bottom: 18px; color: #75d8dc; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 22px 0 16px; }
+.auth-tabs a { padding: 11px; border: 2px solid #334a4e; text-align: center; color: #9eb0b1; background: #101d20; }
+.auth-tabs a.active { border-color: #58cbd0; color: #fff; background: #17383c; }
+.auth-card form { display: grid; gap: 14px; margin: 16px 0; }
+.auth-card label { display: grid; gap: 7px; color: #dce7e7; font-size: 13px; }
+.auth-card input { min-height: 46px; border: 2px solid #3b5559; border-radius: 0; padding: 10px 12px; color: #fff; background: #071013; font: 500 15px system-ui, sans-serif; }
+.auth-card input:focus { outline: 3px solid #2b7f84; outline-offset: 2px; }
+.auth-card form button { min-height: 50px; margin-top: 4px; }
+.auth-error { padding: 10px 12px; border: 2px solid #b94842; color: #ffd6d2; background: #3a1718; font: 600 13px/1.45 system-ui, sans-serif; }

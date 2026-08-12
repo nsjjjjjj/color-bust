@@ -1,4 +1,5 @@
 import { rankChipValue } from "./constants";
+import { COLOR_LABELS as COLOR_NAMES } from "./colors";
 import type { AppliedEffect, GameCard, ScoreBreakdown } from "./types";
 
 export type ScoreEventType =
@@ -61,13 +62,6 @@ interface RunningScore {
   multiplier: number;
   xMultiplier: number;
 }
-
-const COLOR_NAMES: Readonly<Record<GameCard["color"], string>> = {
-  red: "빨강",
-  blue: "파랑",
-  green: "초록",
-  yellow: "노랑",
-};
 
 function scoreFor(state: RunningScore): number {
   return Math.floor(

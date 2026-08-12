@@ -5,33 +5,39 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import {
   HAND_RULES,
   JOKER_CATALOG,
-  JOKER_SLOT_LIMIT,
   UNO_SLOT_LIMIT,
 } from "../../lib/game/constants";
 import {
   CARD_ENHANCEMENT_CONFIG,
   CARD_PACK_CONFIG,
+  CONSUMABLE_SLOT_LIMIT,
   DECK_WORK_CONFIG,
+  FIRMWARE_CONFIG,
+  GHOST_CONFIG,
   MINIMUM_RUN_DECK_SIZE,
+  PROTOCOL_CONFIG,
 } from "../../lib/game/garage-config";
+import { COLOR_LABELS } from "../../lib/game/colors";
 import { PACK_DEFINITIONS } from "../../lib/game/packs";
+import {
+  consumableSlotsFree,
+  jokerSlotLimitFor,
+  runConsumables,
+  runFirmware,
+} from "../../lib/game/run-upgrades";
 import type {
   CardColor,
   CardRarity,
+  ConsumableInstance,
   DeckWorkShopOffer,
   GameCard,
   PackChoice,
   PackOpening,
   RunState,
   ShopOffer,
+  UseConsumableOptions,
 } from "../../lib/game/types";
-
-const COLOR_LABELS: Readonly<Record<CardColor, string>> = {
-  red: "빨강",
-  blue: "파랑",
-  green: "초록",
-  yellow: "노랑",
-};
+import { DeckCardGrid } from "./deck-card-grid";
 
 const RARITY_LABELS: Readonly<Record<CardRarity, string>> = {
   common: "COMMON",
@@ -59,6 +65,7 @@ type OfferPresentation = {
 
 export interface GarageViewProps {
   readonly run: RunState;
+  readonly embedded?: boolean;
   readonly notice?: string;
   readonly onBuy: (offer: ShopOffer) => void;
   readonly onReroll: () => void;
@@ -72,12 +79,14 @@ export interface GarageViewProps {
   ) => void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
+  readonly onOpenDeck: () => void;
+  readonly onUseConsumable: (instanceId: string, options: UseConsumableOptions) => void;
 }
 
 function normalizeTerminology(value: string): string {
   return value
     .replaceAll("조커", "MOD")
-    .replaceAll("족보", "패턴")
+    .replaceAll("패턴", "족보")
     .replaceAll("칩", "POWER")
     .replaceAll("배수", "HYPE")
     .replaceAll("앤티", "STAGE");
@@ -87,7 +96,10 @@ function uniqueDeckCards(run: RunState): readonly GameCard[] {
   const source = run.deck ?? [...run.hand, ...run.drawPile, ...run.discardPile];
   const cards = new Map<string, GameCard>();
   source.forEach((card) => cards.set(card.id, card));
-  return [...cards.values()];
+  const colorOrder: readonly GameCard["color"][] = ["red", "yellow", "green", "blue"];
+  return [...cards.values()].sort(
+    (left, right) => colorOrder.indexOf(left.color) - colorOrder.indexOf(right.color) || right.rank - left.rank,
+  );
 }
 
 function nextTargetLabel(run: RunState): string {
@@ -104,12 +116,13 @@ function modifierRarity(jokerId: Extract<ShopOffer, { kind: "joker" }>["jokerId"
 function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
   const shortfall = Math.max(0, offer.price - run.coins);
   let disabledReason = shortfall > 0 ? `${shortfall}¢ 부족` : undefined;
+  const jokerLimit = jokerSlotLimitFor(run);
 
   if (offer.kind === "joker") {
     const definition = JOKER_CATALOG[offer.jokerId];
     if (run.jokers.some((joker) => joker.jokerId === offer.jokerId)) {
       disabledReason = "이미 장착한 MOD";
-    } else if (run.jokers.length >= JOKER_SLOT_LIMIT) {
+    } else if (run.jokers.length >= jokerLimit) {
       disabledReason = "MOD 슬롯 가득 참";
     }
     return {
@@ -117,9 +130,42 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       rarity: modifierRarity(offer.jokerId),
       name: definition.name,
       effect: normalizeTerminology(definition.description),
-      detail: `런 동안 모든 핸드에 적용 · ${run.jokers.length}/${JOKER_SLOT_LIMIT} 슬롯 사용 중`,
+      detail: `런 동안 모든 핸드에 적용 · ${run.jokers.length}/${jokerLimit} 슬롯 사용 중`,
       symbol: definition.name.slice(0, 1),
       meta: `PASSIVE MOD · ${definition.price}¢ VALUE`,
+      disabledReason,
+    };
+  }
+
+  if (offer.kind === "protocol") {
+    const protocol = PROTOCOL_CONFIG[offer.protocolId];
+    if (consumableSlotsFree(run) < 1) {
+      disabledReason = "UTILITY 슬롯 가득 참";
+    }
+    return {
+      category: "PROTOCOL",
+      rarity: "uncommon",
+      name: protocol.name,
+      effect: normalizeTerminology(protocol.description),
+      detail: `안전한 일회용 덱 조작 · UTILITY ${(run.consumables ?? []).length}/${CONSUMABLE_SLOT_LIMIT}`,
+      symbol: protocol.symbol,
+      meta: "SINGLE-USE PROTOCOL",
+      disabledReason,
+    };
+  }
+
+  if (offer.kind === "firmware") {
+    const firmware = FIRMWARE_CONFIG[offer.firmwareId];
+    const installed = (run.firmware ?? []).filter((firmwareId) => firmwareId === offer.firmwareId).length;
+    if (installed >= firmware.maxStacks) disabledReason = "최대 설치 완료";
+    return {
+      category: "FIRMWARE",
+      rarity: installed > 0 ? "rare" : "uncommon",
+      name: firmware.name,
+      effect: normalizeTerminology(firmware.description),
+      detail: `런 종료까지 유지 · 현재 ${installed}/${firmware.maxStacks} 설치`,
+      symbol: firmware.symbol,
+      meta: "PERMANENT RUN UPGRADE",
       disabledReason,
     };
   }
@@ -149,7 +195,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
     const definition = PACK_DEFINITIONS[offer.packKind];
     if (
       definition.contents === "modifier" &&
-      run.jokers.length + definition.pickCount > JOKER_SLOT_LIMIT
+      run.jokers.length + definition.pickCount > jokerLimit
     ) {
       disabledReason = "MOD 슬롯 부족";
     }
@@ -158,6 +204,12 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       !uniqueDeckCards(run).some((card) => !card.enhancement)
     ) {
       disabledReason = "강화할 기본 카드 없음";
+    }
+    if (
+      (definition.contents === "protocol" || definition.contents === "ghost") &&
+      consumableSlotsFree(run) < definition.pickCount
+    ) {
+      disabledReason = "UTILITY 슬롯 부족";
     }
     return {
       category: "BOOSTER PACK",
@@ -179,11 +231,11 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
     const rule = HAND_RULES[offer.handType];
     const level = run.handLevels[offer.handType];
     return {
-      category: "PATTERN CORE",
+      category: "족보 CORE",
       rarity: level >= 4 ? "rare" : "uncommon",
       name: rule.name,
       effect: `Lv.${level} → Lv.${level + 1} · POWER +${rule.chipsPerLevel} · HYPE +${rule.multiplierPerLevel}`,
-      detail: "이 런 동안 같은 패턴을 낼 때마다 영구 적용됩니다.",
+      detail: "이 런 동안 같은 족보를 낼 때마다 영구 적용됩니다.",
       symbol: "▲",
       meta: `CURRENT LEVEL ${level}`,
       disabledReason,
@@ -194,7 +246,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
   if (alreadyOwned) disabledReason = "이미 보유한 규칙";
   else if (run.communityUno.length >= UNO_SLOT_LIMIT) disabledReason = "MAYHEM 슬롯 가득 참";
   return {
-    category: "COMMUNITY MAYHEM",
+    category: "⚠ SIGNAL HIJACK · MAYHEM",
     rarity: "rare",
     name: offer.card.name,
     effect: `${offer.card.author} 제작 · 긍정/결함 예산 0의 한 턴 규칙`,
@@ -216,40 +268,6 @@ function targetDisabledReason(
   if (offer.work === "recolor" && offer.targetColor === card.color) return "이미 같은 색";
   if ((offer.work === "charge" || offer.work === "amplify") && card.enhancement) return "이미 강화됨";
   return null;
-}
-
-function DeckCard({
-  card,
-  selected = false,
-  disabledReason,
-  onClick,
-}: {
-  readonly card: GameCard;
-  readonly selected?: boolean;
-  readonly disabledReason?: string | null;
-  readonly onClick?: () => void;
-}) {
-  const enhancement = card.enhancement
-    ? CARD_ENHANCEMENT_CONFIG[card.enhancement]
-    : null;
-  return (
-    <button
-      type="button"
-      className="dm-deck-card"
-      data-color={card.color}
-      data-rarity={card.rarity ?? "common"}
-      data-selected={selected || undefined}
-      disabled={Boolean(disabledReason)}
-      title={disabledReason ?? enhancement?.description ?? `${COLOR_LABELS[card.color]} ${card.rank}`}
-      aria-label={`${COLOR_LABELS[card.color]} ${card.rank}${enhancement ? `, ${enhancement.name}` : ""}${selected ? ", 선택됨" : ""}`}
-      onClick={onClick}
-    >
-      <span className="dm-deck-card__frame" aria-hidden="true" />
-      <span className="dm-deck-card__corner">{card.rank}</span>
-      <strong>{card.rank}</strong>
-      <small>{enhancement?.name ?? COLOR_LABELS[card.color]}</small>
-    </button>
-  );
 }
 
 function ShopSlot({
@@ -298,25 +316,46 @@ function ShopSlot({
           <strong>{item.name}</strong>
           <span>{item.effect}</span>
         </span>
-        <span className="dm-shop-slot__detail">
+      </button>
+      <div className="dm-shop-slot__detail" aria-label={`${item.name} 상세 정보`}>
+          <strong>{item.category} · {item.name}</strong>
+          <em>{item.effect}</em>
           <b>{item.meta}</b>
           <span>{item.detail}</span>
-        </span>
-      </button>
+          <div className="dm-shop-slot__detail-actions">
+            <button type="button" className="dm-shop-slot__detail-close" onClick={onSelect}>닫기</button>
+            <button
+              type="button"
+              className="dm-shop-slot__buy"
+              disabled={disabled || !selected || purchasing}
+              onClick={onBuy}
+            >
+              {sold ? "SOLD" : purchasing ? "CONNECTING…" : !selected ? "카드 선택" : offer.kind === "card-pack" ? "OPEN" : offer.kind === "deck-work" ? "SELECT CARD" : "BUY"}
+            </button>
+          </div>
+      </div>
       <footer>
         <span className={item.disabledReason ? "is-disabled" : ""}>
           {item.disabledReason ?? `${offer.price}¢`}
         </span>
-        <button
-          type="button"
-          className="dm-shop-slot__buy"
-          disabled={disabled || !selected || purchasing}
-          onClick={onBuy}
-        >
-          {sold ? "SOLD" : purchasing ? "CONNECTING…" : offer.kind === "card-pack" ? "OPEN" : offer.kind === "deck-work" ? "SELECT CARD" : "BUY"}
-        </button>
       </footer>
       {sold && <div className="dm-shop-slot__sold" aria-label="판매 완료">SOLD</div>}
+    </article>
+  );
+}
+
+function EmptyShopSlot({
+  eyebrow,
+  message,
+}: {
+  readonly eyebrow: string;
+  readonly message: string;
+}) {
+  return (
+    <article className="dm-shop-slot dm-shop-slot--empty" aria-label={message}>
+      <div className="dm-shop-slot__empty-mark" aria-hidden="true">×</div>
+      <small>{eyebrow}</small>
+      <strong>{message}</strong>
     </article>
   );
 }
@@ -341,45 +380,48 @@ function DeckTargetOverlay({
           <button type="button" onClick={onClose}>닫기</button>
         </header>
         <p>{normalizeTerminology(DECK_WORK_CONFIG[offer.work].description)}</p>
-        <div className="dm-deck-grid">
-          {cards.map((card) => (
-            <DeckCard
-              card={card}
-              disabledReason={targetDisabledReason(offer, card, cards.length)}
-              key={card.id}
-              onClick={() => onSelect(card)}
-            />
-          ))}
-        </div>
+        <DeckCardGrid
+          cards={cards}
+          ariaLabel="덱 개조 대상 카드"
+          disabledReason={(card) => targetDisabledReason(offer, card, cards.length)}
+          onSelect={onSelect}
+        />
       </section>
     </div>
   );
 }
 
-function DeckViewer({
+function GarageInventory({
   run,
   onSell,
-  onClose,
+  onOpenDeck,
+  onUseConsumable,
 }: {
   readonly run: RunState;
   readonly onSell: (instanceId: string) => void;
-  readonly onClose: () => void;
+  readonly onOpenDeck: () => void;
+  readonly onUseConsumable: (item: ConsumableInstance) => void;
 }) {
   const cards = uniqueDeckCards(run);
+  const utilities = runConsumables(run);
+  const firmware = runFirmware(run);
+  const jokerLimit = jokerSlotLimitFor(run);
   return (
-    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-deck-view-title">
-      <section className="dm-garage-dialog dm-deck-viewer">
+      <aside className="dm-garage-inventory dm-current-build" aria-labelledby="dm-inventory-title">
         <header>
-          <div><span>RUN INVENTORY</span><h2 id="dm-deck-view-title">VIEW DECK</h2></div>
-          <button type="button" onClick={onClose}>GARAGE로</button>
+          <div><span>CURRENT BUILD</span><h2 id="dm-inventory-title">현재 빌드</h2></div>
+          <button type="button" className="dm-current-build__deck" onClick={onOpenDeck}>
+            <span>DECK</span><strong>{cards.length}장</strong><small>클릭해서 확인</small>
+          </button>
+          <div className="dm-current-build__systems" aria-label="보유 시스템 요약">
+            <span>UTILITY <b>{utilities.length}/{CONSUMABLE_SLOT_LIMIT}</b></span>
+            <span>FIRMWARE <b>{firmware.length}</b></span>
+          </div>
         </header>
-        <div className="dm-deck-viewer__summary">
-          <b>숫자 카드 {cards.length}</b><b>MOD {run.jokers.length}/{JOKER_SLOT_LIMIT}</b><b>MAYHEM {run.communityUno.length}/{UNO_SLOT_LIMIT}</b>
-        </div>
-        <div className="dm-deck-grid">
-          {cards.map((card) => <DeckCard card={card} key={card.id} />)}
-        </div>
-        <div className="dm-owned-mods">
+        <div className="dm-current-build__racks">
+          <section aria-label="보유 MOD">
+            <header><b>MOD</b><span>{run.jokers.length}/{jokerLimit}</span></header>
+            <div className="dm-owned-mods">
           {run.jokers.map((joker) => {
             const definition = JOKER_CATALOG[joker.jokerId];
             const refund = Math.max(1, Math.floor(definition.price / 2));
@@ -391,7 +433,143 @@ function DeckViewer({
               </article>
             );
           })}
+              {run.jokers.length === 0 && <p>아직 MOD가 없습니다.</p>}
+            </div>
+          </section>
+          <section aria-label="보유 메이헴 카드">
+            <header><b>MAYHEM</b><span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span></header>
+            <div className="dm-owned-mayhem">
+              {run.communityUno.map((card) => <span key={card.id}><b>M</b><strong>{card.name}</strong></span>)}
+              {run.communityUno.length === 0 && <p>아직 메이헴 카드가 없습니다.</p>}
+            </div>
+          </section>
+          <section aria-label="보유 유틸리티 카드" className="dm-owned-utility-rack">
+            <header><b>UTILITY</b><span>{utilities.length}/{CONSUMABLE_SLOT_LIMIT}</span></header>
+            <div className="dm-owned-utilities">
+              {utilities.map((item) => {
+                const config = item.kind === "protocol"
+                  ? PROTOCOL_CONFIG[item.protocolId]
+                  : GHOST_CONFIG[item.ghostId];
+                return (
+                  <article data-kind={item.kind} key={item.instanceId}>
+                    <i aria-hidden="true">{config.symbol}</i>
+                    <div><small>{item.kind.toUpperCase()}</small><strong>{config.name}</strong></div>
+                    <button type="button" onClick={() => onUseConsumable(item)}>사용</button>
+                  </article>
+                );
+              })}
+              {utilities.length === 0 && <p>PROTOCOL과 GHOST 카드는 여기에 보관됩니다.</p>}
+            </div>
+          </section>
+          <section aria-label="설치된 펌웨어" className="dm-owned-firmware-rack">
+            <header><b>FIRMWARE</b><span>{firmware.length}</span></header>
+            <div className="dm-owned-firmware">
+              {firmware.map((firmwareId, index) => (
+                <span key={`${firmwareId}-${index}`}><b>{FIRMWARE_CONFIG[firmwareId].symbol}</b><strong>{FIRMWARE_CONFIG[firmwareId].name}</strong></span>
+              ))}
+              {firmware.length === 0 && <p>DECK LAB에서 영구 업그레이드를 설치할 수 있습니다.</p>}
+            </div>
+          </section>
         </div>
+      </aside>
+  );
+}
+
+function consumableTargetRange(item: ConsumableInstance): readonly [number, number] {
+  if (item.kind === "ghost") {
+    if (item.ghostId === "forbidden-port") return [0, 0];
+    if (item.ghostId === "dead-channel") return [2, 2];
+    return [1, 5];
+  }
+  if (item.protocolId === "emergency-credit") return [0, 0];
+  if (item.protocolId === "channel-rewire") return [1, 3];
+  return [1, 1];
+}
+
+function consumableNeedsColor(item: ConsumableInstance): boolean {
+  return (item.kind === "protocol" && item.protocolId === "channel-rewire")
+    || (item.kind === "ghost" && item.ghostId === "white-noise");
+}
+
+function ConsumableOverlay({
+  run,
+  item,
+  onClose,
+  onUse,
+}: {
+  readonly run: RunState;
+  readonly item: ConsumableInstance;
+  readonly onClose: () => void;
+  readonly onUse: (options: UseConsumableOptions) => void;
+}) {
+  const [minimum, maximum] = consumableTargetRange(item);
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [targetColor, setTargetColor] = useState<CardColor | null>(null);
+  const cards = uniqueDeckCards(run);
+  const config = item.kind === "protocol" ? PROTOCOL_CONFIG[item.protocolId] : GHOST_CONFIG[item.ghostId];
+  const needsColor = consumableNeedsColor(item);
+  const enoughTargets = selectedIds.length >= minimum && selectedIds.length <= maximum;
+  const ready = enoughTargets && (!needsColor || Boolean(targetColor));
+
+  function disabledReason(card: GameCard): string | null {
+    if (selectedIds.includes(card.id)) return null;
+    if (selectedIds.length >= maximum) return `최대 ${maximum}장`;
+    if (item.kind === "protocol") {
+      if (item.protocolId === "voltage-up" && card.rank === 9) return "9는 상승 불가";
+      if (item.protocolId === "voltage-down" && card.rank === 0) return "0은 하강 불가";
+      if ((item.protocolId === "power-cell" || item.protocolId === "hype-amp") && card.enhancement) return "이미 강화됨";
+    }
+    return null;
+  }
+
+  function toggle(card: GameCard) {
+    setSelectedIds((current) => current.includes(card.id)
+      ? current.filter((id) => id !== card.id)
+      : current.length < maximum ? [...current, card.id] : current);
+  }
+
+  return (
+    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-utility-title">
+      <section className="dm-garage-dialog dm-utility-dialog" data-kind={item.kind}>
+        <header>
+          <div><span>{item.kind === "protocol" ? "SAFE PROTOCOL" : "DANGEROUS GHOST"}</span><h2 id="dm-utility-title">{config.name}</h2></div>
+          <button type="button" onClick={onClose}>닫기</button>
+        </header>
+        <p>{config.description}</p>
+        {needsColor && (
+          <div className="dm-utility-colors" role="group" aria-label="변경할 채널 색">
+            {(["red", "yellow", "green", "blue"] as const).map((color) => (
+              <button type="button" data-color={color} aria-pressed={targetColor === color} key={color} onClick={() => setTargetColor(color)}>
+                {COLOR_LABELS[color]}
+              </button>
+            ))}
+          </div>
+        )}
+        {maximum > 0 ? (
+          <DeckCardGrid
+            cards={cards}
+            ariaLabel={`${config.name} 대상 카드`}
+            selectedIds={selectedIds}
+            disabledReason={disabledReason}
+            onSelect={toggle}
+          />
+        ) : (
+          <div className="dm-utility-no-target">
+            <b>대상 카드가 필요하지 않습니다.</b>
+            <span>{item.kind === "ghost" ? "효과와 대가가 즉시 적용됩니다." : "효과가 즉시 적용됩니다."}</span>
+          </div>
+        )}
+        <footer>
+          <span>{maximum > 0 ? `${selectedIds.length}/${minimum === maximum ? minimum : `${minimum}–${maximum}`}장 선택` : "READY"}</span>
+          <button
+            type="button"
+            className={item.kind === "ghost" ? "is-danger" : ""}
+            disabled={!ready}
+            onClick={() => onUse({ targetCardIds: selectedIds, ...(targetColor ? { targetColor } : {}) })}
+          >
+            {item.kind === "ghost" ? "대가를 감수하고 사용" : "PROTOCOL 실행"}
+          </button>
+        </footer>
       </section>
     </div>
   );
@@ -420,8 +598,24 @@ function choiceCopy(choice: PackChoice): {
       symbol: definition.name.slice(0, 1),
     };
   }
-  const enhancement = CARD_ENHANCEMENT_CONFIG[choice.enhancement];
-  return { name: enhancement.name, effect: enhancement.description, symbol: choice.enhancement === "overclocked" ? "OC" : "UP" };
+  if (choice.kind === "upgrade") {
+    const enhancement = CARD_ENHANCEMENT_CONFIG[choice.enhancement];
+    return { name: enhancement.name, effect: enhancement.description, symbol: choice.enhancement === "overclocked" ? "OC" : "UP" };
+  }
+  if (choice.kind === "core") {
+    const rule = HAND_RULES[choice.handType];
+    return {
+      name: `${rule.name} CORE`,
+      effect: `해당 족보 POWER +${rule.chipsPerLevel} · HYPE +${rule.multiplierPerLevel}`,
+      symbol: "▲",
+    };
+  }
+  if (choice.kind === "protocol") {
+    const protocol = PROTOCOL_CONFIG[choice.protocolId];
+    return { name: protocol.name, effect: protocol.description, symbol: protocol.symbol };
+  }
+  const ghost = GHOST_CONFIG[choice.ghostId];
+  return { name: ghost.name, effect: ghost.description, symbol: ghost.symbol };
 }
 
 function normalizedPackChoices(opening: PackOpening): readonly PackChoice[] {
@@ -544,6 +738,11 @@ function PackOpeningController({
 
   const selectionFilled = selectedIds.length === pickCount;
   const takeEnabled = selectionFilled && (!upgradePack || Boolean(targetCardId));
+  const selectedUpgrade = choices.find(
+    (choice): choice is Extract<PackChoice, { kind: "upgrade" }> =>
+      selectedIds.includes(choice.id) && choice.kind === "upgrade",
+  );
+  const selectedTarget = targetCards.find((card) => card.id === targetCardId);
 
   return (
     <div className="dm-pack-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-pack-title" data-phase={phase}>
@@ -576,12 +775,21 @@ function PackOpeningController({
 
         {phase === "selecting" && upgradePack && selectionFilled && (
           <section className="dm-pack-targets" aria-label="강화를 적용할 카드 선택">
-            <strong>강화를 적용할 덱 카드</strong>
-            <div className="dm-deck-grid">
-              {targetCards.map((card) => (
-                <DeckCard card={card} selected={targetCardId === card.id} key={card.id} onClick={() => setTargetCardId(card.id)} />
-              ))}
-            </div>
+            <header>
+              <div><span>UPGRADE TARGET</span><strong>강화할 카드를 선택하세요</strong></div>
+              {selectedUpgrade && selectedTarget && (
+                <p>
+                  {COLOR_LABELS[selectedTarget.color]} {selectedTarget.rank} · 기본
+                  <b> → {CARD_ENHANCEMENT_CONFIG[selectedUpgrade.enhancement].name}</b>
+                </p>
+              )}
+            </header>
+            <DeckCardGrid
+              cards={targetCards}
+              ariaLabel="강화 대상 카드"
+              selectedId={targetCardId}
+              onSelect={(card) => setTargetCardId(card.id)}
+            />
           </section>
         )}
 
@@ -598,6 +806,7 @@ function PackOpeningController({
 
 export function GarageView({
   run,
+  embedded = false,
   notice = "",
   onBuy,
   onReroll,
@@ -607,12 +816,14 @@ export function GarageView({
   onTakePack,
   onPackOpen,
   onPackReveal,
+  onOpenDeck,
+  onUseConsumable,
 }: GarageViewProps) {
   const offers = useMemo(() => run.shop?.offers ?? [], [run.shop?.offers]);
   const soldIds = useMemo(() => new Set(run.shop?.soldOfferIds ?? []), [run.shop?.soldOfferIds]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [targetOfferId, setTargetOfferId] = useState<string | null>(null);
-  const [deckOpen, setDeckOpen] = useState(false);
+  const [utilityItem, setUtilityItem] = useState<ConsumableInstance | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const purchaseTimer = useRef<number | null>(null);
   const targetOffer = offers.find(
@@ -621,6 +832,20 @@ export function GarageView({
   const visibleSelectedOfferId = offers.some((offer) => offer.id === selectedOfferId)
     ? selectedOfferId
     : null;
+  const offerById = new Map(offers.map((offer) => [offer.id, offer]));
+  const signalOffers = (run.shop?.signalOfferIds
+    ? run.shop.signalOfferIds.map((id) => offerById.get(id)).filter((offer): offer is ShopOffer => Boolean(offer))
+    : offers.filter((offer) => !["card-pack", "deck-work", "firmware"].includes(String(offer.kind))))
+    .slice(0, 2);
+  const metadataLab = run.shop?.deckLabOfferId ? offerById.get(run.shop.deckLabOfferId) : undefined;
+  const deckLabOffers = (metadataLab
+    ? [metadataLab]
+    : offers.filter((offer) => ["deck-work", "firmware"].includes(String(offer.kind))))
+    .slice(0, 1);
+  const packOffers = (run.shop?.packOfferIds
+    ? run.shop.packOfferIds.map((id) => offerById.get(id)).filter((offer): offer is ShopOffer => Boolean(offer))
+    : offers.filter((offer) => offer.kind === "card-pack"))
+    .slice(0, 2);
 
   useEffect(() => () => {
     if (purchaseTimer.current !== null) window.clearTimeout(purchaseTimer.current);
@@ -642,48 +867,100 @@ export function GarageView({
     }, 220);
   }
 
+  function renderOffer(offer: ShopOffer) {
+    return (
+      <ShopSlot
+        offer={offer}
+        run={run}
+        sold={soldIds.has(offer.id)}
+        selected={visibleSelectedOfferId === offer.id}
+        purchasing={purchasingId === offer.id}
+        key={offer.id}
+        onSelect={() => setSelectedOfferId((current) => current === offer.id ? null : offer.id)}
+        onBuy={() => purchase(offer)}
+      />
+    );
+  }
+
   return (
-    <main className="dm-garage" aria-labelledby="dm-garage-title">
+    <section
+      className={`dm-garage${embedded ? " dm-garage--embedded" : ""}`}
+      aria-label={embedded ? "DECK MAYHEM GARAGE" : undefined}
+      aria-labelledby={embedded ? undefined : "dm-garage-title"}
+    >
       <div className="dm-garage__backdrop" aria-hidden="true"><i /><i /><i /></div>
-      <header className="dm-garage-bar">
-        <div className="dm-garage-brand">
-          <span>DECK MAYHEM</span><h1 id="dm-garage-title">GARAGE</h1><small>카드를 골라 런 회로를 개조하세요.</small>
-        </div>
-        <dl className="dm-garage-stats">
-          <div><dt>STAGE</dt><dd>{run.ante}</dd></div>
-          <div><dt>LAST</dt><dd>{ROUND_LABELS[run.round]}</dd></div>
-          <div className="is-wallet" key={run.coins}><dt>WALLET</dt><dd>{run.coins}¢</dd></div>
-        </dl>
-        <nav className="dm-garage-actions" aria-label="Garage 도구">
-          <button type="button" onClick={() => setDeckOpen(true)}>VIEW DECK <b>{uniqueDeckCards(run).length}</b></button>
-          <button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)} onClick={() => { setSelectedOfferId(null); onReroll(); }}>
-            REROLL <b>{run.shop?.rerollCost ?? 0}¢</b>
-          </button>
-          <button type="button" className="is-next" disabled={Boolean(run.packOpening)} onClick={onNext}>NEXT <b>{nextTargetLabel(run)} →</b></button>
-        </nav>
-      </header>
+      {!embedded && (
+        <header className="dm-garage-bar">
+          <div className="dm-garage-brand">
+            <span>DECK MAYHEM</span><h1 id="dm-garage-title">GARAGE</h1><small>카드를 골라 런 회로를 개조하세요.</small>
+          </div>
+          <dl className="dm-garage-stats">
+            <div><dt>STAGE</dt><dd>{run.ante}</dd></div>
+            <div><dt>LAST</dt><dd>{ROUND_LABELS[run.round]}</dd></div>
+            <div className="is-wallet" key={run.coins}><dt>WALLET</dt><dd>{run.coins}¢</dd></div>
+          </dl>
+        </header>
+      )}
 
       <p className="dm-garage-notice" role="status" aria-live="polite">
         {notice || "상품을 선택하면 상세 효과와 BUY 버튼이 열립니다. 구매한 슬롯은 Reroll 전까지 SOLD로 유지됩니다."}
       </p>
 
-      <section className="dm-shop-floor" aria-label="Garage 판매 상품">
-        <header><div><span>AVAILABLE HARDWARE</span><h2>오늘의 진열</h2></div><p>{offers.length - soldIds.size} AVAILABLE · {soldIds.size} SOLD</p></header>
-        <div className="dm-shop-grid">
-          {offers.map((offer) => (
-            <ShopSlot
-              offer={offer}
-              run={run}
-              sold={soldIds.has(offer.id)}
-              selected={visibleSelectedOfferId === offer.id}
-              purchasing={purchasingId === offer.id}
-              key={offer.id}
-              onSelect={() => setSelectedOfferId((current) => current === offer.id ? null : offer.id)}
-              onBuy={() => purchase(offer)}
-            />
-          ))}
+      <div className="dm-garage-workspace">
+        {!embedded && <GarageInventory run={run} onSell={onSell} onOpenDeck={onOpenDeck} onUseConsumable={setUtilityItem} />}
+        <div className="dm-shop-board" aria-label="Garage 판매 상품">
+          <section className="dm-shop-zone dm-shop-controls" aria-labelledby="dm-controls-title">
+            <header>
+              <div><span>ROUTE CONTROL</span><h2 id="dm-controls-title">조작 패널</h2></div>
+            </header>
+            <nav className="dm-garage-actions" aria-label="Garage 도구">
+              <button type="button" className="is-next" disabled={Boolean(run.packOpening)} onClick={onNext}>
+                <span>NEXT ROUND</span><b>{nextTargetLabel(run)} →</b><small>다음 전투로 이동</small>
+              </button>
+              <button type="button" disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)} onClick={() => { setSelectedOfferId(null); onReroll(); }}>
+                <span>REROLL</span><b>{run.shop?.rerollCost ?? 0}¢</b><small>오늘의 신호만 교체</small>
+              </button>
+            </nav>
+          </section>
+
+          <section className="dm-shop-zone dm-shop-signal" aria-labelledby="dm-signal-title">
+            <header>
+              <div><span>LIVE MARKET</span><h2 id="dm-signal-title">오늘의 신호</h2></div>
+              <p>MOD · 족보 CORE · PROTOCOL · <b>MAYHEM?</b></p>
+            </header>
+            <div className="dm-shop-grid">
+              {signalOffers.map(renderOffer)}
+              {Array.from({ length: Math.max(0, 2 - signalOffers.length) }, (_, index) => (
+                <EmptyShopSlot eyebrow="NO SIGNAL" message="빈 신호 슬롯" key={`signal-empty-${index}`} />
+              ))}
+            </div>
+          </section>
+
+          <section className="dm-shop-zone dm-shop-lab" aria-labelledby="dm-lab-title">
+            <header>
+              <div><span>SYSTEM UPGRADE</span><h2 id="dm-lab-title">DECK LAB</h2></div>
+              <p>런 전체를 개조하는 펌웨어</p>
+            </header>
+            <div className="dm-shop-grid">
+              {deckLabOffers.map(renderOffer)}
+              {deckLabOffers.length === 0 && <EmptyShopSlot eyebrow="LAB OFFLINE" message="정비 항목 없음" />}
+            </div>
+          </section>
+
+          <section className="dm-shop-zone dm-shop-packs" aria-labelledby="dm-packs-title">
+            <header>
+              <div><span>SEALED HARDWARE</span><h2 id="dm-packs-title">PACK BAY</h2></div>
+              <p>봉인 팩 2개 · 리롤 영향 없음</p>
+            </header>
+            <div className="dm-shop-grid">
+              {packOffers.map(renderOffer)}
+              {Array.from({ length: Math.max(0, 2 - packOffers.length) }, (_, index) => (
+                <EmptyShopSlot eyebrow="BAY EMPTY" message="팩 준비 중" key={`pack-empty-${index}`} />
+              ))}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
 
       {targetOffer && (
         <DeckTargetOverlay
@@ -697,14 +974,15 @@ export function GarageView({
           }}
         />
       )}
-      {deckOpen && (
-        <DeckViewer
+      {utilityItem && (
+        <ConsumableOverlay
           run={run}
-          onSell={(instanceId) => {
-            setDeckOpen(false);
-            onSell(instanceId);
+          item={utilityItem}
+          onClose={() => setUtilityItem(null)}
+          onUse={(options) => {
+            onUseConsumable(utilityItem.instanceId, options);
+            setUtilityItem(null);
           }}
-          onClose={() => setDeckOpen(false)}
         />
       )}
       {run.packOpening && (
@@ -717,6 +995,6 @@ export function GarageView({
           onTake={(choiceIds, targetCardId) => onTakePack(run.packOpening!, choiceIds, targetCardId)}
         />
       )}
-    </main>
+    </section>
   );
 }

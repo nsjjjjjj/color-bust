@@ -133,14 +133,14 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   redline: {
     id: "redline",
     name: "레드라인",
-    description: "득점한 빨강 카드마다 +12 POWER (최대 +60)",
+    description: "득점한 RAGE 카드마다 +12 POWER (최대 +60)",
     rarity: "common",
     price: 4,
   },
   "blue-buffer": {
     id: "blue-buffer",
     name: "블루 버퍼",
-    description: "파랑 카드가 2장 이상 득점하면 +45 POWER",
+    description: "GLITCH 카드가 2장 이상 득점하면 +45 POWER",
     rarity: "common",
     price: 4,
   },
@@ -154,7 +154,7 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "yellow-ticket": {
     id: "yellow-ticket",
     name: "옐로 티켓",
-    description: "라운드 첫 핸드에 노랑 득점 카드가 있으면 2코인 획득",
+    description: "라운드 첫 핸드에 VOLT 득점 카드가 있으면 2코인 획득",
     rarity: "common",
     price: 4,
   },
@@ -175,7 +175,7 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "cache-hit": {
     id: "cache-hit",
     name: "캐시 히트",
-    description: "이번 라운드에 이미 사용한 패턴이라면 +4 HYPE",
+    description: "이번 라운드에 이미 사용한 족보라면 +4 HYPE",
     rarity: "common",
     price: 4,
   },
@@ -196,14 +196,14 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "monochrome-monitor": {
     id: "monochrome-monitor",
     name: "단색 모니터",
-    description: "플러시 계열 패턴에 +60 POWER, +5 HYPE",
+    description: "플러시 계열 족보에 +60 POWER, +5 HYPE",
     rarity: "uncommon",
     price: 6,
   },
   "sequence-accelerator": {
     id: "sequence-accelerator",
     name: "시퀀스 가속기",
-    description: "스트레이트 계열 패턴에 +7 HYPE",
+    description: "스트레이트 계열 족보에 +7 HYPE",
     rarity: "uncommon",
     price: 6,
   },
@@ -231,7 +231,7 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "version-control": {
     id: "version-control",
     name: "버전 관리",
-    description: "직전 핸드와 다른 패턴이면 +60 POWER",
+    description: "직전 핸드와 다른 족보면 +60 POWER",
     rarity: "uncommon",
     price: 6,
   },
@@ -245,7 +245,7 @@ export const JOKER_CATALOG: Readonly<Record<JokerId, JokerDefinition>> = {
   "combo-compiler": {
     id: "combo-compiler",
     name: "콤보 컴파일러",
-    description: "서로 다른 패턴 연속 사용마다 MAYHEM +×0.15 (최대 ×1.75)",
+    description: "서로 다른 족보 연속 사용마다 MAYHEM +×0.15 (최대 ×1.75)",
     rarity: "rare",
     price: 8,
   },

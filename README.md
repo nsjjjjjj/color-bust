@@ -17,7 +17,7 @@ npm run dev
 - 프로덕션 빌드: `npm run build`
 - 전체 자동 테스트: `npm test`
 - 정적 검사: `npm run lint`
-- DB 마이그레이션 생성: `npm run db:generate`
+- 독립 실행 서버: `npm run build && npm run start:standalone`
 
 ## 완성된 기능
 
@@ -55,10 +55,10 @@ app/
 
 lib/game/                      UI와 분리된 결정론적 게임 엔진
 lib/offline/                   IndexedDB 저장과 동기화 대기열
-lib/server/                    API 계약, 검증, D1 쿼리
+lib/server/                    API 계약, 인증, SQLite 쿼리
 
-db/schema.ts                   Drizzle DB 스키마
-drizzle/0000_color_bust.sql    초기 마이그레이션
+db/index.ts                    Node SQLite 어댑터와 트랜잭션
+data/                          런타임 SQLite 영구 데이터
 public/audio/                  교체할 음악·효과음
 public/icons/                  PWA 아이콘
 public/og.png                  링크 공유 이미지
@@ -111,18 +111,44 @@ score.mp3
 
 ## 로그인과 저장
 
-배포 환경에서는 Sign in with ChatGPT가 사용자를 식별합니다. 로그인하지 않아도 게스트로 오프라인 플레이할 수 있습니다.
+EC2 배포에서는 자체 이메일·비밀번호 계정과 30일 보안 세션 쿠키를 사용합니다. 로그인하지 않아도 게스트로 오프라인 플레이할 수 있습니다.
 
 - 게스트: IndexedDB에 기기 로컬 저장
-- 로그인: 로컬 저장 + D1 클라우드 저장
+- 로그인: 로컬 저장 + EC2 SQLite 클라우드 저장
 - 네트워크 끊김: 런과 작성 내용을 기기에 저장
 - 재연결: 대기 중인 커뮤니티 카드·방명록 요청 자동 전송
 - 다른 기기 로그인: 서버의 최신 런 불러오기
 
 클라우드 런은 `revision`과 `operationId`로 중복 저장 및 오래된 덮어쓰기를 막습니다.
 
+## EC2 배포
+
+Node.js 22, Next.js standalone 서버, SQLite, Caddy HTTPS를 Docker Compose로 함께 실행합니다. EC2에는 Docker만 설치하면 되고 빌드는 로컬/CI에서 만든 이미지를 쓰는 것이 1GB 인스턴스에서 가장 안정적입니다.
+
+```bash
+cp .env.example .env
+# .env의 DOMAIN을 EC2 Elastic IP로 연결한 도메인으로 변경
+docker compose up -d --build app tunnel
+docker compose ps
+docker compose logs tunnel
+```
+
+기본 구성은 Cloudflare Quick Tunnel을 사용하며 로그에 출력되는 `https://....trycloudflare.com` 주소로 접속할 수 있습니다. 고정 도메인을 연결할 때는 `docker compose --profile domain up -d --build app caddy`로 Caddy를 실행합니다.
+
+- 보안 그룹 인바운드: `22`(관리 IP만), `80`, `443`
+- 앱 직접 점검: `http://EC2_IP:3000` (`SECURE_COOKIES=false`일 때만 로그인 쿠키 사용)
+- 실제 서비스: Caddy가 도메인의 TLS 인증서를 자동 발급하고 `443`에서 앱으로 전달
+- 데이터: Docker named volume `deck-data`의 `/app/data/deck-mayhem.sqlite`
+- 백업: `docker compose stop app` 후 `docker run --rm -v deck-mayhem-data:/data -v "$PWD":/backup alpine tar czf /backup/deck-data.tgz -C /data .`
+
+배포 갱신은 `git pull && docker compose up -d --build`이며 SQLite 볼륨과 Caddy 인증서는 유지됩니다.
+
 ## 데이터베이스
 
-`.openai/hosting.json`의 D1 binding 이름은 `DB`입니다. 서버는 첫 요청 시 테이블과 실제 조회에 필요한 인덱스를 안전하게 초기화합니다. 저장된 마이그레이션은 `drizzle/0000_color_bust.sql`에 있습니다.
+서버는 첫 요청 시 SQLite 테이블과 인덱스를 자동 생성합니다. `DATA_DIR` 또는 `DATABASE_PATH`로 저장 위치를 바꿀 수 있습니다.
 
 핵심 테이블은 사용자, 런, 처리된 작업, 커뮤니티 카드와 버전, 좋아요, 평가, 방명록, 랭킹으로 구성됩니다.
+
+## 오프라인 PWA
+
+프로덕션 빌드가 `public/sw.js`에 현재 빌드의 모든 `/_next/static` JavaScript/CSS, 이미지, 글꼴, 카드 프레임과 오디오를 해시 버전으로 삽입합니다. 온라인 상태에서 한 번 설치와 로딩을 마친 뒤에는 게임 화면·버튼·이미지·음악·로컬 런이 네트워크 없이 동작합니다. 로그인, 랭킹, 방명록, 커뮤니티 동기화만 연결 복구 시 전송됩니다.

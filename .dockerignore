@@ -1,0 +1,12 @@
+.git
+.next
+dist
+node_modules
+.npm-cache
+.wrangler
+.vinext
+data
+work
+outputs
+.env*
+npm-debug.log*

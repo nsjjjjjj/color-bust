@@ -204,8 +204,16 @@ test("keeps SOLD slots until reroll and raises the reroll price", () => {
   const initial = createRun({ seed: "sold-reroll", startingCoins: 99 });
   const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
   let shop = claimRoundReward(reward);
-  const offer = shop.shop!.offers.find((candidate) => candidate.kind === "hand-upgrade");
-  assert.ok(offer);
+  const replacedSignalId = shop.shop!.signalOfferIds?.[1] ?? shop.shop!.offers[1].id;
+  const offer = { id: "sold-core-test", kind: "hand-upgrade" as const, handType: "pair" as const, price: 0 };
+  shop = {
+    ...shop,
+    shop: {
+      ...shop.shop!,
+      offers: shop.shop!.offers.map((candidate) => candidate.id === replacedSignalId ? offer : candidate),
+      signalOfferIds: shop.shop!.signalOfferIds?.map((id) => id === replacedSignalId ? offer.id : id),
+    },
+  };
   shop = buyHandUpgrade(shop, offer.id);
   assert.ok(shop.shop!.soldOfferIds?.includes(offer.id));
   assert.ok(shop.shop!.offers.some((candidate) => candidate.id === offer.id));

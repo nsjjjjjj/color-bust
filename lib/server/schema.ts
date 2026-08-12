@@ -4,11 +4,22 @@ const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY NOT NULL,
     display_name TEXT NOT NULL,
-    email TEXT NOT NULL,
+    email TEXT NOT NULL COLLATE NOCASE,
     full_name TEXT,
+    password_hash TEXT,
+    password_salt TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users (email COLLATE NOCASE)`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE INDEX IF NOT EXISTS sessions_user_idx ON sessions (user_id)`,
+  `CREATE INDEX IF NOT EXISTS sessions_expiry_idx ON sessions (expires_at)`,
   `CREATE TABLE IF NOT EXISTS runs (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     mode TEXT NOT NULL CHECK (mode IN ('standard', 'endless')),
@@ -92,13 +103,24 @@ const SCHEMA_STATEMENTS = [
 
 let schemaPromise: Promise<void> | null = null;
 
-/** Makes a fresh local D1 usable even before the deployment migrator runs. */
+/** Makes a fresh EC2 SQLite volume usable on the first request. */
 export async function ensureSchema(): Promise<void> {
   if (!schemaPromise) {
     const db = getD1();
     schemaPromise = (async () => {
       for (const statement of SCHEMA_STATEMENTS) {
         await db.prepare(statement).run();
+      }
+      // Additive migration for databases created by the earlier hosted build.
+      for (const statement of [
+        "ALTER TABLE users ADD COLUMN password_hash TEXT",
+        "ALTER TABLE users ADD COLUMN password_salt TEXT",
+      ]) {
+        try {
+          await db.prepare(statement).run();
+        } catch (error) {
+          if (!(error instanceof Error) || !/duplicate column name/i.test(error.message)) throw error;
+        }
       }
     })().catch((error) => {
       schemaPromise = null;

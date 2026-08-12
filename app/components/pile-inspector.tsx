@@ -2,6 +2,7 @@
 
 import { useId, useMemo, useState, type FocusEvent } from "react";
 
+import { COLOR_IDENTITIES } from "../../lib/game/colors";
 import type { CardColor, CardRank, GameCard } from "../../lib/game/types";
 
 export type PileInspectorVariant = "draw" | "discard";
@@ -89,26 +90,26 @@ export const PILE_COLOR_ACCESSIBILITY: Readonly<
   red: {
     symbol: "▲",
     symbolName: "Flame",
-    koreanLabel: "불꽃",
-    colorLabel: "빨강",
+    koreanLabel: COLOR_IDENTITIES.red.name,
+    colorLabel: COLOR_IDENTITIES.red.koreanColor,
   },
   yellow: {
     symbol: "✦",
     symbolName: "Spark",
-    koreanLabel: "불티",
-    colorLabel: "노랑",
+    koreanLabel: COLOR_IDENTITIES.yellow.name,
+    colorLabel: COLOR_IDENTITIES.yellow.koreanColor,
   },
   green: {
     symbol: "◆",
     symbolName: "Leaf",
-    koreanLabel: "잎사귀",
-    colorLabel: "초록",
+    koreanLabel: COLOR_IDENTITIES.green.name,
+    colorLabel: COLOR_IDENTITIES.green.koreanColor,
   },
   blue: {
     symbol: "▼",
     symbolName: "Drop",
-    koreanLabel: "물방울",
-    colorLabel: "파랑",
+    koreanLabel: COLOR_IDENTITIES.blue.name,
+    colorLabel: COLOR_IDENTITIES.blue.koreanColor,
   },
 };
 
@@ -287,12 +288,12 @@ function DrawPilePreview({
             <div
               className={`deck-pile-color deck-pile-color-${item.color}${item.current === 0 ? " is-depleted" : ""}`}
               key={item.color}
-              title={`${item.symbolName} · ${item.koreanLabel} ${item.colorLabel} ${item.current}/${item.total}장 남음`}
+              title={`${item.koreanLabel} (${item.colorLabel}) ${item.current}/${item.total}장 남음`}
             >
               <span className="deck-pile-color-symbol" aria-hidden="true">{item.symbol}</span>
               <span className="deck-pile-color-copy">
                 <b>{item.koreanLabel}</b>
-                <small>{item.colorLabel} · {item.symbolName}</small>
+                <small>{item.colorLabel}</small>
               </span>
               <strong className="deck-pile-color-count">
                 <b>{item.current}</b><small>/{item.total}</small>
@@ -338,7 +339,7 @@ function DrawPilePreview({
                       key={`${card.color}-${card.rank}`}
                       role="listitem"
                       aria-label={`${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank}, ${card.current}/${card.total}장 남음${card.availability === "partial" ? ", 일부가 뽑기 더미 밖에 있음" : card.availability === "depleted" ? ", 현재 뽑기 더미에 없음" : card.availability === "absent" ? ", 현재 덱에 없음" : ""}`}
-                      title={`${colorInfo.symbolName} · ${colorInfo.koreanLabel} ${colorInfo.colorLabel} ${card.rank} · ${card.current}/${card.total}`}
+                      title={`${colorInfo.koreanLabel} (${colorInfo.colorLabel}) ${card.rank} · ${card.current}/${card.total}`}
                     >
                       <b>{card.rank}</b>
                       <i aria-hidden="true">{colorInfo.symbol}</i>
@@ -373,12 +374,12 @@ function DiscardPilePreview({ summary }: { summary: PileSummary }) {
           <div
             className={`deck-pile-color deck-pile-color-${item.color}`}
             key={item.color}
-            title={`${item.symbolName} · ${item.koreanLabel} ${item.colorLabel} ${item.count}장`}
+            title={`${item.koreanLabel} (${item.colorLabel}) ${item.count}장`}
           >
             <span className="deck-pile-color-symbol" aria-hidden="true">{item.symbol}</span>
             <span className="deck-pile-color-copy">
               <b>{item.koreanLabel}</b>
-              <small>{item.colorLabel} · {item.symbolName}</small>
+              <small>{item.colorLabel}</small>
             </span>
             <strong className="deck-pile-color-count">{item.count}</strong>
           </div>
@@ -453,7 +454,11 @@ export function PileInspector({
       className={`deck-pile-inspector deck-pile-${variant}${summary.total === 0 ? " deck-pile-empty" : ""}${className ? ` ${className}` : ""}`}
       onPointerEnter={() => setPreviewOpen(true)}
       onPointerLeave={() => setPreviewOpen(false)}
-      onFocusCapture={() => setPreviewOpen(true)}
+      onFocusCapture={(event) => {
+        if (event.target instanceof HTMLElement && event.target.matches(":focus-visible")) {
+          setPreviewOpen(true);
+        }
+      }}
       onBlurCapture={handleBlur}
     >
       <button
@@ -466,7 +471,10 @@ export function PileInspector({
         aria-haspopup="dialog"
         disabled={disabled}
         title={description}
-        onClick={onOpenDetails}
+        onClick={() => {
+          setPreviewOpen(false);
+          onOpenDetails();
+        }}
         onKeyDown={(event) => {
           if (event.key === "Escape") setPreviewOpen(false);
         }}

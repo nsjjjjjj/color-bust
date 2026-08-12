@@ -1,5 +1,5 @@
 import { getD1 } from "@/db";
-import type { ChatGPTUser } from "@/app/chatgpt-auth";
+import type { AppUser } from "./auth";
 import { ApiProblem } from "./api";
 import type {
   CloudRun,
@@ -197,7 +197,7 @@ export async function listCommunityCards(
 }
 
 export async function createCommunityCard(
-  user: ChatGPTUser,
+  user: AppUser,
   input: {
     name: string;
     description: string;
@@ -344,7 +344,7 @@ export async function listGuestbook(limit: number): Promise<GuestbookEntry[]> {
 }
 
 export async function createGuestbookEntry(
-  user: ChatGPTUser,
+  user: AppUser,
   message: string,
   rating: number,
 ): Promise<GuestbookEntry> {
@@ -394,7 +394,7 @@ export async function listLeaderboard(
 }
 
 export async function submitLeaderboard(
-  user: ChatGPTUser,
+  user: AppUser,
   input: {
     mode: GameMode;
     score: number;

@@ -57,12 +57,6 @@ function layoutStyle(
   };
 }
 
-function shortcutFor(index: number): number | undefined {
-  if (index < 9) return index + 1;
-  if (index === 9) return 0;
-  return undefined;
-}
-
 export function HandView({
   cards,
   selectedIds,
@@ -104,11 +98,16 @@ export function HandView({
             data-discarding={discarding || undefined}
             key={card.id}
             style={cardStyle}
+            // Mark the existing DOM card before its selected state changes.
+            // A later deselect can then settle it quietly instead of replaying
+            // the initial draw animation.
+            onClickCapture={(event) => {
+              event.currentTarget.dataset.dealt = "true";
+            }}
           >
             <ColorCard
               card={{ ...card, value: card.rank }}
               selected={selected}
-              shortcut={shortcutFor(index)}
               disabled={resolving || (!selected && selectedIds.length >= 5)}
               onClick={() => onToggleCard(card.id)}
             />
@@ -133,8 +132,18 @@ function compactMultiplier(value: number): string {
   return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 }
 
+function cardHitKind(event: ScoreEvent | null): "card" | "enhancement" | "mod" | "mayhem" | undefined {
+  if (!event?.sourceCardId) return undefined;
+  return event.sourceKind === "mod"
+    ? "mod"
+    : event.sourceKind === "mayhem"
+      ? "mayhem"
+      : event.type === "card-effect" ? "enhancement" : "card";
+}
+
 function cardFeedback(event: ScoreEvent | null): CardFeedback | null {
-  if (!event?.sourceCardId) return null;
+  const kind = cardHitKind(event);
+  if (!event || !kind) return null;
 
   const values: string[] = [];
   const units: string[] = [];
@@ -145,10 +154,7 @@ function cardFeedback(event: ScoreEvent | null): CardFeedback | null {
   if (event.multiplierMode === "additive" && event.multiplier !== undefined) {
     values.push(signed(event.multiplier));
     units.push("HYPE");
-  } else if (
-    event.multiplierMode === "multiplicative"
-    && event.multiplier !== undefined
-  ) {
+  } else if (event.multiplierMode === "multiplicative" && event.multiplier !== undefined) {
     values.push(`×${compactMultiplier(event.multiplier)}`);
     units.push("MAYHEM");
   }
@@ -158,15 +164,7 @@ function cardFeedback(event: ScoreEvent | null): CardFeedback | null {
   }
   if (values.length === 0) return null;
 
-  return {
-    value: values.join(" / "),
-    unit: [...new Set(units)].join(" · "),
-    kind: event.sourceKind === "mod"
-      ? "mod"
-      : event.sourceKind === "mayhem"
-        ? "mayhem"
-        : event.type === "card-effect" ? "enhancement" : "card",
-  };
+  return { value: values.join(" / "), unit: [...new Set(units)].join(" · "), kind };
 }
 
 export function PlayedCardsView({
@@ -274,7 +272,7 @@ export function PlayedCardsView({
               <output
                 className={`deck-card-score-popup deck-card-score-popup-${feedback.kind}`}
                 data-feedback-kind={feedback.kind}
-                key={scoreEvent.id}
+                key={scoreEvent?.id ?? card.id}
               >
                 {feedback.value}
                 <small>{feedback.unit}</small>
