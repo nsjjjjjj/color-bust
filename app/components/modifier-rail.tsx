@@ -228,6 +228,7 @@ export function ModifierRail({
                 className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={joker.instanceId}
                 onMouseEnter={() => showTooltip(key)}
+                onMouseLeave={() => hideTooltip(key)}
               >
                 <button
                   type="button"
