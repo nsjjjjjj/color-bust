@@ -16,14 +16,14 @@ import { Modal } from "./modal";
 import { UnoCard } from "./uno-card";
 
 const FALLBACK_MODULES: UnoModuleDefinition[] = [
-  { id: "color-burst", kind: "benefit", points: 1, label: "컬러 버스트", description: "호출 색이 2장 이상이면 +8칩" },
-  { id: "steady-mult", kind: "benefit", points: 1, label: "스테디 멀트", description: "+1배수" },
-  { id: "double-call", kind: "benefit", points: 2, label: "더블 콜", description: "Color Call 추가 발동" },
-  { id: "precision-boost", kind: "benefit", points: 2, label: "프리시전 부스트", description: "5장 모두 득점하면 ×1.25" },
-  { id: "signal-loss", kind: "drawback", points: -1, label: "신호 손실", description: "메이헴 칩 -6" },
-  { id: "off-color-tax", kind: "drawback", points: -1, label: "오프 컬러 세금", description: "호출하지 않은 색마다 -2칩" },
-  { id: "glass-output", kind: "drawback", points: -2, label: "글래스 출력", description: "메이헴 적용 결과 ×0.75" },
-  { id: "hard-cap", kind: "drawback", points: -2, label: "하드 캡", description: "메이헴 상승 상한 ×1.30" },
+  { id: "color-burst", kind: "benefit", points: 1, label: "컬러 버스트", description: "득점 카드 중 호출한 색 카드가 2장 이상이면 +10 POWER" },
+  { id: "steady-mult", kind: "benefit", points: 1, label: "스테디 멀트", description: "3장 이상 득점하면 +2 HYPE" },
+  { id: "double-call", kind: "benefit", points: 2, label: "더블 콜", description: "라운드 시작 시 색을 2개 호출합니다. 두 색 모두 Color Call 효과를 받습니다" },
+  { id: "precision-boost", kind: "benefit", points: 2, label: "프리시전 부스트", description: "정확히 5장이 득점하면 MAYHEM ×1.40" },
+  { id: "signal-loss", kind: "drawback", points: -1, label: "신호 손실", description: "MAYHEM POWER -5" },
+  { id: "off-color-tax", kind: "drawback", points: -1, label: "오픈 컬러 세금", description: "득점 카드에 호출하지 않은 색 1종마다 -2 POWER (최대 -6)" },
+  { id: "glass-output", kind: "drawback", points: -2, label: "글래스 충격", description: "MAYHEM 최종 점수 ×0.85" },
+  { id: "lockup-process", kind: "drawback", points: -2, label: "홀업 프로세스", description: "라운드 첫 핸드에서는 선택한 좋은 효과가 작동하지 않습니다" },
 ];
 
 const FALLBACK_CARDS: CommunityUnoCard[] = [
@@ -47,8 +47,8 @@ const FALLBACK_CARDS: CommunityUnoCard[] = [
     creatorUserId: "system",
     creatorName: "BUG_HUNTER",
     name: "정밀 스캔",
-    description: "5장 전체 득점을 노리는 대신 상승 상한을 낮추는 선택",
-    moduleIds: ["precision-boost", "hard-cap"],
+    description: "5장 전체 득점을 노리는 대신 첫 핸드의 효과를 포기하는 선택",
+    moduleIds: ["precision-boost", "lockup-process"],
     pointTotal: 0,
     version: 1,
     likeCount: 31,
@@ -173,14 +173,19 @@ function UnoCreator({
     [modules, selected],
   );
   const total = chosen.reduce((sum, module) => sum + module.points, 0);
-  const valid =
-    name.trim().length >= 2 &&
-    name.trim().length <= 30 &&
-    selected.length >= 2 &&
-    selected.length <= 4 &&
-    total === 0 &&
-    chosen.some((module) => module.kind === "benefit") &&
-    chosen.some((module) => module.kind === "drawback");
+  const nameValid = name.trim().length >= 2 && name.trim().length <= 30;
+  const countValid = selected.length >= 2 && selected.length <= 4;
+  const hasBenefit = chosen.some((module) => module.kind === "benefit");
+  const hasDrawback = chosen.some((module) => module.kind === "drawback");
+  const balanced = total === 0;
+  const valid = nameValid && countValid && balanced && hasBenefit && hasDrawback;
+  const blockedReason = !nameValid
+    ? "카드 이름을 2자 이상 입력하세요"
+    : !hasBenefit || !hasDrawback
+      ? "좋은 효과와 비용을 각 1개 이상 선택하세요"
+      : !countValid
+        ? "효과는 2~4개 선택하세요"
+        : "합계를 0으로 맞추세요";
 
   async function submit() {
     if (!valid || submitting) return;
@@ -226,8 +231,8 @@ function UnoCreator({
     <Modal title="커뮤니티 메이헴 카드 제작기" className="creator-sheet" onClose={onClose} wide>
       <div className="creator-layout">
         <div className="creator-form">
-          <label>카드 이름<input value={name} maxLength={30} onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
-          <label>한 줄 소개<textarea value={description} maxLength={120} onChange={(event) => setDescription(event.target.value)} placeholder="다른 플레이어가 사용법을 떠올릴 수 있게 설명하세요." /></label>
+          <label>카드 이름 (필수, 2자 이상)<input value={name} maxLength={30} minLength={2} required onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
+          <label>한 줄 소개 (선택)<textarea value={description} maxLength={120} onChange={(event) => setDescription(event.target.value)} placeholder="다른 플레이어가 사용법을 떠올릴 수 있게 설명하세요." /></label>
           <div className="module-columns">
             {(["benefit", "drawback"] as const).map((kind) => (
               <div key={kind}>
@@ -262,7 +267,7 @@ function UnoCreator({
           {error && <p className="form-error">{error}</p>}
           {!signedIn && <p className="form-note">로그인 전에는 기기에 보관하고 로그인 후 자동 업로드합니다.</p>}
           <button type="button" className="primary-button full" disabled={!valid || submitting} onClick={submit}>
-            {submitting ? "검증 중…" : valid ? "밸런스 검사 후 등록" : "합계를 0으로 맞추세요"}
+            {submitting ? "검증 중…" : valid ? "밸런스 검사 후 등록" : blockedReason}
           </button>
         </aside>
       </div>

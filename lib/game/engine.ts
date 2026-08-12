@@ -414,6 +414,20 @@ export function playHand(
     state.mode === "standard" && state.ante === 5 && state.round === "boss";
   const roundIncome = (state.roundIncome ?? 0) + calculated.breakdown.coinGain;
 
+  const usedCard = calculated.usedUnoCardId
+    ? state.communityUno.find((item) => item.id === calculated.usedUnoCardId)
+    : undefined;
+  const usedNegativeModules =
+    usedCard && "negativeModules" in usedCard ? usedCard.negativeModules : [];
+  // Cards that shrink hand size or discards can't apply mid-round (the hand is
+  // already dealt), so a spent MAYHEM card's static costs land starting next round.
+  const nextRoundHandPenalty =
+    (state.nextRoundHandPenalty ?? 0) +
+    (usedNegativeModules.includes("memory-pressure") ? 1 : 0);
+  const permanentDiscardPenalty =
+    (state.permanentDiscardPenalty ?? 0) +
+    (usedNegativeModules.includes("battery-drain") ? 1 : 0);
+
   let jokersAfterHand = calculated.updatedJokers;
   let communityUnoAfterHand = calculated.usedUnoCardId
     ? state.communityUno.filter((card) => card.id !== calculated.usedUnoCardId)
@@ -486,6 +500,8 @@ export function playHand(
     roundIncome: roundCleared ? 0 : roundIncome,
     jokers: jokersAfterHand,
     communityUno: communityUnoAfterHand,
+    nextRoundHandPenalty,
+    permanentDiscardPenalty,
     unoUsedThisAnte:
       state.unoUsedThisAnte || calculated.usedUnoCardId !== undefined,
     handHistory: [...state.handHistory, calculated.breakdown.handType],
