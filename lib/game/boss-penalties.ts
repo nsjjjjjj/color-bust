@@ -1,7 +1,10 @@
-import type { RoundType } from "./types";
+import { CARD_COLORS } from "./constants";
+import { COLOR_IDENTITIES } from "./colors";
+import { randomInt } from "./rng";
+import type { BossPenaltyId, CardColor, RunState } from "./types";
 
 export interface BossPenalty {
-  readonly id: "channel-jam" | "hand-drain" | "signal-surge" | "hard-lock" | "final-gate";
+  readonly id: BossPenaltyId;
   readonly name: string;
   readonly description: string;
   /** Applied after any player-owned hand bonuses for the round. */
@@ -10,12 +13,27 @@ export interface BossPenalty {
   readonly discardDelta?: number;
   /** Multiplies the normal boss target, after its standard boss scaling. */
   readonly targetMultiplier?: number;
+  /** Overrides the round's hand count outright, ignoring firmware/handDelta. */
+  readonly handsOverride?: number;
+  /** Applied to the round's starting hand size, clamped to a minimum of 3. */
+  readonly handSizeDelta?: number;
+  /** Multiplies base hand CHIPS and MULT (before MOD/enhancement bonuses). */
+  readonly scoreMultiplier?: number;
+  /** Forces this many random cards out of hand after every play, free of a discard charge. */
+  readonly autoDiscardAfterPlay?: number;
+  /** A hand type already played this round can't be played again. */
+  readonly noRepeatHandType?: boolean;
+  /** Every hand this round must match the type of the first hand played. */
+  readonly lockFirstHandType?: boolean;
+  /** Rolls a random CardColor at round start; that color scores no chips/enhancements. */
+  readonly debuffsColor?: boolean;
 }
 
 /**
- * Each STAGE boss gets one deterministic modifier.  The sequence loops in
- * Endless, keeping the warning understandable after saving/reloading a run
- * without adding another persisted state field.
+ * The full boss effect pool, styled after Balatro's boss blinds and adapted
+ * to color-bust's COLOR/RANK deck. One is rolled at random whenever a boss
+ * round starts (see rollBossPenalty), from the very first STAGE through
+ * Endless, so the sequence never repeats the exact same run twice.
  */
 export const BOSS_PENALTIES: readonly BossPenalty[] = [
   {
@@ -49,10 +67,107 @@ export const BOSS_PENALTIES: readonly BossPenalty[] = [
     handDelta: -1,
     targetMultiplier: 1.08,
   },
+  {
+    id: "color-jam",
+    name: "컬러 재머",
+    description: "이번 보스전 {color} 카드 무효화 (득점 0)",
+    debuffsColor: true,
+  },
+  {
+    id: "flint-cut",
+    name: "출력 제한",
+    description: "이번 보스전 족보 칩/배수 50% 감소",
+    scoreMultiplier: 0.5,
+  },
+  {
+    id: "pattern-lock",
+    name: "패턴 차단",
+    description: "이번 보스전 같은 족보 재사용 불가",
+    noRepeatHandType: true,
+  },
+  {
+    id: "mono-track",
+    name: "단일 채널",
+    description: "이번 보스전 첫 제출 족보만 계속 사용 가능",
+    lockFirstHandType: true,
+  },
+  {
+    id: "one-shot",
+    name: "원 샷",
+    description: "이번 보스전 내기 횟수 1회 고정",
+    handsOverride: 1,
+  },
+  {
+    id: "narrow-hand",
+    name: "좁은 슬롯",
+    description: "이번 보스전 시작 손패 -2장",
+    handSizeDelta: -2,
+  },
+  {
+    id: "forced-purge",
+    name: "강제 방출",
+    description: "핸드 제출 후 무작위 카드 2장 자동 버리기",
+    autoDiscardAfterPlay: 2,
+  },
 ];
 
-export function bossPenaltyFor(ante: number, round: RoundType): BossPenalty | null {
-  if (round !== "boss") return null;
-  const normalizedAnte = Math.max(1, Math.floor(ante));
-  return BOSS_PENALTIES[(normalizedAnte - 1) % BOSS_PENALTIES.length] ?? null;
+export function bossPenaltyById(
+  id: BossPenalty["id"] | null | undefined,
+): BossPenalty | null {
+  if (!id) return null;
+  return BOSS_PENALTIES.find((penalty) => penalty.id === id) ?? null;
+}
+
+/**
+ * Rolls the boss effect for a round that's about to start. Draws uniformly
+ * from the whole pool so any effect can appear from the very first STAGE
+ * onward; re-rolls once if it would repeat the previous boss round's effect.
+ * Effects flagged `debuffsColor` also roll which CardColor is jammed.
+ */
+export function rollBossPenalty(
+  rngState: number,
+  previousId?: BossPenalty["id"] | null,
+): {
+  readonly penalty: BossPenalty;
+  readonly debuffColor: CardColor | null;
+  readonly nextState: number;
+} {
+  let pick = randomInt(rngState, 0, BOSS_PENALTIES.length);
+  let penalty = BOSS_PENALTIES[pick.value];
+
+  if (BOSS_PENALTIES.length > 1 && penalty.id === previousId) {
+    pick = randomInt(pick.nextState, 0, BOSS_PENALTIES.length);
+    penalty = BOSS_PENALTIES[pick.value];
+  }
+
+  let nextState = pick.nextState;
+  let debuffColor: CardColor | null = null;
+  if (penalty.debuffsColor) {
+    const colorPick = randomInt(nextState, 0, CARD_COLORS.length);
+    debuffColor = CARD_COLORS[colorPick.value];
+    nextState = colorPick.nextState;
+  }
+
+  return { penalty, debuffColor, nextState };
+}
+
+/**
+ * Resolves the active boss penalty for the round currently in progress, with
+ * any dynamic detail (its jammed color) already filled into the description.
+ * Returns null outside boss rounds or for legacy saves without a roll stored.
+ */
+export function bossPenaltyFor(state: RunState): BossPenalty | null {
+  if (state.round !== "boss") return null;
+  const penalty = bossPenaltyById(state.bossPenaltyId);
+  if (!penalty) return null;
+  if (penalty.debuffsColor && state.bossDebuffColor) {
+    return {
+      ...penalty,
+      description: penalty.description.replace(
+        "{color}",
+        COLOR_IDENTITIES[state.bossDebuffColor].koreanColor,
+      ),
+    };
+  }
+  return penalty;
 }

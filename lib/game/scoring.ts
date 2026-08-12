@@ -1,3 +1,4 @@
+import { bossPenaltyFor } from "./boss-penalties";
 import { effectiveHandChips, effectiveHandMultiplier, HAND_RULES } from "./constants";
 import { CARD_ENHANCEMENT_CONFIG } from "./garage-config";
 import { evaluateHand } from "./hands";
@@ -40,17 +41,42 @@ export function calculateHandScore(
   options: PlayHandOptions = {},
 ): CalculatedHandScore {
   const evaluated = evaluateHand(selectedCards);
+  const bossPenalty = bossPenaltyFor(state);
+
+  if (bossPenalty?.noRepeatHandType && state.handHistory.includes(evaluated.type)) {
+    throw new GameRuleError(
+      "BOSS_HAND_TYPE_REPEATED",
+      `이번 보스전에는 ${HAND_RULES[evaluated.type].name} 족보를 다시 낼 수 없습니다.`,
+    );
+  }
+  if (
+    bossPenalty?.lockFirstHandType &&
+    state.bossLockedHandType &&
+    evaluated.type !== state.bossLockedHandType
+  ) {
+    throw new GameRuleError(
+      "BOSS_HAND_TYPE_LOCKED",
+      `이번 보스전에는 ${HAND_RULES[state.bossLockedHandType].name} 족보만 낼 수 있습니다.`,
+    );
+  }
+
   const scoringIds = new Set(evaluated.scoringCardIds);
   const scoringCards = selectedCards.filter((card) => scoringIds.has(card.id));
   const handRule = HAND_RULES[evaluated.type];
   const handLevel = state.handLevels[evaluated.type];
-  const baseChips = effectiveHandChips(handRule, handLevel);
-  const baseMultiplier = effectiveHandMultiplier(handRule, handLevel);
+  const scoreScale = bossPenalty?.scoreMultiplier ?? 1;
+  const baseChips = effectiveHandChips(handRule, handLevel) * scoreScale;
+  const baseMultiplier = effectiveHandMultiplier(handRule, handLevel) * scoreScale;
+
+  const debuffedColor = bossPenalty?.debuffsColor ? state.bossDebuffColor ?? null : null;
+  const contributingCards = debuffedColor
+    ? scoringCards.filter((card) => card.color !== debuffedColor)
+    : scoringCards;
 
   const jokerResult = applyJokers({
     jokers: state.jokers,
     selectedCards,
-    scoringCards,
+    scoringCards: contributingCards,
     hand: state.hand,
     evaluatedHand: evaluated,
     handHistory: state.handHistory,
@@ -63,7 +89,7 @@ export function calculateHandScore(
   let cardChipBonus = 0;
   let cardMultiplierBonus = 0;
   let cardCoinGain = 0;
-  const appliedCardEffects = scoringCards.flatMap((card) => {
+  const appliedCardEffects = contributingCards.flatMap((card) => {
     if (!card.enhancement) return [];
     const enhancement = CARD_ENHANCEMENT_CONFIG[card.enhancement];
     cardChipBonus += enhancement.power ?? 0;
@@ -105,7 +131,7 @@ export function calculateHandScore(
     uno = applyCommunityUno({
       card,
       calledColor: options.calledColor as CardColor,
-      scoringCards,
+      scoringCards: contributingCards,
       chipsBeforeUno,
       multiplierBeforeUno,
       jokerXMultiplier: jokerResult.xMultiplier,

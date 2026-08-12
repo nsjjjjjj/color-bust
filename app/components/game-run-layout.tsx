@@ -78,7 +78,7 @@ export function GameRunLayout({
   const [showBossIntro, setShowBossIntro] = useState(false);
   const previousRoundRef = useRef(run.round);
   const isBossRound = phase === "playing" && run.round === "boss";
-  const bossPenalty = bossPenaltyFor(run.ante, run.round);
+  const bossPenalty = bossPenaltyFor(run);
 
   useEffect(() => {
     const enteredBossRound = run.round === "boss" && previousRoundRef.current !== "boss";

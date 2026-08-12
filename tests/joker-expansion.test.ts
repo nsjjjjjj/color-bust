@@ -181,6 +181,9 @@ test("turtle-bean-cache grants extra hand size that decays each round", () => {
   const shopStateExpired: RunState = {
     ...next,
     phase: "shop",
+    // Force a non-boss transition: boss rounds can roll their own random
+    // hand-size effect, which isn't what this test is exercising.
+    round: "small",
     jokers: [{ instanceId: "j-turtle", jokerId: "turtle-bean-cache", acquiredRound: 1, counter: 0 }],
   };
   const afterExpiry = nextRound(shopStateExpired);
