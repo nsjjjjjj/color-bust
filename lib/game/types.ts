@@ -186,11 +186,7 @@ export type ProtocolId =
   | "hype-amp"
   | "emergency-credit";
 
-export type GhostId =
-  | "dead-channel"
-  | "white-noise"
-  | "blackout"
-  | "forbidden-port";
+export type GhostId = "wild-signal" | "chaos-cache" | "bankrupt-bargain" | "spectrum-wash" | "universal-core";
 
 export type FirmwareId =
   | "expanded-mod-bay"

@@ -87,29 +87,35 @@ export const PROTOCOL_CONFIG: Readonly<Record<ProtocolId, UtilityCardConfig>> = 
 };
 
 export const GHOST_CONFIG: Readonly<Record<GhostId, UtilityCardConfig>> = {
-  "dead-channel": {
-    name: "데드 채널",
-    description: "카드 2장을 소거하고 첫 카드의 오버클럭 복제본 1장을 생성합니다.",
-    price: 0,
-    symbol: "†",
+  "wild-signal": {
+    name: "와일드 시그널",
+    description: "핸드에서 선택한 기본 카드 1장에 무작위 강화를 부여합니다.",
+    price: 7,
+    symbol: "?",
   },
-  "white-noise": {
-    name: "화이트 노이즈",
-    description: "카드 최대 5장을 한 색으로 바꾸지만 보유 코인의 절반을 잃습니다.",
+  "chaos-cache": {
+    name: "카오스 캐시",
+    description: "핸드에서 무작위 카드 1장을 버리고, 무작위 강화 숫자 카드 3장을 핸드에 추가합니다.",
     price: 0,
-    symbol: "W",
+    symbol: "4+",
   },
-  blackout: {
-    name: "블랙아웃",
-    description: "카드 최대 5장을 0으로 바꾸지만 다음 라운드 손패가 1장 줄어듭니다.",
+  "bankrupt-bargain": {
+    name: "파산 거래",
+    description: "무작위 레어 등급 MOD 1장을 생성하고 보유 코인을 0¢로 만듭니다.",
     price: 0,
-    symbol: "0",
+    symbol: "¢0",
   },
-  "forbidden-port": {
-    name: "금지된 포트",
-    description: "MOD 슬롯을 1칸 늘리지만 라운드당 버리기가 1회 줄어듭니다.",
+  "spectrum-wash": {
+    name: "스펙트럼 워시",
+    description: "핸드의 모든 카드를 무작위로 선택된 같은 색으로 전환합니다.",
     price: 0,
-    symbol: "!",
+    symbol: "◈",
+  },
+  "universal-core": {
+    name: "유니버설 코어",
+    description: "모든 족보 레벨을 1씩 올립니다.",
+    price: 0,
+    symbol: "LV+",
   },
 };
 
