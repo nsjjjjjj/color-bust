@@ -25,11 +25,9 @@ import {
 import { nextRandom, randomInt } from "./rng";
 import {
   canInstallFirmware,
-  consumableSlotsFree,
   jokerSlotLimitFor,
   packPriceFor,
   rerollBaseCostFor,
-  runConsumables,
 } from "./run-upgrades";
 
 const RARITY_WEIGHT: Readonly<Record<JokerRarity, number>> = {
@@ -100,11 +98,6 @@ function chooseWeightedJoker(
 
 function createSignalPools(state: RunState): SignalPools {
   const ownedJokers = new Set(state.jokers.map((joker) => joker.jokerId));
-  const ownedProtocols = new Set(
-    runConsumables(state)
-      .filter((item) => item.kind === "protocol")
-      .map((item) => item.protocolId),
-  );
   const ownedMayhem = new Set(state.communityUno.map((card) => card.id));
   return {
     jokers:
@@ -112,12 +105,7 @@ function createSignalPools(state: RunState): SignalPools {
         ? JOKER_IDS.filter((jokerId) => !ownedJokers.has(jokerId))
         : [],
     hands: [...HAND_TYPES],
-    protocols:
-      consumableSlotsFree(state) > 0
-        ? (Object.keys(PROTOCOL_CONFIG) as ProtocolId[]).filter(
-            (protocolId) => !ownedProtocols.has(protocolId),
-          )
-        : [],
+    protocols: Object.keys(PROTOCOL_CONFIG) as ProtocolId[],
     mayhem:
       state.communityUno.length < UNO_SLOT_LIMIT
         ? state.communityUnoPool.filter((card) => !ownedMayhem.has(card.id))

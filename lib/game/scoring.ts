@@ -4,6 +4,7 @@ import { evaluateHand } from "./hands";
 import { applyJokers } from "./jokers";
 import type {
   CardColor,
+  CommunityUnoCard,
   GameCard,
   JokerInstance,
   PlayHandOptions,
@@ -19,15 +20,15 @@ export interface CalculatedHandScore {
   readonly usedUnoCardId?: string;
 }
 
-function findUnoCard(state: RunState, cardId: string) {
+function findUnoCard(state: RunState, cardId: string): CommunityUnoCard {
   const card = state.communityUno.find((candidate) => candidate.id === cardId);
-  if (!card) {
+  if (!card || ("kind" in card && card.kind === "hand-upgrade")) {
     throw new GameRuleError(
       "UNO_NOT_OWNED",
       "보유하고 있지 않은 커뮤니티 UNO 카드입니다.",
     );
   }
-  return card;
+  return card as CommunityUnoCard;
 }
 
 export function calculateHandScore(
@@ -90,12 +91,6 @@ export function calculateHandScore(
   let usedUnoCardId: string | undefined;
 
   if (options.unoCardId) {
-    if (state.unoUsedThisAnte) {
-      throw new GameRuleError(
-        "UNO_ALREADY_USED",
-        "커뮤니티 UNO 카드는 앤티마다 한 번만 사용할 수 있습니다.",
-      );
-    }
     if (!options.calledColor) {
       throw new GameRuleError(
         "UNO_COLOR_REQUIRED",
