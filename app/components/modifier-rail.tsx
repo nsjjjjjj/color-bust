@@ -1,15 +1,16 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 
 import {
-  JOKER_CATALOG,
   CARD_COLORS,
+  JOKER_CATALOG,
   UNO_MODULE_CATALOG,
   UNO_SLOT_LIMIT,
 } from "../../lib/game/constants";
 import { COLOR_IDENTITIES, COLOR_LABELS } from "../../lib/game/colors";
 import { jokerSlotLimitFor } from "../../lib/game/run-upgrades";
+import { JOKER_ART, MAYHEM_CARD_ART } from "../../lib/game/special-card-art";
 import type {
   AppliedEffect,
   CardColor,
@@ -22,52 +23,6 @@ import type {
   UnoModuleId,
 } from "../../lib/game/types";
 import type { ScoreEvent } from "../../lib/game/score-events";
-
-const JOKER_ICONS: Readonly<Record<JokerId, string>> = {
-  "zero-day": "0",
-  redline: "R",
-  "blue-buffer": "B",
-  "green-loop": "↻",
-  "yellow-ticket": "¢",
-  "odd-signal": "1",
-  "even-signal": "2",
-  "cache-hit": "◆",
-  "splash-mode": "≈",
-  "spectrum-analyzer": "◈",
-  "monochrome-monitor": "▣",
-  "sequence-accelerator": "→",
-  "full-stack": "▤",
-  "spare-battery": "▱",
-  "last-commit": "!",
-  "version-control": "⇄",
-  "cmyk-core": "✦",
-  "combo-compiler": "⌘",
-  "hot-swap": "↔",
-  "null-pointer": "∅",
-  "venom-drip": "G",
-  "volt-surge": "Y",
-  "half-compile": "½",
-  "ice-cream-cache": "❄",
-  "memory-buffer": "▥",
-  "mystic-summit": "▲",
-  "delayed-gratification": "⏳",
-  "fibonacci-routine": "φ",
-  "loyalty-session": "★",
-  "jolly-routine": "♪",
-  "zany-core": "Z",
-  "mad-routine": "M",
-  "runner-process": "▶",
-  "green-demon": "Ψ",
-  "eight-ball-exploit": "8",
-  "bloodstone-driver": "❖",
-  "reserved-slot": "P",
-  "turtle-bean-cache": "T",
-  "spare-trousers": "‖",
-  "blueprint-protocol": "▧",
-  "cavendish-overclock": "⚠",
-  "perkeos-echo": "∴",
-  "stencil-core": "▨",
-};
 
 const RARITY_LABELS = {
   common: "STANDARD",
@@ -92,6 +47,9 @@ export interface ModifierRailProps {
   onSellJoker?: (instanceId: string) => void;
   onUseStashedItem?: (instanceId: string) => void;
   onSellStashedItem?: (instanceId: string) => void;
+  /** Controlled by the run shell so a shop selection closes a pinned MOD detail. */
+  selectedDetailKey?: string | null;
+  onSelectedDetailChange?: (key: string | null) => void;
   className?: string;
 }
 
@@ -143,26 +101,6 @@ function jokerCondition(joker: JokerInstance): string {
   }
 }
 
-function jokerLevel(joker: JokerInstance): string {
-  switch (joker.jokerId) {
-    case "combo-compiler":
-      return `연속 ${joker.counter ?? 0}/4`;
-    case "runner-process":
-    case "spare-trousers":
-    case "green-demon":
-      return `+${joker.counter ?? 0}`;
-    case "loyalty-session":
-      return `${joker.counter ?? 0}핸드`;
-    case "ice-cream-cache":
-      return `${joker.counter ?? 0}P`;
-    case "turtle-bean-cache":
-      return `${joker.counter ?? 0}R`;
-    default:
-      if (joker.selectedColor) return COLOR_LABELS[joker.selectedColor];
-      return "패시브";
-  }
-}
-
 function isUnoCard(item: StashedMayhemItem): item is CommunityUnoCard {
   return Boolean(item) && "positiveModules" in item && Array.isArray(item.positiveModules);
 }
@@ -192,19 +130,35 @@ export function ModifierRail({
   onSellJoker,
   onUseStashedItem,
   onSellStashedItem,
+  selectedDetailKey,
+  onSelectedDetailChange,
   className,
 }: ModifierRailProps) {
   const reactId = safeId(useId());
-  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
-  const pointerOpenedTooltip = useRef<string | null>(null);
+  const [hoveredTooltip, setHoveredTooltip] = useState<string | null>(null);
+  const [uncontrolledSelectedTooltip, setUncontrolledSelectedTooltip] = useState<string | null>(null);
+  const selectedTooltip = onSelectedDetailChange ? selectedDetailKey ?? null : uncontrolledSelectedTooltip;
   const jokerLimit = jokerSlotLimitFor(run);
   const appliedJokerEffects = breakdown?.appliedJokers ?? [];
   const appliedUno = breakdown?.uno;
   const outerClassName = ["modifier-rail-root", className].filter(Boolean).join(" ");
 
-  const showTooltip = (key: string) => setOpenTooltip(key);
+  const showTooltip = (key: string) => setHoveredTooltip(key);
   const hideTooltip = (key: string) => {
-    setOpenTooltip((current) => (current === key ? null : current));
+    setHoveredTooltip((current) => (current === key ? null : current));
+  };
+  const toggleSelectedTooltip = (key: string) => {
+    const next = selectedTooltip === key ? null : key;
+    if (onSelectedDetailChange) onSelectedDetailChange(next);
+    else setUncontrolledSelectedTooltip(next);
+    setHoveredTooltip(null);
+  };
+  const clearSelectedTooltip = (key: string) => {
+    if (selectedTooltip === key) {
+      if (onSelectedDetailChange) onSelectedDetailChange(null);
+      else setUncontrolledSelectedTooltip(null);
+    }
+    setHoveredTooltip(null);
   };
 
   return (
@@ -225,12 +179,13 @@ export function ModifierRail({
             const isCurrent = scoreEvent?.sourceKind === "mod"
               && scoreEvent.sourceEffectId === joker.jokerId;
             const isApplied = scoreEvent ? isCurrent : effects.length > 0;
-            const isOpen = openTooltip === key;
+            const isSelected = selectedTooltip === key;
+            const isOpen = isSelected || (selectedTooltip === null && hoveredTooltip === key);
             const statusLabel = isApplied ? "이번 핸드 적용됨" : "이번 핸드 미적용";
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
+                className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}${isSelected ? " modifier-rail-slot-selected" : ""}`}
                 key={joker.instanceId}
                 onMouseEnter={() => showTooltip(key)}
                 onMouseLeave={() => hideTooltip(key)}
@@ -241,43 +196,29 @@ export function ModifierRail({
                   aria-label={`${definition.name}, ${RARITY_LABELS[definition.rarity]}, ${jokerCondition(joker)}, ${statusLabel}`}
                   aria-describedby={tooltipId}
                   aria-controls={tooltipId}
-                  aria-expanded={isOpen}
+                  aria-expanded={isSelected}
                   onFocus={() => showTooltip(key)}
                   onBlur={(event) => {
                     // Moving focus into this same tooltip (e.g. the sell button)
-                    // isn't "leaving" it — only close when focus goes elsewhere.
+                    // isn't "leaving" it — only close the transient preview.
                     const next = event.relatedTarget;
                     if (next && event.currentTarget.parentElement?.contains(next)) return;
                     hideTooltip(key);
                   }}
-                  onPointerDown={(event) => {
-                    pointerOpenedTooltip.current = event.pointerType !== "mouse" && openTooltip === key ? key : null;
-                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") {
                       event.preventDefault();
-                      hideTooltip(key);
+                      clearSelectedTooltip(key);
                     } else if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      setOpenTooltip((current) => current === key ? null : key);
+                      toggleSelectedTooltip(key);
                     }
                   }}
-                  onClick={() => {
-                    if (pointerOpenedTooltip.current === key) hideTooltip(key);
-                    else showTooltip(key);
-                    pointerOpenedTooltip.current = null;
-                  }}
+                  onClick={() => toggleSelectedTooltip(key)}
                 >
                   <span className="modifier-rail-slot-icon" aria-hidden="true">
-                    {JOKER_ICONS[joker.jokerId]}
+                    <img className="special-card-art" src={JOKER_ART[joker.jokerId]} alt="" />
                   </span>
-                  <span className="modifier-rail-slot-copy">
-                    <strong>{definition.name}</strong>
-                    <small>{jokerLevel(joker)}</small>
-                  </span>
-                  <i className="modifier-rail-slot-status" aria-hidden="true">
-                    {isApplied ? "적용" : "—"}
-                  </i>
                 </button>
 
                 <div
@@ -287,23 +228,13 @@ export function ModifierRail({
                   hidden={!isOpen}
                 >
                   <header className="modifier-rail-tooltip-header">
-                    <span aria-hidden="true">{JOKER_ICONS[joker.jokerId]}</span>
+                    <span aria-hidden="true"><img className="special-card-art" src={JOKER_ART[joker.jokerId]} alt="" /></span>
                     <div>
                       <strong>{definition.name}</strong>
                       <small>{RARITY_LABELS[definition.rarity]} MOD</small>
                     </div>
                   </header>
                   <p className="modifier-rail-tooltip-description">{definition.description}</p>
-                  <dl className="modifier-rail-tooltip-meta">
-                    <div>
-                      <dt>현재 조건</dt>
-                      <dd>{jokerCondition(joker)}</dd>
-                    </div>
-                    <div>
-                      <dt>이번 핸드</dt>
-                      <dd>{statusLabel}</dd>
-                    </div>
-                  </dl>
                   {effects.length > 0 && (
                     <ul className="modifier-rail-tooltip-effects">
                       {effects.map((effect, index) => (
@@ -320,7 +251,7 @@ export function ModifierRail({
                       className="modifier-rail-tooltip-sell"
                       onClick={(event) => {
                         event.stopPropagation();
-                        hideTooltip(key);
+                        clearSelectedTooltip(key);
                         onSellJoker(joker.instanceId);
                       }}
                     >
@@ -332,13 +263,6 @@ export function ModifierRail({
             );
           })}
 
-          {run.jokers.length < jokerLimit && (
-            <div
-              className="modifier-rail-slot modifier-rail-empty-slot"
-              role="img"
-              aria-label={`빈 MOD 슬롯 ${jokerLimit - run.jokers.length}개`}
-            />
-          )}
         </div>
       </section>
 
@@ -390,7 +314,8 @@ export function ModifierRail({
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
             const isApplied = appliedUno?.cardId === card.id;
             const isArmed = selectedUnoId === card.id;
-            const isOpen = openTooltip === key;
+            const isSelected = selectedTooltip === key;
+            const isOpen = isSelected || (selectedTooltip === null && hoveredTooltip === key);
             const points = unoPointTotal(card);
             const condition = run.unoUsedThisAnte
               ? "이번 스테이지 사용 완료"
@@ -407,10 +332,17 @@ export function ModifierRail({
             const appliedModuleIds = new Set(
               isApplied ? appliedUno.appliedEffects.map((effect) => effect.sourceId) : [],
             );
+            const visibleModuleSummary = moduleIds(card)
+              .slice(0, 2)
+              .map((moduleId) => {
+                const moduleDefinition = UNO_MODULE_CATALOG[moduleId];
+                return `${signed(moduleDefinition.points)} ${moduleDefinition.name}`;
+              })
+              .join(" · ");
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
+                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}${isSelected ? " modifier-rail-slot-selected" : ""}`}
                 key={card.id}
                 onMouseEnter={() => showTooltip(key)}
                 onMouseLeave={(event) => {
@@ -425,35 +357,25 @@ export function ModifierRail({
                   aria-label={`${card.name}, 커뮤니티 효과 카드 버전 ${card.version}, 균형 ${points}점, ${condition}, ${statusLabel}`}
                   aria-describedby={tooltipId}
                   aria-controls={tooltipId}
-                  aria-expanded={isOpen}
+                  aria-expanded={isSelected}
                   onFocus={() => showTooltip(key)}
                   onBlur={() => hideTooltip(key)}
-                  onPointerDown={(event) => {
-                    pointerOpenedTooltip.current = event.pointerType !== "mouse" && openTooltip === key ? key : null;
-                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") {
                       event.preventDefault();
-                      hideTooltip(key);
+                      clearSelectedTooltip(key);
                     } else if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      setOpenTooltip((current) => current === key ? null : key);
+                      toggleSelectedTooltip(key);
                     }
                   }}
-                  onClick={() => {
-                    if (pointerOpenedTooltip.current === key) hideTooltip(key);
-                    else showTooltip(key);
-                    pointerOpenedTooltip.current = null;
-                  }}
+                  onClick={() => toggleSelectedTooltip(key)}
                 >
-                  <span className="modifier-rail-slot-icon" aria-hidden="true">M</span>
-                  <span className="modifier-rail-slot-copy">
+                  <span className="modifier-rail-slot-icon" aria-hidden="true"><img className="special-card-art" src={MAYHEM_CARD_ART} alt="" /></span>
+                  <span className="modifier-rail-slot-copy modifier-rail-mayhem-copy">
                     <strong>{card.name}</strong>
-                    <small>버전 {card.version} · {points > 0 ? "+" : ""}{points}</small>
+                    <small>{visibleModuleSummary || "효과 없음"}</small>
                   </span>
-                  <i className="modifier-rail-slot-status" aria-hidden="true">
-                    {isApplied ? "적용" : isArmed ? "이번 핸드" : run.unoUsedThisAnte ? "사용함" : "1회"}
-                  </i>
                 </button>
 
                 <div
@@ -463,7 +385,7 @@ export function ModifierRail({
                   hidden={!isOpen}
                 >
                   <header className="modifier-rail-tooltip-header">
-                    <span aria-hidden="true">M</span>
+                    <span aria-hidden="true"><img className="special-card-art" src={MAYHEM_CARD_ART} alt="" /></span>
                     <div>
                       <strong>{card.name}</strong>
                       <small>{card.author} · 버전 {card.version}</small>
@@ -472,16 +394,6 @@ export function ModifierRail({
                   <p className="modifier-rail-tooltip-description">
                     긍정 효과와 페널티를 합해 {points}점으로 균형을 맞춘 커뮤니티 카드입니다.
                   </p>
-                  <dl className="modifier-rail-tooltip-meta">
-                    <div>
-                      <dt>현재 조건</dt>
-                      <dd>{condition}</dd>
-                    </div>
-                    <div>
-                      <dt>이번 핸드</dt>
-                      <dd>{statusLabel}</dd>
-                    </div>
-                  </dl>
                   <ul className="modifier-rail-tooltip-modules">
                     {moduleIds(card).map((moduleId) => {
                       const moduleDefinition = UNO_MODULE_CATALOG[moduleId];
@@ -554,13 +466,6 @@ export function ModifierRail({
             );
           })}
 
-          {run.communityUno.length < UNO_SLOT_LIMIT && (
-            <div
-              className="modifier-rail-slot modifier-rail-empty-slot modifier-rail-empty-uno-slot"
-              role="img"
-              aria-label={`빈 메이헴 카드 슬롯 ${UNO_SLOT_LIMIT - run.communityUno.length}개`}
-            />
-          )}
         </div>
       </section>
     </aside>

@@ -22,7 +22,7 @@ const SAMPLE_GUESTBOOK: GuestbookEntry[] = [
 
 const RATING_LABELS = ["", "별로예요", "아쉬워요", "괜찮아요", "좋아요", "최고예요"] as const;
 
-export function LeaderboardView() {
+export function LeaderboardView({ signedIn = false }: { readonly signedIn?: boolean }) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>(SAMPLE_RANKS);
   const [offline, setOffline] = useState(false);
 
@@ -53,6 +53,15 @@ export function LeaderboardView() {
       <div className="view-heading">
         <div><span className="kicker">전체 기록</span><h1>랭킹</h1></div>
       </div>
+      {!signedIn && (
+        <section className="social-login-prompt" aria-label="계정 연결 안내">
+          <div>
+            <span>기록을 남길 준비</span>
+            <strong>로그인하면 무한 모드 기록을 공식 랭킹에 올릴 수 있어요.</strong>
+          </div>
+          <a href="/login?returnTo=%2F">로그인 · 가입</a>
+        </section>
+      )}
       {offline && <div className="status-strip">오프라인 예시 기록을 표시하고 있습니다.</div>}
       <div className="leaderboard-table" role="table" aria-label="랭킹">
         <div className="leaderboard-row table-head" role="row"><span>순위</span><span>플레이어</span><span>도달</span><span>점수</span></div>

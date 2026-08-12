@@ -17,6 +17,8 @@ export interface PileInspectorProps {
   readonly onPreviewChange?: (isOpen: boolean) => void;
   readonly className?: string;
   readonly disabled?: boolean;
+  /** Garage keeps the pile as a fixed visual anchor; only play exposes hover details. */
+  readonly previewEnabled?: boolean;
   /**
    * The real run deck used as the draw-preview baseline. Pass draw + discard +
    * hand so each color/rank slot can show current/total counts. Ignored by the
@@ -335,6 +337,7 @@ export function PileInspector({
   onPreviewChange,
   className,
   disabled = false,
+  previewEnabled = true,
   referenceCards,
   totalCards,
   label = pileName(variant),
@@ -361,6 +364,12 @@ export function PileInspector({
     onPreviewChange?.(false);
   }
 
+  function openPreview() {
+    if (!previewEnabled) return;
+    setPreviewOpen(true);
+    onPreviewChange?.(true);
+  }
+
   function handleBlur(event: FocusEvent<HTMLDivElement>) {
     const nextTarget = event.relatedTarget;
     if (!(nextTarget instanceof Node) || !event.currentTarget.contains(nextTarget)) closePreview();
@@ -369,15 +378,11 @@ export function PileInspector({
   return (
     <div
       className={`deck-pile-inspector deck-pile-${variant}${summary.total === 0 ? " deck-pile-empty" : ""}${className ? ` ${className}` : ""}`}
-      onPointerEnter={() => {
-        setPreviewOpen(true);
-        onPreviewChange?.(true);
-      }}
+      onPointerEnter={openPreview}
       onPointerLeave={closePreview}
       onFocusCapture={(event) => {
         if (event.target instanceof HTMLElement && event.target.matches(":focus-visible")) {
-          setPreviewOpen(true);
-          onPreviewChange?.(true);
+          openPreview();
         }
       }}
       onBlurCapture={handleBlur}
@@ -387,7 +392,7 @@ export function PileInspector({
         className="deck-pile-button"
         aria-label={description}
         aria-controls={previewId}
-        aria-expanded={previewOpen}
+        aria-expanded={previewEnabled && previewOpen}
         disabled={disabled}
         onClick={() => {
           closePreview();

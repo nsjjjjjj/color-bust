@@ -21,6 +21,7 @@ import {
 import { COLOR_LABELS } from "../../lib/game/colors";
 import { PACK_DEFINITIONS } from "../../lib/game/packs";
 import { jokerSlotLimitFor } from "../../lib/game/run-upgrades";
+import { JOKER_ART, MAYHEM_CARD_ART } from "../../lib/game/special-card-art";
 import type {
   CardColor,
   CardRarity,
@@ -54,6 +55,7 @@ type OfferPresentation = {
   readonly category: string;
   readonly rarity: CardRarity;
   readonly symbol: string;
+  readonly artSrc?: string;
   readonly meta: string;
   readonly disabledReason?: string;
 };
@@ -74,6 +76,9 @@ export interface GarageViewProps {
   ) => RunState | null | void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
+  /** Shared by the run shell with the top MOD / MAYHEM rack. */
+  readonly selectedDetailKey?: string | null;
+  readonly onSelectedDetailChange?: (key: string | null) => void;
 }
 
 function normalizeTerminology(value: string): string {
@@ -125,6 +130,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       effect: normalizeTerminology(definition.description),
       detail: `런 동안 모든 핸드에 적용 · ${run.jokers.length}/${jokerLimit} 슬롯 사용 중`,
       symbol: definition.name.slice(0, 1),
+      artSrc: JOKER_ART[offer.jokerId],
       meta: `PASSIVE MOD · ${definition.price}¢ VALUE`,
       disabledReason,
     };
@@ -206,6 +212,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       effect: normalizeTerminology(pack.description),
       detail: `${definition.revealCount}개 공개 · ${definition.pickCount}개 선택 · 중복 없는 가중 추첨`,
       symbol: pack.symbol,
+      artSrc: pack.artSrc,
       meta: `${definition.contents.toUpperCase()} POOL`,
       disabledReason,
     };
@@ -240,6 +247,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
     effect: `${offer.card.author} 제작 · 긍정/결함 예산 0의 한 턴 규칙`,
     detail: `긍정 ${offer.card.positiveModules.length} · 결함 ${offer.card.negativeModules.length} · 버전 ${offer.card.version}`,
     symbol: "M",
+    artSrc: MAYHEM_CARD_ART,
     meta: `MAYHEM SLOT ${run.communityUno.length}/${UNO_SLOT_LIMIT}`,
     disabledReason,
   };
@@ -276,7 +284,13 @@ function ShopSlot({
   readonly onBuy: () => void;
 }) {
   const item = offerPresentation(offer, run);
-  const disabled = Boolean(item.disabledReason) || sold;
+  const unavailableReason = item.disabledReason ?? (run.coins < offer.price ? "코인 부족" : null);
+  const disabled = Boolean(unavailableReason) || sold;
+  const actionLabel = offer.kind === "card-pack"
+    ? "팩 열기"
+    : offer.kind === "deck-work" || (offer.kind === "protocol" && offer.protocolId !== "emergency-credit")
+      ? "대상 선택"
+      : "구매";
   return (
     <article
       className="dm-shop-slot"
@@ -292,12 +306,17 @@ function ShopSlot({
         disabled={sold}
         aria-pressed={selected}
         aria-label={`${item.name}, ${item.effect}, ${offer.price}코인${sold ? ", 판매 완료" : ""}`}
-        onClick={selected ? onBuy : onSelect}
+        onClick={(event) => {
+          onSelect();
+          // The second click releases the selected state.  It must also
+          // release button focus; otherwise :focus-within keeps the hover
+          // inspector visible after the pointer has left the card.
+          if (selected) event.currentTarget.blur();
+        }}
       >
         <span className="dm-shop-slot__rarity">{RARITY_LABELS[item.rarity]}</span>
-        <span className="dm-shop-slot__art" aria-hidden="true">
-          <i />
-          <b>{item.symbol}</b>
+        <span className={`dm-shop-slot__art${item.artSrc ? offer.kind === "card-pack" ? " is-pack-art" : " is-special-art" : ""}`} aria-hidden="true">
+          {item.artSrc ? <img className={offer.kind === "card-pack" ? "dm-pack-art" : "special-card-art"} src={item.artSrc} alt="" /> : <><i /><b>{item.symbol}</b></>}
         </span>
         <span className="dm-shop-slot__copy">
           <small>{item.category}</small>
@@ -306,27 +325,26 @@ function ShopSlot({
         </span>
       </button>
       <div className="dm-shop-slot__detail" aria-label={`${item.name} 상세 정보`}>
-          <strong>{item.category} · {item.name}</strong>
-          <em>{item.effect}</em>
-          <b>{item.meta}</b>
-          <span>{item.detail}</span>
-          <div className="dm-shop-slot__detail-actions">
-            <button type="button" className="dm-shop-slot__detail-close" onClick={onSelect}>닫기</button>
-            <button
-              type="button"
-              className="dm-shop-slot__buy"
-              disabled={disabled || !selected || purchasing}
-              onClick={onBuy}
-            >
-              {sold ? "SOLD" : purchasing ? "CONNECTING…" : !selected ? "카드 선택" : offer.kind === "card-pack" ? "OPEN" : (offer.kind === "deck-work" || (offer.kind === "protocol" && offer.protocolId !== "emergency-credit")) ? "SELECT CARD" : "BUY"}
-            </button>
-          </div>
+        <strong>{item.name}</strong>
+        <em>{item.effect}</em>
       </div>
       <footer>
         <span className={item.disabledReason ? "is-disabled" : ""}>
           {item.disabledReason ?? `${offer.price}¢`}
         </span>
       </footer>
+      {selected && !sold && (
+        <div className="dm-shop-slot__purchase">
+          <button
+            type="button"
+            className="dm-shop-slot__buy"
+            disabled={disabled || purchasing}
+            onClick={onBuy}
+          >
+            {purchasing ? "구매 중…" : disabled ? unavailableReason : `${actionLabel} · ${offer.price}¢`}
+          </button>
+        </div>
+      )}
       {sold && <div className="dm-shop-slot__sold" aria-label="판매 완료">SOLD</div>}
     </article>
   );
@@ -476,6 +494,7 @@ function choiceCopy(choice: PackChoice): {
   readonly name: string;
   readonly effect: string;
   readonly symbol: string;
+  readonly artSrc?: string;
 } {
   if (choice.kind === "card") {
     const enhancement = choice.card.enhancement
@@ -493,6 +512,7 @@ function choiceCopy(choice: PackChoice): {
       name: definition.name,
       effect: normalizeTerminology(definition.description),
       symbol: definition.name.slice(0, 1),
+      artSrc: JOKER_ART[choice.jokerId],
     };
   }
   if (choice.kind === "upgrade") {
@@ -532,48 +552,59 @@ function PackChoiceCard({
   choice,
   index,
   revealed,
+  previewed,
   selected,
   disabled,
-  onToggle,
+  onPreview,
+  onConfirm,
 }: {
   readonly choice: PackChoice;
   readonly index: number;
   readonly revealed: boolean;
+  readonly previewed: boolean;
   readonly selected: boolean;
   readonly disabled: boolean;
-  readonly onToggle: () => void;
+  readonly onPreview: () => void;
+  readonly onConfirm: () => void;
 }) {
   const copy = choiceCopy(choice);
   return (
-    <button
-      type="button"
-      className="dm-pack-choice"
-      data-kind={choice.kind}
-      data-rarity={choice.rarity}
-      data-revealed={revealed || undefined}
-      data-selected={selected || undefined}
-      disabled={!revealed || disabled}
-      style={{ "--reveal-index": index } as CSSProperties}
-      aria-label={revealed ? `${copy.name}, ${copy.effect}${selected ? ", selected" : ""}` : `숨겨진 카드 ${index + 1}`}
-      aria-pressed={revealed ? selected : undefined}
-      onClick={onToggle}
-    >
-      <span className="dm-pack-choice__back"><b>DECK<br />MAYHEM</b></span>
-      <span className="dm-pack-choice__front">
-        <small>{RARITY_LABELS[choice.rarity]}</small>
-        {choice.kind === "card" ? (
-          <span className="dm-pack-choice__number" data-color={choice.card.color}>
-            <i />
-            <b>{copy.symbol}</b>
-          </span>
-        ) : (
-          <span className="dm-pack-choice__icon"><b>{copy.symbol}</b></span>
-        )}
-        <strong>{copy.name}</strong>
-        <span>{copy.effect}</span>
-      </span>
-      {selected && <em>SELECTED</em>}
-    </button>
+    <div className="dm-pack-choice-tile" data-previewed={previewed || undefined}>
+      <button
+        type="button"
+        className="dm-pack-choice"
+        data-kind={choice.kind}
+        data-rarity={choice.rarity}
+        data-revealed={revealed || undefined}
+        data-selected={selected || undefined}
+        disabled={!revealed || disabled}
+        style={{ "--reveal-index": index } as CSSProperties}
+        aria-label={revealed ? `${copy.name}, ${copy.effect}${selected ? ", 선택됨" : ", 선택 미리보기"}` : `숨겨진 카드 ${index + 1}`}
+        aria-pressed={revealed ? previewed : undefined}
+        onClick={onPreview}
+      >
+        <span className="dm-pack-choice__back"><b>DECK<br />MAYHEM</b></span>
+        <span className="dm-pack-choice__front">
+          <small>{RARITY_LABELS[choice.rarity]}</small>
+          {choice.kind === "card" ? (
+            <span className="dm-pack-choice__number" data-color={choice.card.color}>
+              <i />
+              <b>{copy.symbol}</b>
+            </span>
+          ) : (
+            <span className={`dm-pack-choice__icon${copy.artSrc ? " is-special-art" : ""}`}>{copy.artSrc ? <img className="special-card-art" src={copy.artSrc} alt="" /> : <b>{copy.symbol}</b>}</span>
+          )}
+          <strong>{copy.name}</strong>
+          <span>{copy.effect}</span>
+        </span>
+        {selected && <em>SELECTED</em>}
+      </button>
+      {previewed && !selected && (
+        <button type="button" className="dm-pack-choice__confirm" onClick={onConfirm}>
+          SELECT
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -614,10 +645,10 @@ function PackOpeningController({
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [targetCardIds, setTargetCardIds] = useState<readonly string[]>([]);
   const [targetColor, setTargetColor] = useState<CardColor | null>(null);
+  const [previewChoiceId, setPreviewChoiceId] = useState<string | null>(null);
   const [packNotice, setPackNotice] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
   const config = CARD_PACK_CONFIG[opening.packKind];
-  const definition = PACK_DEFINITIONS[opening.packKind];
   const choices = useMemo(() => normalizedPackChoices(opening), [opening]);
   const pickCount = opening.pickCount ?? 1;
   const selectedChoice = choices.find((choice) => selectedIds.includes(choice.id));
@@ -650,14 +681,29 @@ function PackOpeningController({
     }, 520));
   }
 
-  function toggleChoice(choiceId: string) {
-    setSelectedIds((current) => {
-      if (current.includes(choiceId)) return current.filter((id) => id !== choiceId);
-      if (current.length >= pickCount) return current;
-      return [...current, choiceId];
-    });
+  function previewChoice(choiceId: string) {
+    if (selectedIds.includes(choiceId)) return;
+    setPreviewChoiceId((current) => current === choiceId ? null : choiceId);
+    setPackNotice(null);
+  }
+
+  function confirmChoice(choiceId: string) {
+    if (selectedIds.includes(choiceId)) return;
+    if (selectedIds.length >= pickCount) {
+      setPackNotice(`이 팩에서는 ${pickCount}장만 선택할 수 있습니다.`);
+      return;
+    }
+    const nextSelectedIds = [...selectedIds, choiceId];
+    setSelectedIds(nextSelectedIds);
+    setPreviewChoiceId(null);
     setTargetCardIds([]);
     setPackNotice(null);
+
+    const confirmedChoice = choices.find((choice) => choice.id === choiceId);
+    const rules = choiceTargetRules(confirmedChoice);
+    if (nextSelectedIds.length === pickCount && rules.maxTargets === 0) {
+      onTake(nextSelectedIds);
+    }
   }
 
   function toggleTargetCard(cardId: string) {
@@ -718,100 +764,97 @@ function PackOpeningController({
         </header>
 
         {packNotice && (
-          <div style={{ background: "rgba(255, 66, 66, 0.18)", border: "1px solid #ff5555", color: "#ff8888", padding: "8px 14px", borderRadius: "4px", fontSize: "0.85rem", margin: "6px 0", textAlign: "center", fontWeight: "bold" }}>
+          <div className="dm-pack-notice">
             ⚠️ {packNotice}
           </div>
         )}
 
-        {phase === "sealed" || phase === "opening" ? (
-          <button type="button" className="dm-sealed-pack" data-opening={phase === "opening" || undefined} onClick={openPack}>
-            <span>{config.symbol}</span><strong>{config.name}</strong><small>{phase === "opening" ? "OPENING…" : "CLICK TO OPEN"}</small>
-          </button>
-        ) : (
-          <div className="dm-pack-choices">
-            {choices.map((choice, index) => (
-              <PackChoiceCard
-                choice={choice}
-                index={index}
-                revealed={index < revealedCount}
-                selected={selectedIds.includes(choice.id)}
-                disabled={phase !== "selecting"}
-                key={choice.id}
-                onToggle={() => toggleChoice(choice.id)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="dm-pack-content">
+          {phase === "sealed" || phase === "opening" ? (
+            <button type="button" className="dm-sealed-pack" data-opening={phase === "opening" || undefined} onClick={openPack}>
+              <img className="dm-sealed-pack__art" src={config.artSrc} alt="" aria-hidden="true" />
+              <span className="dm-sealed-pack__copy"><strong>{config.name}</strong><small>{phase === "opening" ? "OPENING…" : "CLICK TO OPEN"}</small></span>
+            </button>
+          ) : (
+            <div className="dm-pack-choices">
+              {choices.map((choice, index) => (
+                <PackChoiceCard
+                  choice={choice}
+                  index={index}
+                  revealed={index < revealedCount}
+                  previewed={previewChoiceId === choice.id}
+                  selected={selectedIds.includes(choice.id)}
+                  disabled={phase !== "selecting"}
+                  key={choice.id}
+                  onPreview={() => previewChoice(choice.id)}
+                  onConfirm={() => confirmChoice(choice.id)}
+                />
+              ))}
+            </div>
+          )}
 
-        {phase === "selecting" && requiresTargetCard && selectionFilled && (
-          <section className="dm-pack-targets" aria-label="적용할 덱 카드 선택">
-            <header>
-              <div>
-                <span>TARGET CARD</span>
-                <strong>
-                  {minTargets === maxTargets
-                    ? `적용할 덱 카드 ${minTargets}장을 선택하세요`
-                    : `적용할 덱 카드를 ${minTargets}~${maxTargets}장 선택하세요`}
-                  {` (선택됨 ${targetCardIds.length}/${maxTargets}장)`}
-                </strong>
-              </div>
-              {selectedUpgrade && selectedTarget && (
-                <p>
-                  {COLOR_LABELS[selectedTarget.color]} {selectedTarget.rank} · 기본
-                  <b> → {CARD_ENHANCEMENT_CONFIG[selectedUpgrade.enhancement].name}</b>
-                </p>
+          {phase === "selecting" && requiresTargetCard && selectionFilled && (
+            <section className="dm-pack-targets" aria-label="적용할 덱 카드 선택">
+              <header>
+                <div>
+                  <span>TARGET CARD</span>
+                  <strong>
+                    {minTargets === maxTargets
+                      ? `적용할 덱 카드 ${minTargets}장을 선택하세요`
+                      : `적용할 덱 카드를 ${minTargets}~${maxTargets}장 선택하세요`}
+                    {` (선택됨 ${targetCardIds.length}/${maxTargets}장)`}
+                  </strong>
+                </div>
+                {selectedUpgrade && selectedTarget && (
+                  <p>
+                    {COLOR_LABELS[selectedTarget.color]} {selectedTarget.rank} · 기본
+                    <b> → {CARD_ENHANCEMENT_CONFIG[selectedUpgrade.enhancement].name}</b>
+                  </p>
+                )}
+              </header>
+              {needsColor && (
+                <div
+                  className="dm-utility-colors"
+                  data-has-selection={Boolean(targetColor)}
+                  role="group"
+                  aria-label="변경할 채널 색"
+                >
+                  {(["red", "yellow", "green", "blue"] as const).map((color) => {
+                    const isSelected = targetColor === color;
+                    return (
+                      <button
+                        type="button"
+                        data-color={color}
+                        aria-pressed={isSelected}
+                        key={color}
+                        onClick={() => {
+                          setTargetColor(color);
+                          setPackNotice(null);
+                        }}
+                      >
+                        {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </header>
-            {needsColor && (
-              <div
-                className="dm-utility-colors"
-                data-has-selection={Boolean(targetColor)}
-                role="group"
-                aria-label="변경할 채널 색"
-                style={{ marginBottom: "10px" }}
+              <DeckCardGrid
+                cards={targetCards}
+                ariaLabel="대상 카드"
+                selectedIds={targetCardIds}
+                onSelect={(card) => toggleTargetCard(card.id)}
+              />
+              <button
+                type="button"
+                className="dm-pack-target-confirm"
+                disabled={!takeEnabled}
+                onClick={handleTakeClick}
               >
-                {(["red", "yellow", "green", "blue"] as const).map((color) => {
-                  const isSelected = targetColor === color;
-                  return (
-                    <button
-                      type="button"
-                      data-color={color}
-                      aria-pressed={isSelected}
-                      key={color}
-                      onClick={() => {
-                        setTargetColor(color);
-                        setPackNotice(null);
-                      }}
-                    >
-                      {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <DeckCardGrid
-              cards={targetCards}
-              ariaLabel="대상 카드"
-              selectedIds={targetCardIds}
-              onSelect={(card) => toggleTargetCard(card.id)}
-            />
-          </section>
-        )}
-
-        <footer>
-          <span>RARITY WEIGHT · {Object.entries(definition.weights).filter(([, weight]) => weight > 0).map(([rarity, weight]) => `${rarity.toUpperCase()} ${weight}`).join(" / ")}</span>
-          <button
-            type="button"
-            style={
-              takeEnabled
-                ? { background: "#00e5ff", color: "#000", borderColor: "#00e5ff", fontWeight: "bold", boxShadow: "0 0 12px rgba(0, 229, 255, 0.45)", cursor: "pointer" }
-                : { cursor: "pointer" }
-            }
-            onClick={handleTakeClick}
-          >
-            TAKE {pickCount} {takeEnabled ? "✓" : ""}
-          </button>
-        </footer>
+                SELECT TARGET
+              </button>
+            </section>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -828,10 +871,15 @@ export function GarageView({
   onTakePack,
   onPackOpen,
   onPackReveal,
+  selectedDetailKey,
+  onSelectedDetailChange,
 }: GarageViewProps) {
   const offers = useMemo(() => run.shop?.offers ?? [], [run.shop?.offers]);
   const soldIds = useMemo(() => new Set(run.shop?.soldOfferIds ?? []), [run.shop?.soldOfferIds]);
-  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [uncontrolledSelectedOfferId, setUncontrolledSelectedOfferId] = useState<string | null>(null);
+  const selectedOfferId = onSelectedDetailChange
+    ? selectedDetailKey?.startsWith("shop-") ? selectedDetailKey.slice("shop-".length) : null
+    : uncontrolledSelectedOfferId;
   const [targetOfferId, setTargetOfferId] = useState<string | null>(null);
   const [protocolOfferId, setProtocolOfferId] = useState<string | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
@@ -847,6 +895,10 @@ export function GarageView({
   const visibleSelectedOfferId = offers.some((offer) => offer.id === selectedOfferId)
     ? selectedOfferId
     : null;
+  const setSelectedOffer = (offerId: string | null) => {
+    if (onSelectedDetailChange) onSelectedDetailChange(offerId ? `shop-${offerId}` : null);
+    else setUncontrolledSelectedOfferId(offerId);
+  };
   const offerById = new Map(offers.map((offer) => [offer.id, offer]));
   const leaveForNextRound = () => {
     if (leavingGarage || run.packOpening) return;
@@ -890,7 +942,7 @@ export function GarageView({
       onBuy(offer, options);
       purchaseTimer.current = window.setTimeout(() => {
         setPurchasingId(null);
-        setSelectedOfferId(null);
+        setSelectedOffer(null);
         setProtocolOfferId(null);
       }, 220);
     }, 220);
@@ -905,7 +957,7 @@ export function GarageView({
         selected={visibleSelectedOfferId === offer.id}
         purchasing={purchasingId === offer.id}
         key={offer.id}
-        onSelect={() => setSelectedOfferId((current) => current === offer.id ? null : offer.id)}
+        onSelect={() => setSelectedOffer(selectedOfferId === offer.id ? null : offer.id)}
         onBuy={() => purchase(offer)}
       />
     );
@@ -954,7 +1006,7 @@ export function GarageView({
                 type="button"
                 className="is-reroll"
                 disabled={!run.shop || run.coins < run.shop.rerollCost || Boolean(run.packOpening)}
-                onClick={() => { setSelectedOfferId(null); onReroll(); }}
+                onClick={() => { setSelectedOffer(null); onReroll(); }}
                 aria-label={`새로고침 · 오늘의 신호만 교체, ${run.shop?.rerollCost ?? 0}코인`}
               >
                 <span>새로고침</span><b>{run.shop?.rerollCost ?? 0}¢</b>
@@ -1000,7 +1052,7 @@ export function GarageView({
           onSelect={(card) => {
             onSelectDeckTarget(targetOffer, card);
             setTargetOfferId(null);
-            setSelectedOfferId(null);
+            setSelectedOffer(null);
           }}
         />
       )}

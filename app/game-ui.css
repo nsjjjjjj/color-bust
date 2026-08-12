@@ -19,6 +19,159 @@
   --dm-shadow: #020405;
 }
 
+/* Final MAYHEM-card cell: no title strip and no shared rack sizing. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 112px)) !important;
+    grid-auto-rows: auto !important;
+    justify-content: start !important;
+    align-content: center !important;
+    align-items: center !important;
+    gap: 9px !important;
+    height: auto !important;
+    padding: 0 8px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    display: block !important;
+    width: 112px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 112px !important;
+    place-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1086 / 1448 !important;
+    padding: 4px !important;
+    overflow: hidden !important;
+    border: 2px solid #d64e61 !important;
+    background: #08090c !important;
+    box-shadow: 3px 4px 0 #050708 !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: #050708 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .special-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    /* The exported file has a small black gutter on its right edge. Shift the
+     * visible red card frame, not its bitmap box, onto the cell centre. */
+    transform: translateX(-5%) !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status),
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status) {
+    display: none !important;
+  }
+}
+
+/* The supplied MOD/MAYHEM art already includes its own frame.  Keep the rack
+ * as the only container and remove the second, empty-looking card wrapper. */
+.deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+.deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger:hover,
+.deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger:focus-visible,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger:hover,
+.deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger:focus-visible {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Empty capacity is communicated by the MOD/MAYHEM counters.  Do not render
+ * extra blank-card panels behind the supplied artwork. */
+.deck-run-view .deck-play-table .modifier-rail-empty-slot,
+.deck-run-view-shop .deck-play-table .modifier-rail-empty-slot {
+  display: none !important;
+}
+
+/* MAYHEM faces have their own portrait well: do not inherit the MOD icon or
+ * title-strip sizing, which was cropping the supplied image at its bottom. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    display: grid !important;
+    grid-template-columns: repeat(3, 112px) !important;
+    grid-auto-rows: auto !important;
+    justify-content: start !important;
+    align-content: center !important;
+    align-items: center !important;
+    gap: 9px !important;
+    height: auto !important;
+    padding: 0 8px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    display: block !important;
+    width: 112px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 112px !important;
+    place-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1086 / 1448 !important;
+    padding: 4px !important;
+    overflow: hidden !important;
+    border: 2px solid #d64e61 !important;
+    background: #08090c !important;
+    box-shadow: 3px 4px 0 #050708 !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: #050708 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .special-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+}
+
 /* Balatro-inspired scoring theatre -----------------------------------------
  * The engine already resolves PATTERN -> CARD -> card MODs -> next CARD.
  * These rules give that authoritative sequence room on the felt: the unplayed
@@ -1361,6 +1514,22 @@
   font-size: 12px;
 }
 
+/* Supplied MOD/MAYHEM faces replace symbolic placeholders. Keep source pixels crisp. */
+.modifier-rail-slot-icon .special-card-art,
+.modifier-rail-tooltip-header .special-card-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.modifier-rail-slot-icon:has(.special-card-art) {
+  overflow: hidden;
+  border-color: transparent;
+  background: #070a0c;
+}
+
 .modifier-rail-slot-copy { min-width: 0; display: grid; gap: 3px; }
 .modifier-rail-slot-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; }
 .modifier-rail-slot-copy small { color: var(--dm-muted); font-size: 6px; }
@@ -1401,6 +1570,10 @@
 .modifier-rail-tooltip-header > div { display: grid; gap: 3px; }
 .modifier-rail-tooltip-header strong { font-size: 11px; }
 .modifier-rail-tooltip-header small { color: var(--dm-muted); font-size: 7px; }
+.modifier-rail-slot-selected > .modifier-rail-slot-trigger {
+  border-color: var(--dm-score);
+  box-shadow: 0 0 0 2px rgba(230, 189, 69, .25), 5px 5px var(--dm-shadow);
+}
 .modifier-rail-tooltip-description { margin: 0; color: #bec7c5; font-size: 8px; line-height: 1.55; }
 .modifier-rail-tooltip-meta { display: grid; grid-template-columns: 1fr 1fr; margin: 0; }
 .modifier-rail-tooltip-meta div { padding: 7px; border: 1px solid var(--dm-line-soft); }
@@ -3214,6 +3387,432 @@
   .mobile-run-rail-lower .mobile-run-rail-run-meta {
     grid-column: auto;
     grid-row: auto;
+  }
+}
+
+/* Final desktop inspector sizing: identity and effect are the only visible
+ * rows, so they can use the space released by the removed status panels. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .modifier-rail-tooltip,
+  .deck-run-view-shop .modifier-rail-tooltip {
+    gap: 10px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-header,
+  .deck-run-view-shop .modifier-rail-tooltip-header {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-header > span,
+  .deck-run-view-shop .modifier-rail-tooltip-header > span {
+    width: 72px !important;
+    height: 94px !important;
+    overflow: hidden;
+    background: #050807 !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-header > div,
+  .deck-run-view-shop .modifier-rail-tooltip-header > div {
+    align-content: center;
+    gap: 7px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-header strong,
+  .deck-run-view-shop .modifier-rail-tooltip-header strong {
+    font-size: 19px !important;
+    line-height: 1.2 !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-header small,
+  .deck-run-view-shop .modifier-rail-tooltip-header small {
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip-description,
+  .deck-run-view-shop .modifier-rail-tooltip-description {
+    margin: 2px 0 4px !important;
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+}
+
+/* Rebuild the MAYHEM wells as portrait-card cells.  Earlier rack styles were
+ * sharing a title-strip row with the art, which forced the image to crop at
+ * the bottom.  These cells contain only the supplied card face. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 112px)) !important;
+    grid-auto-rows: auto !important;
+    justify-content: start !important;
+    align-content: center !important;
+    align-items: center !important;
+    gap: 9px !important;
+    height: auto !important;
+    padding: 0 8px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    display: block !important;
+    width: 112px !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 112px !important;
+    place-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    aspect-ratio: 1086 / 1448 !important;
+    padding: 4px !important;
+    overflow: hidden !important;
+    border: 2px solid #d64e61 !important;
+    background: #08090c !important;
+    box-shadow: 3px 4px 0 #050708 !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: #050708 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .special-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status),
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status) {
+    display: none !important;
+  }
+}
+
+/* MOD faces are self-explanatory in the compact rack.  Keep the entire slot
+ * for the supplied card art; the full name and effect remain in its hover
+ * inspector instead of being clipped to a single white character. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0 !important;
+    padding: 4px !important;
+  }
+}
+
+/* Detail cards only need the identity and effect: make those two pieces easy
+ * to scan instead of reserving space for transient hand-condition readouts. */
+.deck-run-view .modifier-rail-tooltip,
+.deck-run-view-shop .modifier-rail-tooltip {
+  gap: 10px !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-header,
+.deck-run-view-shop .modifier-rail-tooltip-header {
+  grid-template-columns: 72px minmax(0, 1fr) !important;
+  gap: 14px !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-header > span,
+.deck-run-view-shop .modifier-rail-tooltip-header > span {
+  width: 72px !important;
+  height: 94px !important;
+  overflow: hidden;
+  background: #050807 !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-header > div,
+.deck-run-view-shop .modifier-rail-tooltip-header > div {
+  align-content: center;
+  gap: 7px !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-header strong,
+.deck-run-view-shop .modifier-rail-tooltip-header strong {
+  font-size: 19px !important;
+  line-height: 1.2 !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-header small,
+.deck-run-view-shop .modifier-rail-tooltip-header small {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
+
+.deck-run-view .modifier-rail-tooltip-description,
+.deck-run-view-shop .modifier-rail-tooltip-description {
+  margin: 2px 0 4px !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+/* MAYHEM slots are narrow but tall.  Let each card keep its natural portrait
+ * ratio instead of stretching a black image holder to the rack height. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    justify-content: center !important;
+    /* Tooltips are rendered from each card, so this row must not clip them. */
+    overflow: visible !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    flex: 0 1 132px !important;
+    min-width: 0 !important;
+    max-width: 132px !important;
+    align-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    aspect-ratio: 1086 / 1448 !important;
+    gap: 0 !important;
+    padding: 3px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status),
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status) {
+    display: none !important;
+  }
+}
+
+/* MOD portrait alignment: centre the black art well itself, not only the
+ * image inside it.  That removes the left-heavy appearance on a wide slot. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot {
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot > .modifier-rail-slot-trigger {
+    display: grid !important;
+    width: 100% !important;
+    height: 100% !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    place-items: center !important;
+    padding: 6px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon {
+    display: grid !important;
+    width: min(100%, 116px) !important;
+    height: min(100%, 166px) !important;
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    place-self: center !important;
+    aspect-ratio: 1086 / 1448 !important;
+    overflow: hidden !important;
+    background: #050807 !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot .special-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+}
+
+/* MAYHEM bay: three portrait wells, sized from the bay itself.  Keeping this
+ * at the end avoids older top-rack rules shrinking a portrait back to an
+ * icon-sized card after the three-column layout has been calculated. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view-playing .deck-play-table,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(184px, 19.5vh, 208px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table > .modifier-rail-root,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    min-height: clamp(184px, 19.5vh, 208px) !important;
+    height: clamp(184px, 19.5vh, 208px) !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    height: 100% !important;
+    gap: 6px !important;
+    padding: 0 2px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    display: grid !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    place-items: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    width: min(100%, 108px) !important;
+    height: auto !important;
+    max-height: calc(100% - 4px) !important;
+    aspect-ratio: 2 / 3 !important;
+    padding: 2px !important;
+  }
+}
+
+/* Equipped MAYHEM cards use the same complete-card language as a shop offer:
+ * a framed portrait and a short title strip, rather than an oversized empty
+ * well.  This keeps three cards readable while preserving their hover detail. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    max-width: 112px !important;
+    justify-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-rows: minmax(0, 1fr) 24px !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    padding: 5px 5px 4px !important;
+    overflow: hidden !important;
+    border: 2px solid #d64e61 !important;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 8px),
+      linear-gradient(145deg, #27101a, #100f16 72%) !important;
+    box-shadow: inset 0 0 0 1px rgba(255,179,193,.22), 3px 4px 0 #050708 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon {
+    display: grid !important;
+    width: 100% !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(255,112,134,.68) !important;
+    background: #050708 !important;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.65) !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .special-card-art {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy {
+    display: grid !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    padding: 0 2px !important;
+    text-align: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy strong,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy strong {
+    display: block !important;
+    overflow: hidden !important;
+    color: #fff1d9 !important;
+    font-size: 10px !important;
+    line-height: 1.1 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy small,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-copy small {
+    display: none !important;
+  }
+}
+
+/* Compact the top rack around actual portrait cards.  The MAYHEM bay always
+ * has exactly three equal wells, so all three cards remain inside the panel
+ * rather than one spilling past its right edge. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view-playing .deck-play-table,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(178px, 19vh, 218px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table > .modifier-rail-root,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    min-height: clamp(178px, 19vh, 218px) !important;
+    height: clamp(178px, 19vh, 218px) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table .modifier-rail-section,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-section {
+    grid-template-rows: 24px minmax(0, 1fr) !important;
+    padding: 6px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon {
+    width: clamp(84px, 7.5vw, 112px) !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    aspect-ratio: 1086 / 1448 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    justify-items: center !important;
+    gap: 5px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    width: min(100%, 110px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    width: 100% !important;
+    max-height: 148px !important;
+    aspect-ratio: 1086 / 1448 !important;
   }
 }
 
@@ -10945,6 +11544,176 @@
   }
 }
 
+/* The upper MOD/MAYHEM rack is a physical card rack: each supplied face owns
+ * its full slot. Names and counters remain available through its tooltip, but
+ * never compete with the card art in the rack itself. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    place-items: stretch !important;
+    gap: 0 !important;
+    padding: 3px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: #050807 !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art {
+    display: block !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    height: calc(100% - 18px) !important;
+    max-width: calc(100% - 16px) !important;
+    max-height: calc(100% - 18px) !important;
+    margin: 0 !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) :is(.modifier-rail-slot-copy, .modifier-rail-slot-status),
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) :is(.modifier-rail-slot-copy, .modifier-rail-slot-status) {
+    display: none !important;
+  }
+}
+
+/* Upper MOD / MAYHEM rack -------------------------------------------------
+ * Supplied faces remain visible like the shop cards, but the rack also keeps
+ * the one or two bits of information needed to make a play decision. Earlier
+ * rules turned every special slot into art-only artwork and reduced the copy
+ * to tiny hidden labels, leaving MAYHEM cards impossible to read in play. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    grid-template-columns: clamp(70px, 5.4vw, 96px) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    gap: clamp(8px, .7vw, 13px) !important;
+    padding: clamp(7px, .65vw, 11px) !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    display: grid !important;
+    overflow: hidden !important;
+    border: 1px solid rgba(232, 223, 176, .38) !important;
+    background: #050807 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy {
+    min-width: 0;
+    display: grid !important;
+    align-content: center;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong {
+    overflow: hidden;
+    color: #fff4d8 !important;
+    font-size: clamp(13px, 1.02vw, 18px) !important;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small {
+    display: -webkit-box !important;
+    overflow: hidden;
+    color: #bdd2c7 !important;
+    font-size: clamp(10px, .75vw, 13px) !important;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-status,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-status {
+    position: absolute;
+    right: 7px;
+    bottom: 6px;
+    display: block !important;
+    padding: 3px 5px;
+    border: 1px solid rgba(236, 204, 92, .42);
+    color: #f5d66c !important;
+    background: rgba(7, 18, 15, .88);
+    font-size: 8px !important;
+    font-style: normal;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-mayhem-copy em,
+  .deck-run-view-shop .deck-play-table .modifier-rail-mayhem-copy em {
+    overflow: hidden;
+    color: #e0b6f4;
+    font: 9px/1.2 "Galmuri11", ui-monospace, monospace;
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    grid-template-columns: clamp(74px, 5.8vw, 102px) minmax(0, 1fr) !important;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-playing .deck-play-table,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(230px, 24vh, 278px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-playing .deck-play-table > .modifier-rail-root,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    min-height: clamp(230px, 24vh, 278px) !important;
+    height: clamp(230px, 24vh, 278px) !important;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    grid-template-columns: 56px minmax(0, 1fr) !important;
+    gap: 6px !important;
+    padding: 5px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong { font-size: 11px !important; }
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small { font-size: 8px !important; }
+  .deck-run-view .deck-play-table .modifier-rail-mayhem-copy em,
+  .deck-run-view-shop .deck-play-table .modifier-rail-mayhem-copy em { font-size: 7px; }
+}
+
 /* Home collection and feedback keep the lobby visible and use the same
  * upward-moving sheet language as Options.  Their data views remain intact;
  * only their presentation changes from a full navigation page to a focused
@@ -11006,9 +11775,56 @@
 .lobby-play-sheet .game-select-screen--embedded .game-select-panel::before { left: clamp(20px, 3vw, 34px); }
 .lobby-leaderboard-sheet.modal-panel { width: min(980px, 100%); }
 
-/* The creator is a dense desktop work surface. Give it a wide canvas and let
- * the panel scroll under the sticky header once module choices, bigger type,
- * and the registration button no longer fit the viewport height. */
+/* A small, contextual account invitation in the social sheets. It makes the
+ * benefit clear without blocking visitors from browsing public content. */
+.social-login-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(12px, 2vw, 22px);
+  margin: 0 0 16px;
+  padding: 13px 15px;
+  border: 2px solid #3b6f70;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(28, 98, 90, .28), rgba(10, 24, 27, .9) 62%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(199, 245, 226, .035) 3px 4px);
+  box-shadow: inset 0 0 0 1px rgba(183, 246, 226, .08), 3px 4px 0 rgba(2, 7, 8, .7);
+}
+
+.social-login-prompt > div { display: grid; gap: 4px; min-width: 0; }
+.social-login-prompt span { color: #66d9d4; font: 700 10px/1 "Galmuri11", ui-monospace, monospace; letter-spacing: .08em; }
+.social-login-prompt strong { color: #eaf5e7; font: 700 13px/1.4 "Galmuri11", ui-monospace, monospace; }
+.social-login-prompt > a,
+.social-login-button {
+  flex: 0 0 auto;
+  display: grid;
+  min-height: 38px;
+  padding: 8px 13px;
+  border: 2px solid #d4a63b;
+  border-radius: 7px;
+  place-items: center;
+  color: #fff8e3;
+  background: linear-gradient(#dba72f, #9f6011);
+  box-shadow: 3px 4px 0 #06100e;
+  font: 700 11px/1 "Galmuri11", ui-monospace, monospace;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.social-login-prompt > a:hover,
+.social-login-button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.social-login-button { align-self: center; }
+
+@media (max-width: 640px) {
+  .social-login-prompt { align-items: stretch; flex-direction: column; }
+  .social-login-prompt > a { width: 100%; }
+  .social-login-button { width: 100%; }
+}
+
+/* The creator is a dense desktop work surface. Give it the available viewport
+ * height and a wider canvas so all module choices and the registration button
+ * stay visible without a panel scrollbar. Small screens keep the safe scroll
+ * fallback below. */
 @media (min-width: 761px) {
   .modal-backdrop:has(.creator-sheet) { padding: 12px; }
   .creator-sheet.modal-panel {
@@ -11053,6 +11869,84 @@
   .creator-sheet .budget-meter { margin: 12px 0 8px; padding: 8px; }
   .creator-sheet .creator-preview > p { margin: 8px 0; }
   .creator-sheet .creator-preview ul { min-height: 0; margin: 8px 0; }
+}
+
+/* Community card creator: this is a configuration surface, so its supporting
+ * text needs to stay readable instead of inheriting the tiny HUD treatment. */
+.creator-sheet .creator-form label {
+  color: #e7f5f1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.creator-sheet .creator-form :is(input, textarea) {
+  color: #f6fbf8;
+  border-color: #5c7581;
+  background: #090f17;
+  font-size: 13px;
+}
+
+.creator-sheet .module-columns h3 {
+  color: #f4fbf7;
+  font-size: 14px;
+}
+
+.creator-sheet .module-option {
+  min-height: 52px;
+  border-color: #526274;
+  background: #1c2435;
+}
+
+.creator-sheet .module-option > b {
+  width: 31px;
+  height: 31px;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.creator-sheet .module-option strong {
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.creator-sheet .module-option small {
+  color: #b9c8d5;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.creator-sheet .module-option.benefit.active {
+  border-color: #50f59b;
+  background: rgba(30, 150, 99, .25);
+}
+
+.creator-sheet .module-option.drawback.active {
+  border-color: #ff7771;
+  background: rgba(181, 65, 65, .28);
+}
+
+.creator-sheet .budget-meter {
+  color: #ffb9b3;
+  font-size: 12px;
+}
+
+.creator-sheet .budget-meter.balanced { color: #54f5a3; }
+
+.creator-sheet .creator-preview > p,
+.creator-sheet .creator-preview li {
+  color: #c9d8df;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.creator-sheet .creator-preview li b { color: #fff6cf; }
+
+@media (min-width: 761px) and (max-height: 839px) {
+  .creator-sheet .module-option { min-height: 46px; padding: 6px; }
+  .creator-sheet .module-option > b { width: 28px; height: 28px; font-size: 12px; }
+  .creator-sheet .module-option strong { font-size: 11px; }
+  .creator-sheet .module-option small { font-size: 9px; }
 }
 
 @keyframes lobby-bottom-sheet-rise {
@@ -11847,8 +12741,338 @@
   display: none;
 }
 
+/* Garage shares the run's fixed top rack.  The MAYHEM bay used to be forced
+ * into one column here, so two equipped cards were stacked in the same short
+ * row and their contents looked vertically crushed.  Keep the outer bays
+ * continuous, but give their actual cards a stable horizontal slot grid. */
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  /* Reserve a full build-rack row before laying out the Garage board.  The
+   * prior 140–170px grid row clipped the rack even when its children asked
+   * for more height, which is why the shop board started too high. */
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(205px, 21vh, 250px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    grid-template-columns: minmax(0, 1.45fr) minmax(330px, .72fr) !important;
+    min-height: clamp(205px, 21vh, 250px) !important;
+    height: clamp(205px, 21vh, 250px) !important;
+    gap: 10px !important;
+    padding: 8px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-section {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: 27px minmax(0, 1fr) !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    gap: 6px !important;
+    padding: 8px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slots {
+    display: grid !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-joker-slots {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-uno-slots {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot {
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-width: none !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table :is(.modifier-rail-slot-trigger, .modifier-rail-empty-slot) {
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot-trigger {
+    grid-template-columns: 58px minmax(0, 1fr) auto !important;
+    gap: 9px !important;
+    padding: 9px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot-icon {
+    width: 56px !important;
+    height: 78px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot-copy strong {
+    font-size: 13px !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot-copy small,
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table .modifier-rail-slot-status {
+    font-size: 10px !important;
+  }
+}
+
 @media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
   .deck-run-view-shop .mobile-run-rail-round.is-garage .mobile-run-rail-blind-copy h2 {
     font-size: clamp(30px, 3.7vw, 42px) !important;
+  }
+}
+
+/* Upper MOD / MAYHEM racks must be readable at a glance.  The card face stays
+ * prominent, but does not consume the entire slot: name and the one useful
+ * effect now live alongside it. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-columns: clamp(88px, 6.7vw, 118px) minmax(0, 1fr) !important;
+    grid-template-rows: minmax(0, 1fr) !important;
+    align-items: center !important;
+    place-items: stretch !important;
+    gap: clamp(10px, .85vw, 15px) !important;
+    padding: clamp(9px, .8vw, 14px) !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    background: #050807 !important;
+    box-shadow: none !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .special-card-art {
+    display: block !important;
+    flex: 0 1 auto !important;
+    width: auto !important;
+    height: min(100%, 156px) !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy {
+    display: grid !important;
+    min-width: 0 !important;
+    align-content: center !important;
+    gap: 8px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong {
+    display: block !important;
+    overflow: hidden !important;
+    color: #f4f0dc !important;
+    font-size: clamp(16px, 1.22vw, 22px) !important;
+    line-height: 1.1 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small {
+    display: -webkit-box !important;
+    overflow: hidden !important;
+    color: #a8eaff !important;
+    font-size: clamp(12px, .88vw, 15px) !important;
+    line-height: 1.35 !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-mayhem-copy em,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-mayhem-copy em {
+    display: block !important;
+    color: #e9b1ff !important;
+    font-size: clamp(10px, .72vw, 12px) !important;
+    font-style: normal !important;
+    line-height: 1.2 !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-status,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-status {
+    display: block !important;
+    align-self: start !important;
+    color: #77ffbd !important;
+    font-size: 11px !important;
+  }
+
+  /* Hover inspector: larger body type and card thumbnail so an effect can be
+   * understood without having to squint at the temporary tooltip. */
+  .deck-run-view .modifier-rail-tooltip,
+  .deck-run-view-shop .modifier-rail-tooltip {
+    width: min(460px, 46vw) !important;
+    padding: 16px !important;
+    gap: 13px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip header,
+  .deck-run-view-shop .modifier-rail-tooltip header {
+    grid-template-columns: 66px minmax(0, 1fr) !important;
+    gap: 13px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip header span,
+  .deck-run-view-shop .modifier-rail-tooltip header span {
+    width: 66px !important;
+    height: 84px !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip h3,
+  .deck-run-view-shop .modifier-rail-tooltip h3 {
+    font-size: 17px !important;
+    line-height: 1.15 !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip :is(p, dd, .modifier-rail-tooltip-module b),
+  .deck-run-view-shop .modifier-rail-tooltip :is(p, dd, .modifier-rail-tooltip-module b) {
+    font-size: 12px !important;
+    line-height: 1.45 !important;
+  }
+
+  .deck-run-view .modifier-rail-tooltip :is(dt, .modifier-rail-tooltip-module span),
+  .deck-run-view-shop .modifier-rail-tooltip :is(dt, .modifier-rail-tooltip-module span) {
+    font-size: 10px !important;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 1001px) and (min-height: 650px) {
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(246px, 25vh, 294px) minmax(0, 1fr) !important;
+  }
+
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table > .modifier-rail-root {
+    min-height: clamp(246px, 25vh, 294px) !important;
+    height: clamp(246px, 25vh, 294px) !important;
+  }
+}
+
+@media (orientation: landscape) and (max-width: 1366px) and (max-height: 820px) {
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) > .modifier-rail-slot-trigger {
+    grid-template-columns: 76px minmax(0, 1fr) !important;
+    gap: 9px !important;
+    padding: 8px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy strong {
+    font-size: 15px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small,
+  .deck-run-view-shop .deck-play-table .modifier-rail-slot:has(.special-card-art) .modifier-rail-slot-copy small {
+    font-size: 11px !important;
+  }
+}
+
+/* Final rack alignment: keep card faces centred in their own cells.  This is
+ * intentionally last because legacy responsive rules otherwise reintroduce
+ * the fixed-width MAYHEM row and crop the third slot. */
+@media (orientation: landscape) and (min-width: 700px) {
+  .deck-run-view .deck-play-table .modifier-rail-joker-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slots {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 172px), 172px)) !important;
+    justify-content: start !important;
+    align-items: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot {
+    display: grid !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    place-items: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot > .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot > .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    place-items: center !important;
+    padding: 7px !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot .modifier-rail-slot-icon {
+    width: auto !important;
+    height: min(100%, 172px) !important;
+    aspect-ratio: 1086 / 1448 !important;
+    background: transparent !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-joker-slot .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-joker-slot .special-card-art {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 126px), 126px)) !important;
+    min-width: 0 !important;
+    align-items: center !important;
+    justify-content: start !important;
+    justify-items: start !important;
+    gap: 7px !important;
+    overflow: visible !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot {
+    width: 126px !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    align-self: center !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-trigger {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    aspect-ratio: 1086 / 1448 !important;
+    place-items: center !important;
+    gap: 0 !important;
+    padding: 3px !important;
+    box-sizing: border-box !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .modifier-rail-slot-icon,
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots .special-card-art,
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots .special-card-art {
+    width: 100% !important;
+    height: 100% !important;
+    background: transparent !important;
+  }
+
+  .deck-run-view .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status),
+  .deck-run-view-shop .deck-play-table .modifier-rail-uno-slots :is(.modifier-rail-slot-copy, .modifier-rail-slot-status) {
+    display: none !important;
   }
 }
