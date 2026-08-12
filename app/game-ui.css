@@ -8540,6 +8540,14 @@
     grid-template-rows: 58px minmax(220px, 21vh) minmax(0, 1fr) !important;
   }
 
+  /* The shop's MOD/MAYHEM rail doesn't need as much room as the in-hand
+     joker rack does, and the shop board's two content rows need that room
+     back — otherwise the board overflows past the visible panel instead of
+     the rail shrinking to make space. */
+  .deck-run-view-shop.deck-run-view-playing .deck-play-table {
+    grid-template-rows: 58px clamp(140px, 16vh, 170px) minmax(0, 1fr) !important;
+  }
+
   .deck-run-view-playing .deck-stage-header {
     margin-inline: clamp(18px, 2.1vw, 42px);
   }
