@@ -224,6 +224,7 @@
 
 .dm-garage {
   --shop-card-w: clamp(146px, 12.2vw, 210px);
+  position: relative;
   display: flex;
   min-height: 100vh;
   min-height: 100dvh;
@@ -351,6 +352,30 @@
   background: rgba(8, 23, 25, .88);
   font-size: 12px;
   line-height: 1.35;
+}
+
+/* Purchase/reroll feedback only — overlaid so it never reserves layout
+   space or pushes the shop board around when it appears or clears. */
+.dm-garage-notice--floating {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 5;
+  min-height: 0;
+  transform: translateX(-50%);
+  border: 1px solid #43d8e5;
+  border-left-width: 3px;
+  box-shadow: 0 6px 16px rgba(2, 7, 8, .5);
+  animation: dm-garage-notice-pop 180ms ease-out both;
+}
+
+@keyframes dm-garage-notice-pop {
+  from { opacity: 0; transform: translate(-50%, -6px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-garage-notice--floating { animation: none; }
 }
 
 .dm-shop-floor {
@@ -1377,7 +1402,7 @@
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-rows: minmax(190px, 31vh) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 10px;
   margin-inline: auto;
 }
@@ -1517,7 +1542,7 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(128px, 21vh) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 9px;
     overflow: hidden;
   }
@@ -1676,7 +1701,7 @@
 .dm-garage--embedded .dm-garage-brand small { margin-top: 2px; font-size: 11px; }
 .dm-garage--embedded .dm-garage-actions { min-width: 280px; grid-template-columns: repeat(2, minmax(130px, 1fr)); }
 .dm-garage--embedded .dm-garage-notice { min-height: 27px; padding-block: 5px; }
-.dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(108px, 18vh) minmax(0, 1fr); }
+.dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(0, 1fr); }
 .dm-garage--embedded .dm-current-build { padding-block: 7px; }
 .dm-garage--embedded .dm-garage-workspace .dm-shop-grid { padding-block: 7px; }
 .dm-garage--embedded .dm-garage-workspace .dm-shop-slot { min-height: 230px; }
@@ -1705,7 +1730,7 @@
 @media (orientation: landscape) and (min-width: 1001px) and (max-height: 800px) {
   .dm-garage--embedded .dm-garage-bar { min-height: 54px; }
   .dm-garage--embedded .dm-garage-brand small { display: none; }
-  .dm-garage--embedded .dm-garage-workspace { grid-template-rows: 96px minmax(0, 1fr); }
+  .dm-garage--embedded .dm-garage-workspace { grid-template-rows: minmax(0, 1fr); }
   .dm-reward--embedded .dm-reward__card { padding: 13px 18px; }
   .dm-reward--embedded .dm-reward__header h1 { font-size: 26px; }
   .dm-reward--embedded .dm-reward__wallets { margin-top: 9px; }
@@ -1771,7 +1796,7 @@
   border: 2px solid #3c6064;
   border-radius: 14px;
   background: #29484c;
-  box-shadow: 0 8px 20px rgba(2, 7, 8, .55), inset 0 0 30px rgba(67, 216, 229, .03);
+  box-shadow: inset 0 0 30px rgba(67, 216, 229, .03);
 }
 
 .dm-shop-zone {
@@ -1779,7 +1804,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   padding: 7px 9px 9px;
   overflow: hidden;
   background:
@@ -1787,65 +1812,10 @@
     rgba(6, 17, 19, .98);
 }
 
-.dm-shop-zone::before {
-  position: absolute;
-  top: 0;
-  left: 9px;
-  width: 54px;
-  height: 3px;
-  content: "";
-  background: var(--zone-color, #50d9e5);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--zone-color, #50d9e5) 55%, transparent);
-}
-
-.dm-shop-controls {
-  --zone-color: #78e89a;
-  grid-area: controls;
-  grid-template-rows: minmax(0, 1fr);
-}
-.dm-shop-controls::before { display: none; }
+.dm-shop-controls { --zone-color: #78e89a; grid-area: controls; }
 .dm-shop-signal { --zone-color: #59dbe7; grid-area: signal; }
 .dm-shop-lab { --zone-color: #f1c94d; grid-area: lab; }
 .dm-shop-packs { --zone-color: #b687ef; grid-area: packs; }
-
-.dm-shop-zone > header {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  min-height: 34px;
-  padding: 2px 2px 5px;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.dm-shop-zone > header span {
-  display: block;
-  color: var(--zone-color);
-  font-size: 8px;
-  font-weight: 900;
-  letter-spacing: .11em;
-}
-
-.dm-shop-zone > header h2 {
-  margin: 1px 0 0;
-  color: #edf8f6;
-  font-size: clamp(14px, 1.15vw, 19px);
-  line-height: 1;
-}
-
-.dm-shop-zone > header p {
-  margin: 0;
-  color: #8fa6a3;
-  font-size: 8px;
-  font-weight: 700;
-  text-align: right;
-}
-
-.dm-shop-signal > header p b {
-  color: #ff7180;
-  text-shadow: 1px 0 #6ee6ed, -1px 0 #bc62ef;
-}
 
 .dm-shop-controls .dm-garage-actions {
   min-width: 0;
@@ -1886,23 +1856,22 @@
 }
 
 .dm-shop-controls .dm-garage-actions button.is-reroll {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  text-align: left;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  text-align: center;
 }
 
 .dm-shop-controls .dm-garage-actions button.is-reroll > span {
   color: #dbe9e6;
-  font-size: clamp(11px, 1vw, 14px);
+  font-size: clamp(13px, 1.1vw, 17px);
   letter-spacing: .03em;
 }
 
 .dm-shop-controls .dm-garage-actions button.is-reroll > b {
   margin: 0;
-  color: #f1cf54;
-  font-size: clamp(12px, 1vw, 15px);
+  color: #79ed9b;
+  font-size: clamp(13px, 1.1vw, 17px);
 }
 
 .dm-garage-workspace .dm-shop-board .dm-shop-grid {
@@ -2093,7 +2062,6 @@
   .dm-garage-stats { width: 100%; }
   .dm-current-build > header { grid-template-columns: 1fr 1fr; }
   .dm-current-build__systems { grid-column: 1 / -1; grid-template-columns: repeat(2, 1fr); }
-  .dm-shop-zone > header p { display: none; }
   .dm-shop-board {
     min-height: 1260px;
     grid-template-rows: 210px 360px 300px 360px;
@@ -2297,10 +2265,6 @@
 
 .dm-shop-zone {
   padding: 7px 10px 10px;
-}
-
-.dm-shop-zone > header {
-  min-height: 31px;
 }
 
 .dm-garage-workspace .dm-shop-board .dm-shop-grid {
@@ -2591,8 +2555,9 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(510px, calc(100% - 42px));
+    height: 100%;
     min-height: 430px;
+    flex: 1 1 auto;
   }
 
   .dm-garage--embedded .dm-shop-board {
@@ -2620,7 +2585,7 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(650px, calc(100% - 48px));
+    height: 100%;
   }
 
   .dm-garage--embedded .dm-shop-board {
@@ -2828,9 +2793,9 @@
   }
 
   .dm-garage--embedded .dm-garage-workspace {
-    height: min(720px, calc(100% - 52px));
+    height: 100%;
     min-height: 0;
-    flex: 0 1 auto;
+    flex: 1 1 auto;
   }
 
   .dm-garage--embedded .dm-shop-board {
@@ -2842,24 +2807,12 @@
     grid-template-columns: minmax(245px, 26%) minmax(0, 74%);
     grid-template-rows: repeat(2, minmax(0, 1fr));
     background: rgba(11, 25, 27, .965);
-    box-shadow: 0 12px 28px rgba(1, 7, 8, .55), inset 0 0 0 2px rgba(255,255,255,.035);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.035);
   }
 
   .dm-garage--embedded .dm-shop-zone {
     min-height: 0;
     padding: 13px 16px 15px;
-  }
-
-  .dm-garage--embedded .dm-shop-zone > header {
-    min-height: 46px;
-  }
-
-  .dm-garage--embedded .dm-shop-zone > header span {
-    font-size: 10px;
-  }
-
-  .dm-garage--embedded .dm-shop-zone > header h2 {
-    font-size: 23px;
   }
 
   .dm-garage--embedded .dm-shop-controls .dm-garage-actions {
@@ -2889,6 +2842,16 @@
   }
 
   .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-next span {
+    font-size: 24px;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-reroll {
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+
+  .dm-garage--embedded .dm-shop-controls .dm-garage-actions button.is-reroll span {
     font-size: 24px;
   }
 
