@@ -12,7 +12,7 @@ import {
   UNO_SLOT_LIMIT,
   targetForRound,
 } from "./constants";
-import { bossPenaltyFor } from "./boss-penalties";
+import { bossPenaltyFor, rollBossPenalty, type BossPenalty } from "./boss-penalties";
 import { drawCards, shuffledDeck } from "./deck";
 import {
   GHOST_CONFIG,
@@ -268,7 +268,7 @@ function selectedCardsFromHand(
 }
 
 function replaceSelectedCards(
-  state: RunState,
+  state: Pick<RunState, "hand" | "drawPile" | "discardPile" | "rngState">,
   selectedCards: readonly GameCard[],
 ): Pick<RunState, "hand" | "drawPile" | "discardPile" | "rngState"> {
   const selectedIds = new Set(selectedCards.map((card) => card.id));
@@ -286,6 +286,26 @@ function replaceSelectedCards(
     discardPile: draw.discardPile,
     rngState: draw.rngState,
   };
+}
+
+/** Picks `count` random cards out of hand and swaps them for free (a "forced-purge" boss effect). */
+function forcedBossDiscard(
+  state: Pick<RunState, "hand" | "drawPile" | "discardPile" | "rngState">,
+  count: number,
+): Pick<RunState, "hand" | "drawPile" | "discardPile" | "rngState"> {
+  let pool = [...state.hand];
+  let rngState = state.rngState;
+  const picked: GameCard[] = [];
+  const target = Math.min(count, pool.length);
+
+  for (let index = 0; index < target; index += 1) {
+    const roll = randomInt(rngState, 0, pool.length);
+    rngState = roll.nextState;
+    picked.push(pool[roll.value]);
+    pool = pool.filter((_, poolIndex) => poolIndex !== roll.value);
+  }
+
+  return replaceSelectedCards({ ...state, rngState }, picked);
 }
 
 function uniqueAndValidatedUnoPool(
@@ -352,6 +372,9 @@ export function createRun(options: CreateRunOptions = {}): RunState {
     firmware: [],
     nextRoundHandPenalty: 0,
     permanentDiscardPenalty: 0,
+    bossPenaltyId: null,
+    bossDebuffColor: null,
+    bossLockedHandType: null,
     unoUsedThisAnte: false,
     handLevels: initialHandLevels(),
     handHistory: [],
@@ -380,6 +403,7 @@ export function playHand(
     throw new GameRuleError("NO_HANDS_LEFT", "남은 핸드가 없습니다.");
   }
 
+  const bossPenalty = bossPenaltyFor(state);
   const selectedCards = selectedCardsFromHand(state, cardIds);
   const calculated = calculateHandScore(state, selectedCards, options);
   const replacement = replaceSelectedCards(state, selectedCards);
@@ -410,6 +434,31 @@ export function playHand(
     roundClearCoins = clearEffects.extraCoins;
   }
 
+  let handAfterPlay = replacement.hand;
+  let drawPileAfterPlay = replacement.drawPile;
+  let discardPileAfterPlay = replacement.discardPile;
+
+  if (
+    !roundCleared &&
+    handsLeft > 0 &&
+    bossPenalty?.autoDiscardAfterPlay &&
+    handAfterPlay.length > 0
+  ) {
+    const forced = forcedBossDiscard(
+      {
+        hand: handAfterPlay,
+        drawPile: drawPileAfterPlay,
+        discardPile: discardPileAfterPlay,
+        rngState: rngStateAfterHand,
+      },
+      bossPenalty.autoDiscardAfterPlay,
+    );
+    handAfterPlay = forced.hand;
+    drawPileAfterPlay = forced.drawPile;
+    discardPileAfterPlay = forced.discardPile;
+    rngStateAfterHand = forced.rngState;
+  }
+
   const pendingReward = roundCleared
     ? roundRewardFor(
         state,
@@ -422,7 +471,9 @@ export function playHand(
 
   let nextState: RunState = {
     ...state,
-    ...replacement,
+    hand: handAfterPlay,
+    drawPile: drawPileAfterPlay,
+    discardPile: discardPileAfterPlay,
     rngState: rngStateAfterHand,
     phase: roundCleared
       ? "reward"
@@ -438,6 +489,10 @@ export function playHand(
     unoUsedThisAnte:
       state.unoUsedThisAnte || calculated.usedUnoCardId !== undefined,
     handHistory: [...state.handHistory, calculated.breakdown.handType],
+    bossLockedHandType:
+      bossPenalty?.lockFirstHandType && !state.bossLockedHandType
+        ? calculated.breakdown.handType
+        : state.bossLockedHandType,
     shop: null,
     packOpening: null,
     pendingReward,
@@ -1610,9 +1665,26 @@ export function nextRound(state: RunState): RunState {
   }
 
   const roundNumber = state.roundNumber + 1;
-  const bossPenalty = bossPenaltyFor(ante, round);
-  const shuffled = shuffle(persistentDeck(state), state.rngState);
-  const handSize = nextRoundHandSizeFor(state);
+
+  let bossPenalty: BossPenalty | null = null;
+  // Carried forward (not reset) on non-boss rounds so the next boss roll can
+  // still see the last boss effect and avoid repeating it back to back.
+  let bossPenaltyId: RunState["bossPenaltyId"] = state.bossPenaltyId ?? null;
+  let bossDebuffColor: RunState["bossDebuffColor"] = state.bossDebuffColor ?? null;
+  let rngAfterBossRoll = state.rngState;
+  if (round === "boss") {
+    const rolled = rollBossPenalty(state.rngState, state.bossPenaltyId);
+    bossPenalty = rolled.penalty;
+    bossPenaltyId = rolled.penalty.id;
+    bossDebuffColor = rolled.debuffColor;
+    rngAfterBossRoll = rolled.nextState;
+  }
+
+  const shuffled = shuffle(persistentDeck(state), rngAfterBossRoll);
+  const handSize = Math.max(
+    3,
+    nextRoundHandSizeFor(state) + (bossPenalty?.handSizeDelta ?? 0),
+  );
   const draw = drawCards(
     shuffled.values,
     [],
@@ -1635,8 +1707,13 @@ export function nextRound(state: RunState): RunState {
       deck: persistentDeck(state),
       score: 0,
       target: Math.ceil(targetForRound(ante, round) * (bossPenalty?.targetMultiplier ?? 1)),
-      handsLeft: Math.max(1, HANDS_PER_ROUND + firmwareCount(state, "backup-power") + (bossPenalty?.handDelta ?? 0)),
+      handsLeft:
+        bossPenalty?.handsOverride ??
+        Math.max(1, HANDS_PER_ROUND + firmwareCount(state, "backup-power") + (bossPenalty?.handDelta ?? 0)),
       discardsLeft: Math.max(0, discardsPerRoundFor(state) + (bossPenalty?.discardDelta ?? 0)),
+      bossPenaltyId,
+      bossDebuffColor,
+      bossLockedHandType: null,
       nextRoundHandPenalty: 0,
       roundIncome: 0,
       jokers: state.jokers.map((joker) => ({
