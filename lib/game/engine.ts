@@ -5,6 +5,7 @@ import {
   HANDS_PER_ROUND,
   HAND_RULES,
   JOKER_CATALOG,
+  JOKER_IDS,
   MAX_PLAY_CARDS,
   ROUND_REWARDS,
   STARTING_HAND_SIZE,
@@ -20,7 +21,7 @@ import {
   UNUSED_HAND_BONUS_CAP,
 } from "./garage-config";
 import { PACK_DEFINITIONS, PackGenerator } from "./packs";
-import { hashSeed, nextRandom, shuffle } from "./rng";
+import { hashSeed, nextRandom, randomInt, shuffle } from "./rng";
 import { calculateHandScore } from "./scoring";
 import { generateShop, rerollShopSignals } from "./shop";
 import {
@@ -38,6 +39,7 @@ import {
   HAND_TYPES,
   GameRuleError,
   type CardColor,
+  type CardEnhancement,
   type CardRank,
   type ConsumableInstance,
   type CreateRunOptions,
@@ -701,6 +703,7 @@ export function useStashedGhostItem(
   instanceId: string,
   options: UseConsumableOptions = {},
 ): RunState {
+  ensurePhase(state, "playing");
   const item = state.communityUno.find((candidate) => candidate.id === instanceId);
   if (!item || !("kind" in item) || item.kind !== "ghost") {
     throw new GameRuleError("ITEM_NOT_FOUND", "사용할 고스트 카드를 찾을 수 없습니다.");
@@ -725,10 +728,10 @@ export function useStashedItem(
     throw new GameRuleError("ITEM_NOT_FOUND", "사용할 보관 카드를 찾을 수 없습니다.");
   }
   if (item.kind === "hand-upgrade") {
-    return useStashedHandUpgrade(state, instanceId);
+    return applyStashedHandUpgrade(state, instanceId);
   }
   if (item.kind === "ghost") {
-    return useStashedGhostItem(state, instanceId, options);
+    return applyStashedGhostItem(state, instanceId, options);
   }
   throw new GameRuleError("INVALID_ITEM_KIND", "사용할 수 없는 보관 항목입니다.");
 }
@@ -850,53 +853,113 @@ export function applyGhostEffect(
   ghostId: GhostId,
   options: UseConsumableOptions = {},
 ): RunState {
-  let next: RunState = { ...state };
   switch (ghostId) {
-    case "dead-channel": {
-      const [source, sacrifice] = consumableTargets(state, options, 2);
-      if (persistentDeck(state).length - 1 < MINIMUM_RUN_DECK_SIZE) {
-        throw new GameRuleError("DECK_MINIMUM_REACHED", `런 덱은 최소 ${MINIMUM_RUN_DECK_SIZE}장을 유지해야 합니다.`);
+    case "wild-signal": {
+      const [target] = consumableTargets(state, options, 1);
+      const handTarget = state.hand.find((card) => card.id === target.id);
+      if (!handTarget) {
+        throw new GameRuleError("HAND_CARD_REQUIRED", "현재 핸드에 있는 카드 1장을 선택해야 합니다.");
       }
-      let removed = removeCardEverywhere(state, source.id);
-      removed = removeCardEverywhere({ ...state, ...removed }, sacrifice.id);
-      const reborn: GameCard = {
-        ...source,
-        id: `ghost-${state.runId}-${state.actionLog.length + 1}-${source.id}`,
-        enhancement: "overclocked",
-        rarity: "legendary",
+      if (handTarget.enhancement) {
+        throw new GameRuleError("CARD_ALREADY_ENHANCED", "이미 강화된 카드는 선택할 수 없습니다.");
+      }
+      const enhancements: readonly CardEnhancement[] = ["charged", "amplified", "minted", "overclocked"];
+      const roll = randomInt(state.rngState, 0, enhancements.length);
+      return {
+        ...state,
+        rngState: roll.nextState,
+        ...updateCardEverywhere(state, handTarget.id, (card) => ({
+          ...card,
+          enhancement: enhancements[roll.value],
+        })),
       };
-      next = { ...next, ...removed, deck: [...(removed.deck ?? []), reborn] };
-      break;
     }
-    case "white-noise": {
-      const targets = consumableTargets(state, options, 1, 5);
-      if (!options.targetColor) {
-        throw new GameRuleError("COLOR_TARGET_REQUIRED", "변경할 채널 색을 선택해야 합니다.");
+    case "chaos-cache": {
+      if (state.hand.length === 0) {
+        throw new GameRuleError("HAND_EMPTY", "버릴 핸드 카드가 없습니다.");
       }
-      for (const target of targets) {
-        next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, color: options.targetColor! })) };
+      const discardRoll = randomInt(state.rngState, 0, state.hand.length);
+      let rngState = discardRoll.nextState;
+      const discarded = state.hand[discardRoll.value];
+      const enhancements: readonly CardEnhancement[] = ["charged", "amplified", "minted", "overclocked"];
+      const additions: GameCard[] = [];
+      for (let index = 0; index < 3; index += 1) {
+        const colorRoll = randomInt(rngState, 0, CARD_COLORS.length);
+        rngState = colorRoll.nextState;
+        const rankRoll = randomInt(rngState, 0, 10);
+        rngState = rankRoll.nextState;
+        const enhancementRoll = randomInt(rngState, 0, enhancements.length);
+        rngState = enhancementRoll.nextState;
+        additions.push({
+          id: `ghost-${state.runId}-${state.actionLog.length + 1}-chaos-${index}`,
+          color: CARD_COLORS[colorRoll.value],
+          rank: rankRoll.value as CardRank,
+          enhancement: enhancements[enhancementRoll.value],
+          rarity: "uncommon",
+        });
       }
-      next = { ...next, coins: Math.floor(next.coins / 2) };
-      break;
-    }
-    case "blackout": {
-      const targets = consumableTargets(state, options, 1, 5);
-      for (const target of targets) {
-        next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, rank: 0 })) };
-      }
-      next = { ...next, nextRoundHandPenalty: (state.nextRoundHandPenalty ?? 0) + 1 };
-      break;
-    }
-    case "forbidden-port":
-      next = {
-        ...next,
-        firmware: [...runFirmware(next), "expanded-mod-bay"],
-        permanentDiscardPenalty: (state.permanentDiscardPenalty ?? 0) + 1,
+      return {
+        ...state,
+        rngState,
+        hand: [...state.hand.filter((card) => card.id !== discarded.id), ...additions],
+        discardPile: [...state.discardPile, discarded],
       };
-      break;
+    }
+    case "bankrupt-bargain": {
+      if (state.jokers.length >= jokerSlotLimitFor(state)) {
+        throw new GameRuleError("JOKER_SLOTS_FULL", "레어 MOD를 생성할 빈 슬롯이 없습니다.");
+      }
+      const rareJokers = JOKER_IDS.filter((jokerId) => JOKER_CATALOG[jokerId].rarity === "rare");
+      const roll = randomInt(state.rngState, 0, rareJokers.length);
+      const jokerId = rareJokers[roll.value];
+      return {
+        ...state,
+        rngState: roll.nextState,
+        coins: 0,
+        jokers: [
+          ...state.jokers,
+          {
+            instanceId: `ghost-${state.runId}-${state.actionLog.length + 1}-rare-${jokerId}`,
+            jokerId,
+            acquiredRound: state.roundNumber,
+            ...(initialJokerCounter(jokerId) !== undefined
+              ? { counter: initialJokerCounter(jokerId) }
+              : {}),
+          },
+        ],
+      };
+    }
+    case "spectrum-wash": {
+      if (state.hand.length === 0) {
+        throw new GameRuleError("HAND_EMPTY", "색을 전환할 핸드 카드가 없습니다.");
+      }
+      const roll = randomInt(state.rngState, 0, CARD_COLORS.length);
+      const color = CARD_COLORS[roll.value];
+      const targetIds = new Set(state.hand.map((card) => card.id));
+      const recolor = (cards: readonly GameCard[]) => cards.map((card) =>
+        targetIds.has(card.id) ? { ...card, color } : card,
+      );
+      return {
+        ...state,
+        rngState: roll.nextState,
+        deck: recolor(persistentDeck(state)),
+        hand: recolor(state.hand),
+        drawPile: recolor(state.drawPile),
+        discardPile: recolor(state.discardPile),
+      };
+    }
+    case "universal-core":
+      return {
+        ...state,
+        handLevels: Object.fromEntries(
+          HAND_TYPES.map((handType) => [handType, state.handLevels[handType] + 1]),
+        ) as Record<HandType, number>,
+      };
   }
-  return next;
 }
+
+const applyStashedHandUpgrade = useStashedHandUpgrade;
+const applyStashedGhostItem = useStashedGhostItem;
 
 export function buyFirmware(state: RunState, offerId: string): RunState {
   const offer = findOffer(state, offerId);
@@ -1128,47 +1191,8 @@ export function useConsumable(
   } else {
     effectId = consumable.ghostId;
     switch (consumable.ghostId) {
-      case "dead-channel": {
-        const [source, sacrifice] = consumableTargets(state, options, 2);
-        if (persistentDeck(state).length - 1 < MINIMUM_RUN_DECK_SIZE) {
-          throw new GameRuleError("DECK_MINIMUM_REACHED", `런 덱은 최소 ${MINIMUM_RUN_DECK_SIZE}장을 유지해야 합니다.`);
-        }
-        let removed = removeCardEverywhere(state, source.id);
-        removed = removeCardEverywhere({ ...state, ...removed }, sacrifice.id);
-        const reborn: GameCard = {
-          ...source,
-          id: `ghost-${state.runId}-${state.actionLog.length + 1}-${source.id}`,
-          enhancement: "overclocked",
-          rarity: "legendary",
-        };
-        next = { ...next, ...removed, deck: [...(removed.deck ?? []), reborn] };
-        break;
-      }
-      case "white-noise": {
-        const targets = consumableTargets(state, options, 1, 5);
-        if (!options.targetColor) {
-          throw new GameRuleError("COLOR_TARGET_REQUIRED", "변경할 채널 색을 선택해야 합니다.");
-        }
-        for (const target of targets) {
-          next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, color: options.targetColor! })) };
-        }
-        next = { ...next, coins: Math.floor(next.coins / 2) };
-        break;
-      }
-      case "blackout": {
-        const targets = consumableTargets(state, options, 1, 5);
-        for (const target of targets) {
-          next = { ...next, ...updateCardEverywhere(next, target.id, (card) => ({ ...card, rank: 0 })) };
-        }
-        next = { ...next, nextRoundHandPenalty: (state.nextRoundHandPenalty ?? 0) + 1 };
-        break;
-      }
-      case "forbidden-port":
-        next = {
-          ...next,
-          firmware: [...runFirmware(next), "expanded-mod-bay"],
-          permanentDiscardPenalty: (state.permanentDiscardPenalty ?? 0) + 1,
-        };
+      case "wild-signal":
+        next = applyGhostEffect(state, consumable.ghostId, options);
         break;
     }
   }
@@ -1289,9 +1313,9 @@ export function takePackChoices(
       : undefined;
 
   let nextCoins = state.coins;
-  let nextFirmware = state.firmware;
-  let nextRoundHandPenalty = state.nextRoundHandPenalty;
-  let permanentDiscardPenalty = state.permanentDiscardPenalty;
+  const nextFirmware = state.firmware;
+  const nextRoundHandPenalty = state.nextRoundHandPenalty;
+  const permanentDiscardPenalty = state.permanentDiscardPenalty;
 
   if (choices.every((choice) => choice.kind === "card")) {
     const cards = choices.map((choice) => choice.card);

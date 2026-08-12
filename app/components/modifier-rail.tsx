@@ -348,6 +348,7 @@ export function ModifierRail({
           {run.communityUno.slice(0, UNO_SLOT_LIMIT).map((item) => {
             if (!isUnoCard(item)) {
               const refund = Math.max(1, Math.floor(item.price / 2));
+              const isGhost = item.kind === "ghost";
               return (
                 <article
                   className="modifier-rail-slot modifier-rail-uno-slot"
@@ -355,8 +356,8 @@ export function ModifierRail({
                   style={{ borderColor: "#00e5ff", background: "rgba(0, 229, 255, 0.12)", padding: "4px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}
                 >
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                    <b style={{ color: "#00e5ff", fontSize: "0.72rem" }}>[LV+] {item.name}</b>
-                    <small style={{ fontSize: "0.6rem", color: "#ccc" }}>보관 중</small>
+                    <b style={{ color: isGhost ? "#c084fc" : "#00e5ff", fontSize: "0.72rem" }}>[{isGhost ? "GHOST" : "LV+"}] {item.name}</b>
+                    <small style={{ fontSize: "0.6rem", color: "#ccc" }}>{isGhost ? "사용 시 고스트 효과 발동" : "보관 중"}</small>
                   </div>
                   <div style={{ display: "flex", gap: "3px", justifyContent: "center", width: "100%", marginTop: "2px" }}>
                     {onUseStashedItem && (

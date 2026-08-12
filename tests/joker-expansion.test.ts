@@ -254,7 +254,7 @@ test("perkeos-echo either leaves the stash unchanged or duplicates a ghost item 
       target: 1,
       jokers: [{ instanceId: "j-perkeo", jokerId: "perkeos-echo", acquiredRound: 1 }],
       communityUno: [
-        { id: "ghost-1", kind: "ghost", ghostId: "blackout", name: "블랙아웃", price: 7 },
+        { id: "ghost-1", kind: "ghost", ghostId: "wild-signal", name: "와일드 시그널", price: 7 },
       ],
     };
     const result = playHand(state, [state.hand[0].id]);
@@ -263,7 +263,7 @@ test("perkeos-echo either leaves the stash unchanged or duplicates a ghost item 
     if (count === 2) {
       assert.ok(
         result.state.communityUno.every(
-          (item) => "kind" in item && item.kind === "ghost" && item.ghostId === "blackout",
+          (item) => "kind" in item && item.kind === "ghost" && item.ghostId === "wild-signal",
         ),
       );
     }
