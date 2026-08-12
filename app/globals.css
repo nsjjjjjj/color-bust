@@ -418,8 +418,8 @@ body:has(.app-shell.is-immersive) {
 .uno-copy dl dd { margin: 0; line-height: 1.35; }
 .uno-copy .positive { color: #a9f0c7; background: rgba(63,210,123,.09); }
 .uno-copy .negative { color: #ffb0a6; background: rgba(255,79,58,.09); }
-.uno-meta { position: absolute; inset: auto 20px 19px 158px; display: flex; align-items: center; gap: 11px; color: var(--dim); font: 700 10px/1 ui-monospace, monospace; }
-.uno-meta button { margin-left: auto; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-3); padding: 7px 9px; color: var(--ink); font-size: 10px; }
+.uno-meta { position: absolute; inset: auto 14px 19px 150px; display: flex; align-items: center; gap: 6px; color: var(--dim); font: 700 10px/1 ui-monospace, monospace; }
+.uno-meta button { flex: none; margin-left: auto; border: 1px solid var(--line); border-radius: 5px; background: var(--panel-3); padding: 7px 9px; color: var(--ink); font-size: 10px; white-space: nowrap; }
 
 /* Modal + creator */
 .modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: rgba(2,3,7,.78); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); }
