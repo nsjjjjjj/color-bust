@@ -9,6 +9,7 @@ import {
   buyHandUpgrade,
   choosePackCard,
   claimRoundReward,
+  continueEndlessRun,
   createRun,
   drawCards,
   evaluateHand,
@@ -82,6 +83,21 @@ test("finishes standard after 15 cleared rounds and continues endless to ante 6"
   }
   assert.equal(standard.phase, "won");
   assert.equal(standard.ante, 5);
+
+  const continued = continueEndlessRun(standard);
+  assert.equal(continued.mode, "endless");
+  assert.equal(continued.phase, "shop");
+  assert.deepEqual(continued.deck, standard.deck);
+  assert.deepEqual(continued.jokers, standard.jokers);
+  assert.deepEqual(continued.communityUno, standard.communityUno);
+  assert.deepEqual(continued.handLevels, standard.handLevels);
+  assert.equal(continued.coins, standard.coins);
+  const endlessFromStandard = nextRound(continued);
+  assert.equal(endlessFromStandard.phase, "playing");
+  assert.equal(endlessFromStandard.ante, 6);
+  assert.equal(endlessFromStandard.round, "small");
+  assert.equal(endlessFromStandard.target, 4050);
+  assert.notEqual(endlessFromStandard.target, 500);
 
   let endless = createRun({ seed: "endless-15", mode: "endless" });
   for (let index = 0; index < 15; index += 1) {

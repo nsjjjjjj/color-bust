@@ -9,6 +9,7 @@ export {
   previewHand,
   discardCards,
   claimRoundReward,
+  continueEndlessRun,
   buyJoker,
   buyUnoCard,
   buyHandUpgrade,

@@ -509,6 +509,32 @@ export function claimRoundReward(state: RunState): RunState {
   return nextState;
 }
 
+/** Converts a completed five-stage run into Endless while retaining its build. */
+export function continueEndlessRun(state: RunState): RunState {
+  if (state.mode !== "standard" || state.phase !== "won" || state.ante !== 5 || state.round !== "boss") {
+    throw new GameRuleError("ENDLESS_CONTINUATION_UNAVAILABLE", "5 STAGE를 완주한 기본 런에서만 무제한 모드로 이어갈 수 있습니다.");
+  }
+
+  const shopState: RunState = {
+    ...state,
+    mode: "endless",
+    phase: "shop",
+    shop: null,
+    packOpening: null,
+    pendingReward: null,
+  };
+  const generated = generateShop(shopState);
+  return addAction(
+    {
+      ...shopState,
+      rngState: generated.rngState,
+      shop: generated.shop,
+    },
+    "continue-endless",
+    { ante: state.ante, roundNumber: state.roundNumber },
+  );
+}
+
 /**
  * Calculates the exact result the play would produce without changing RunState,
  * consuming RNG, or marking an UNO card as used.
