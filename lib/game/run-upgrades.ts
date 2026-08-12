@@ -3,7 +3,7 @@ import {
   JOKER_SLOT_LIMIT,
   STARTING_HAND_SIZE,
 } from "./constants";
-import { CONSUMABLE_SLOT_LIMIT, FIRMWARE_CONFIG } from "./garage-config";
+import { FIRMWARE_CONFIG } from "./garage-config";
 import type {
   ConsumableInstance,
   FirmwareId,
@@ -32,10 +32,6 @@ export function canInstallFirmware(state: RunState, firmwareId: FirmwareId): boo
 
 export function jokerSlotLimitFor(state: RunState): number {
   return JOKER_SLOT_LIMIT + firmwareCount(state, "expanded-mod-bay");
-}
-
-export function consumableSlotsFree(state: RunState): number {
-  return Math.max(0, CONSUMABLE_SLOT_LIMIT - runConsumables(state).length);
 }
 
 function turtleBeanBonusFor(state: RunState): number {
