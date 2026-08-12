@@ -4,12 +4,12 @@ import { useId, useRef, useState } from "react";
 
 import {
   JOKER_CATALOG,
-  JOKER_SLOT_LIMIT,
   CARD_COLORS,
   UNO_MODULE_CATALOG,
   UNO_SLOT_LIMIT,
 } from "../../lib/game/constants";
 import { COLOR_IDENTITIES, COLOR_LABELS } from "../../lib/game/colors";
+import { jokerSlotLimitFor } from "../../lib/game/run-upgrades";
 import type {
   AppliedEffect,
   CardColor,
@@ -44,6 +44,29 @@ const JOKER_ICONS: Readonly<Record<JokerId, string>> = {
   "combo-compiler": "⌘",
   "hot-swap": "↔",
   "null-pointer": "∅",
+  "venom-drip": "G",
+  "volt-surge": "Y",
+  "half-compile": "½",
+  "ice-cream-cache": "❄",
+  "memory-buffer": "▥",
+  "mystic-summit": "▲",
+  "delayed-gratification": "⏳",
+  "fibonacci-routine": "φ",
+  "loyalty-session": "★",
+  "jolly-routine": "♪",
+  "zany-core": "Z",
+  "mad-routine": "M",
+  "runner-process": "▶",
+  "green-demon": "Ψ",
+  "eight-ball-exploit": "8",
+  "bloodstone-driver": "❖",
+  "reserved-slot": "P",
+  "turtle-bean-cache": "T",
+  "spare-trousers": "‖",
+  "blueprint-protocol": "▧",
+  "cavendish-overclock": "⚠",
+  "perkeos-echo": "∴",
+  "stencil-core": "▨",
 };
 
 const RARITY_LABELS = {
@@ -62,9 +85,15 @@ export interface ModifierRailProps {
   disabled?: boolean;
   onSelectUno?: (id: string | null) => void;
   onCallColor?: (color: CardColor) => void;
+  /** Shown as a sell action in the MOD tooltip; only meaningful during the shop phase. */
+  onSellJoker?: (instanceId: string) => void;
   onUseStashedItem?: (instanceId: string) => void;
   onSellStashedItem?: (instanceId: string) => void;
   className?: string;
+}
+
+function jokerSellRefund(jokerId: JokerId): number {
+  return Math.max(1, Math.floor(JOKER_CATALOG[jokerId].price / 2));
 }
 
 function safeId(value: string): string {
@@ -91,15 +120,44 @@ function mayhemCopy(value: string): string {
 }
 
 function jokerCondition(joker: JokerInstance): string {
-  if (joker.selectedColor) return `선택 색상: ${COLOR_LABELS[joker.selectedColor]}`;
-  if (joker.counter !== undefined) return `연속 스택: ${joker.counter}/4`;
-  return `획득 라운드: ${joker.acquiredRound}`;
+  switch (joker.jokerId) {
+    case "combo-compiler":
+      return `연속 스택: ${joker.counter ?? 0}/4`;
+    case "runner-process":
+      return `누적 POWER: +${joker.counter ?? 0}`;
+    case "spare-trousers":
+    case "green-demon":
+      return `누적 HYPE: +${joker.counter ?? 0}`;
+    case "loyalty-session":
+      return `누적 핸드: ${joker.counter ?? 0}`;
+    case "ice-cream-cache":
+      return `남은 POWER: ${joker.counter ?? 0}`;
+    case "turtle-bean-cache":
+      return `남은 라운드: ${joker.counter ?? 0}`;
+    default:
+      if (joker.selectedColor) return `선택 색상: ${COLOR_LABELS[joker.selectedColor]}`;
+      return `획득 라운드: ${joker.acquiredRound}`;
+  }
 }
 
 function jokerLevel(joker: JokerInstance): string {
-  if (joker.counter !== undefined) return `연속 ${joker.counter}/4`;
-  if (joker.selectedColor) return COLOR_LABELS[joker.selectedColor];
-  return "패시브";
+  switch (joker.jokerId) {
+    case "combo-compiler":
+      return `연속 ${joker.counter ?? 0}/4`;
+    case "runner-process":
+    case "spare-trousers":
+    case "green-demon":
+      return `+${joker.counter ?? 0}`;
+    case "loyalty-session":
+      return `${joker.counter ?? 0}핸드`;
+    case "ice-cream-cache":
+      return `${joker.counter ?? 0}P`;
+    case "turtle-bean-cache":
+      return `${joker.counter ?? 0}R`;
+    default:
+      if (joker.selectedColor) return COLOR_LABELS[joker.selectedColor];
+      return "패시브";
+  }
 }
 
 function isUnoCard(item: StashedMayhemItem): item is CommunityUnoCard {
@@ -126,6 +184,7 @@ export function ModifierRail({
   disabled = false,
   onSelectUno,
   onCallColor,
+  onSellJoker,
   onUseStashedItem,
   onSellStashedItem,
   className,
@@ -133,6 +192,7 @@ export function ModifierRail({
   const reactId = safeId(useId());
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
   const pointerOpenedTooltip = useRef<string | null>(null);
+  const jokerLimit = jokerSlotLimitFor(run);
   const appliedJokerEffects = breakdown?.appliedJokers ?? [];
   const appliedUno = breakdown?.uno;
   const outerClassName = ["modifier-rail-root", className].filter(Boolean).join(" ");
@@ -147,10 +207,10 @@ export function ModifierRail({
       <section className="modifier-rail-section" aria-labelledby={`${reactId}-jokers-title`}>
         <header className="modifier-rail-section-header">
           <h2 id={`${reactId}-jokers-title`}>MOD</h2>
-          <span>{run.jokers.length}/{JOKER_SLOT_LIMIT}</span>
+          <span>{run.jokers.length}/{jokerLimit}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-joker-slots">
-          {run.jokers.slice(0, JOKER_SLOT_LIMIT).map((joker) => {
+          {run.jokers.slice(0, jokerLimit).map((joker) => {
             const definition = JOKER_CATALOG[joker.jokerId];
             const key = `joker-${joker.instanceId}`;
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
@@ -168,11 +228,6 @@ export function ModifierRail({
                 className={`modifier-rail-slot modifier-rail-joker-slot modifier-rail-rarity-${definition.rarity}${isApplied ? " modifier-rail-slot-applied" : ""}${isCurrent ? " modifier-rail-slot-current" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={joker.instanceId}
                 onMouseEnter={() => showTooltip(key)}
-                onMouseLeave={(event) => {
-                  if (!event.currentTarget.contains(event.currentTarget.ownerDocument.activeElement)) {
-                    hideTooltip(key);
-                  }
-                }}
               >
                 <button
                   type="button"
@@ -182,7 +237,13 @@ export function ModifierRail({
                   aria-controls={tooltipId}
                   aria-expanded={isOpen}
                   onFocus={() => showTooltip(key)}
-                  onBlur={() => hideTooltip(key)}
+                  onBlur={(event) => {
+                    // Moving focus into this same tooltip (e.g. the sell button)
+                    // isn't "leaving" it — only close when focus goes elsewhere.
+                    const next = event.relatedTarget;
+                    if (next && event.currentTarget.parentElement?.contains(next)) return;
+                    hideTooltip(key);
+                  }}
                   onPointerDown={(event) => {
                     pointerOpenedTooltip.current = event.pointerType !== "mouse" && openTooltip === key ? key : null;
                   }}
@@ -247,19 +308,32 @@ export function ModifierRail({
                       ))}
                     </ul>
                   )}
+                  {run.phase === "shop" && onSellJoker && (
+                    <button
+                      type="button"
+                      className="modifier-rail-tooltip-sell"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        hideTooltip(key);
+                        onSellJoker(joker.instanceId);
+                      }}
+                    >
+                      판매 +{jokerSellRefund(joker.jokerId)}¢
+                    </button>
+                  )}
                 </div>
               </article>
             );
           })}
 
-          {run.jokers.length < JOKER_SLOT_LIMIT && (
+          {run.jokers.length < jokerLimit && (
               <div
                 className="modifier-rail-slot modifier-rail-empty-slot"
                 role="img"
-                aria-label={`빈 MOD 슬롯 ${JOKER_SLOT_LIMIT - run.jokers.length}개`}
+                aria-label={`빈 MOD 슬롯 ${jokerLimit - run.jokers.length}개`}
               >
                 <span aria-hidden="true">+</span>
-                <small>{JOKER_SLOT_LIMIT - run.jokers.length}칸</small>
+                <small>{jokerLimit - run.jokers.length}칸</small>
               </div>
           )}
         </div>

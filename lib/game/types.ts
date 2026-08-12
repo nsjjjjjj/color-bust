@@ -39,8 +39,9 @@ export interface HandRule {
   readonly name: string;
   readonly baseChips: number;
   readonly baseMultiplier: number;
-  readonly chipsPerLevel: number;
-  readonly multiplierPerLevel: number;
+  /** CORE level growth, as a fraction of the ORIGINAL base value per level (e.g. 0.003 = +0.3%/level). */
+  readonly chipGrowthRate: number;
+  readonly multGrowthRate: number;
 }
 
 export interface EvaluatedHand {
@@ -69,7 +70,30 @@ export type JokerId =
   | "cmyk-core"
   | "combo-compiler"
   | "hot-swap"
-  | "null-pointer";
+  | "null-pointer"
+  | "venom-drip"
+  | "volt-surge"
+  | "half-compile"
+  | "ice-cream-cache"
+  | "memory-buffer"
+  | "mystic-summit"
+  | "delayed-gratification"
+  | "fibonacci-routine"
+  | "loyalty-session"
+  | "jolly-routine"
+  | "zany-core"
+  | "mad-routine"
+  | "runner-process"
+  | "green-demon"
+  | "eight-ball-exploit"
+  | "bloodstone-driver"
+  | "reserved-slot"
+  | "turtle-bean-cache"
+  | "spare-trousers"
+  | "blueprint-protocol"
+  | "cavendish-overclock"
+  | "perkeos-echo"
+  | "stencil-core";
 
 export interface JokerDefinition {
   readonly id: JokerId;

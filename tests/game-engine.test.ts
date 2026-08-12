@@ -58,8 +58,8 @@ test("scores zero as 10 chips and does not mutate previews", () => {
   assert.equal(JSON.stringify(original), before);
 });
 
-test("ships 20 jokers and balanced one-turn UNO modules", () => {
-  assert.equal(JOKER_IDS.length, 20);
+test("ships 43 jokers and balanced one-turn UNO modules", () => {
+  assert.equal(JOKER_IDS.length, 43);
   assert.equal(Object.keys(UNO_MODULE_CATALOG).length, 16);
   for (const card of DEFAULT_COMMUNITY_UNO_CARDS) {
     const validation = validateCommunityUnoCard(card);

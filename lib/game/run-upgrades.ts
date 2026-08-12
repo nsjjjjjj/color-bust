@@ -1,4 +1,8 @@
-import { JOKER_SLOT_LIMIT, STARTING_HAND_SIZE } from "./constants";
+import {
+  DISCARDS_PER_ROUND,
+  JOKER_SLOT_LIMIT,
+  STARTING_HAND_SIZE,
+} from "./constants";
 import { FIRMWARE_CONFIG } from "./garage-config";
 import type {
   ConsumableInstance,
@@ -6,6 +10,9 @@ import type {
   RunState,
 } from "./types";
 
+const TURTLE_BEAN_HAND_BONUS = 2;
+
+/** Legacy v1 saves have no consumable inventory. */
 export function runConsumables(state: RunState): readonly ConsumableInstance[] {
   return state.consumables ?? [];
 }
@@ -27,12 +34,30 @@ export function jokerSlotLimitFor(state: RunState): number {
   return JOKER_SLOT_LIMIT + firmwareCount(state, "expanded-mod-bay");
 }
 
+function turtleBeanBonusFor(state: RunState): number {
+  const active = state.jokers.some(
+    (joker) => joker.jokerId === "turtle-bean-cache" && (joker.counter ?? 0) > 0,
+  );
+  return active ? TURTLE_BEAN_HAND_BONUS : 0;
+}
+
 export function nextRoundHandSizeFor(state: RunState): number {
   return Math.max(
     3,
     STARTING_HAND_SIZE +
-      firmwareCount(state, "hand-memory") -
+      firmwareCount(state, "hand-memory") +
+      turtleBeanBonusFor(state) -
       Math.max(0, state.nextRoundHandPenalty ?? 0),
+  );
+}
+
+/** The discard budget a fresh round starts with, before any are spent. */
+export function discardsPerRoundFor(state: RunState): number {
+  return Math.max(
+    0,
+    DISCARDS_PER_ROUND +
+      firmwareCount(state, "recycle-unit") -
+      Math.max(0, state.permanentDiscardPenalty ?? 0),
   );
 }
 
