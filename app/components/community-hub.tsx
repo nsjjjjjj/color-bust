@@ -228,7 +228,17 @@ function UnoCreator({
   }
 
   const creatorDialog = (
-    <Modal title="커뮤니티 메이헴 카드 제작기" className="creator-sheet" onClose={onClose} wide>
+    <Modal title="커뮤니티 메이헴 카드 제작기" className="creator-sheet" onClose={onClose} wide hideHeader>
+      <header className="creator-header">
+        <div className="creator-header-top">
+          <span className="creator-kicker"><i aria-hidden="true">◇</i>CARD CREATOR</span>
+          <button type="button" className="creator-close" aria-label="닫기" onClick={onClose}>×</button>
+        </div>
+        <div className="creator-heading">
+          <span className="creator-heading-badge" aria-hidden="true">M</span>
+          <h2>커뮤니티 메이헴 카드 제작기</h2>
+        </div>
+      </header>
       <div className="creator-layout">
         <div className="creator-form">
           <label>카드 이름 (필수, 2자 이상)<input value={name} maxLength={30} minLength={2} required onChange={(event) => setName(event.target.value)} placeholder="예: 컬러 과부하" /></label>
@@ -238,7 +248,10 @@ function UnoCreator({
               const kindSelectedCount = chosen.filter((module) => module.kind === kind).length;
               return (
                 <div key={kind}>
-                  <h3>{kind === "benefit" ? "좋은 효과" : "반드시 붙는 비용"}</h3>
+                  <h3 className={`module-column-title module-column-title-${kind}`}>
+                    <i aria-hidden="true">{kind === "benefit" ? "✓" : "!"}</i>
+                    {kind === "benefit" ? "좋은 효과" : "반드시 붙는 비용"}
+                  </h3>
                   {modules.filter((module) => module.kind === kind).map((module) => {
                     const active = selected.includes(module.id);
                     const capped = !active && kindSelectedCount >= 2;
@@ -264,7 +277,16 @@ function UnoCreator({
           </div>
         </div>
         <aside className="creator-preview">
-          <div className="mini-uno"><span>M</span><strong>{name || "이름 없는 카드"}</strong></div>
+          <h3 className="creator-preview-title">
+            <i className="creator-preview-title-mark" aria-hidden="true">◆</i>
+            <span className="creator-preview-title-rule" aria-hidden="true" />
+            <span>카드 미리보기</span>
+            <span className="creator-preview-title-rule" aria-hidden="true" />
+            <i className="creator-preview-title-mark" aria-hidden="true">◆</i>
+          </h3>
+          <div className="mini-uno">
+            <strong>{name || "이름 없는 카드"}</strong>
+          </div>
           <div className={`budget-meter${total === 0 ? " balanced" : ""}`}>
             <span>밸런스 합계</span><b>{total > 0 ? `+${total}` : total}</b>
           </div>
