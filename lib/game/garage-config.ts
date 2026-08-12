@@ -21,8 +21,6 @@ export const GARAGE_OFFER_COUNTS = {
   packs: 2,
 } as const;
 
-export const CONSUMABLE_SLOT_LIMIT = 2;
-
 export const TODAY_SIGNAL_WEIGHTS = {
   mod: 45,
   core: 30,

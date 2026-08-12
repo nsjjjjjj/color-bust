@@ -12,7 +12,6 @@ import {
 import {
   CARD_ENHANCEMENT_CONFIG,
   CARD_PACK_CONFIG,
-  CONSUMABLE_SLOT_LIMIT,
   DECK_WORK_CONFIG,
   FIRMWARE_CONFIG,
   GHOST_CONFIG,
@@ -22,17 +21,15 @@ import {
 import { COLOR_LABELS } from "../../lib/game/colors";
 import { PACK_DEFINITIONS } from "../../lib/game/packs";
 import {
-  consumableSlotsFree,
   jokerSlotLimitFor,
-  runConsumables,
   runFirmware,
 } from "../../lib/game/run-upgrades";
 import type {
   CardColor,
   CardRarity,
-  ConsumableInstance,
   DeckWorkShopOffer,
   GameCard,
+  GhostItem,
   PackChoice,
   PackOpening,
   RunState,
@@ -69,7 +66,7 @@ export interface GarageViewProps {
   readonly run: RunState;
   readonly embedded?: boolean;
   readonly notice?: string;
-  readonly onBuy: (offer: ShopOffer) => void;
+  readonly onBuy: (offer: ShopOffer, options?: UseConsumableOptions) => RunState | null | void;
   readonly onReroll: () => void;
   readonly onSell: (instanceId: string) => void;
   readonly onNext: () => void;
@@ -77,12 +74,14 @@ export interface GarageViewProps {
   readonly onTakePack: (
     opening: PackOpening,
     choiceIds: readonly string[],
-    targetCardId?: string,
-  ) => void;
+    targetCardId?: string | readonly string[],
+    targetColor?: CardColor,
+  ) => RunState | null | void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
   readonly onOpenDeck: () => void;
-  readonly onUseConsumable: (instanceId: string, options: UseConsumableOptions) => void;
+  readonly onUseStashedItem?: (instanceId: string, options?: UseConsumableOptions) => void;
+  readonly onSellStashedItem?: (instanceId: string) => void;
 }
 
 function normalizeTerminology(value: string): string {
@@ -141,15 +140,12 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
 
   if (offer.kind === "protocol") {
     const protocol = PROTOCOL_CONFIG[offer.protocolId];
-    if (consumableSlotsFree(run) < 1) {
-      disabledReason = "UTILITY 슬롯 가득 참";
-    }
     return {
       category: "PROTOCOL",
       rarity: "uncommon",
       name: protocol.name,
       effect: normalizeTerminology(protocol.description),
-      detail: `안전한 일회용 덱 조작 · UTILITY ${(run.consumables ?? []).length}/${CONSUMABLE_SLOT_LIMIT}`,
+      detail: "선택 즉시 덱 조작 적용 · 대상 카드 선택 필요",
       symbol: protocol.symbol,
       meta: "SINGLE-USE PROTOCOL",
       disabledReason,
@@ -206,12 +202,6 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       !uniqueDeckCards(run).some((card) => !card.enhancement)
     ) {
       disabledReason = "강화할 기본 카드 없음";
-    }
-    if (
-      (definition.contents === "protocol" || definition.contents === "ghost") &&
-      consumableSlotsFree(run) < definition.pickCount
-    ) {
-      disabledReason = "UTILITY 슬롯 부족";
     }
     return {
       category: "BOOSTER PACK",
@@ -310,7 +300,7 @@ function ShopSlot({
         disabled={sold}
         aria-pressed={selected}
         aria-label={`${item.name}, ${item.effect}, ${offer.price}코인${sold ? ", 판매 완료" : ""}`}
-        onClick={onSelect}
+        onClick={selected ? onBuy : onSelect}
       >
         <span className="dm-shop-slot__rarity">{RARITY_LABELS[item.rarity]}</span>
         <span className="dm-shop-slot__art" aria-hidden="true">
@@ -336,7 +326,7 @@ function ShopSlot({
               disabled={disabled || !selected || purchasing}
               onClick={onBuy}
             >
-              {sold ? "SOLD" : purchasing ? "CONNECTING…" : !selected ? "카드 선택" : offer.kind === "card-pack" ? "OPEN" : offer.kind === "deck-work" ? "SELECT CARD" : "BUY"}
+              {sold ? "SOLD" : purchasing ? "CONNECTING…" : !selected ? "카드 선택" : offer.kind === "card-pack" ? "OPEN" : (offer.kind === "deck-work" || (offer.kind === "protocol" && offer.protocolId !== "emergency-credit")) ? "SELECT CARD" : "BUY"}
             </button>
           </div>
       </div>
@@ -401,15 +391,18 @@ function GarageInventory({
   run,
   onSell,
   onOpenDeck,
-  onUseConsumable,
+  onUseStashedItem,
+  onUseGhostItem,
+  onSellStashedItem,
 }: {
   readonly run: RunState;
   readonly onSell: (instanceId: string) => void;
   readonly onOpenDeck: () => void;
-  readonly onUseConsumable: (item: ConsumableInstance) => void;
+  readonly onUseStashedItem?: (instanceId: string) => void;
+  readonly onUseGhostItem?: (item: GhostItem) => void;
+  readonly onSellStashedItem?: (instanceId: string) => void;
 }) {
   const cards = uniqueDeckCards(run);
-  const utilities = runConsumables(run);
   const firmware = runFirmware(run);
   const jokerLimit = jokerSlotLimitFor(run);
   return (
@@ -420,7 +413,6 @@ function GarageInventory({
             <span>DECK</span><strong>{cards.length}장</strong><small>클릭해서 확인</small>
           </button>
           <div className="dm-current-build__systems" aria-label="보유 시스템 요약">
-            <span>UTILITY <b>{utilities.length}/{CONSUMABLE_SLOT_LIMIT}</b></span>
             <span>FIRMWARE <b>{firmware.length}</b></span>
           </div>
         </header>
@@ -442,29 +434,45 @@ function GarageInventory({
               {run.jokers.length === 0 && <p>아직 MOD가 없습니다.</p>}
             </div>
           </section>
-          <section aria-label="보유 메이헴 카드">
-            <header><b>MAYHEM</b><span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span></header>
+          <section aria-label="보유 메이헴 및 족보 카드">
+            <header><b>STASH (보관함)</b><span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span></header>
             <div className="dm-owned-mayhem">
-              {run.communityUno.map((card) => <span key={card.id}><b>M</b><strong>{card.name}</strong></span>)}
-              {run.communityUno.length === 0 && <p>아직 메이헴 카드가 없습니다.</p>}
-            </div>
-          </section>
-          <section aria-label="보유 유틸리티 카드" className="dm-owned-utility-rack">
-            <header><b>UTILITY</b><span>{utilities.length}/{CONSUMABLE_SLOT_LIMIT}</span></header>
-            <div className="dm-owned-utilities">
-              {utilities.map((item) => {
-                const config = item.kind === "protocol"
-                  ? PROTOCOL_CONFIG[item.protocolId]
-                  : GHOST_CONFIG[item.ghostId];
+              {run.communityUno.map((item) => {
+                const isHandUpgrade = "kind" in item && item.kind === "hand-upgrade";
+                const isGhost = "kind" in item && item.kind === "ghost";
+                if (isHandUpgrade) {
+                  const refund = Math.max(1, Math.floor(item.price / 2));
+                  return (
+                    <article key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0", padding: "6px 8px", background: "rgba(0, 229, 255, 0.08)", border: "1px solid rgba(0, 229, 255, 0.2)", borderRadius: "4px", width: "100%" }}>
+                      <span style={{ fontSize: "0.85rem", fontWeight: "bold" }}><b>[LV+]</b> {item.name}</span>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onUseStashedItem?.(item.id)}>사용</button>
+                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onSellStashedItem?.(item.id)}>판매 +{refund}¢</button>
+                      </div>
+                    </article>
+                  );
+                }
+                if (isGhost) {
+                  const refund = Math.max(1, Math.floor(item.price / 2));
+                  const config = GHOST_CONFIG[item.ghostId];
+                  return (
+                    <article key={item.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "4px 0", padding: "6px 8px", background: "rgba(168, 85, 247, 0.12)", border: "1px solid rgba(168, 85, 247, 0.3)", borderRadius: "4px", width: "100%" }}>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#c084fc" }}><b>[{config.symbol}]</b> {item.name}</span>
+                        <small style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.75)" }}>{config.description}</small>
+                      </div>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onUseGhostItem?.(item)}>사용</button>
+                        <button type="button" style={{ padding: "2px 8px", fontSize: "0.8rem", cursor: "pointer" }} onClick={() => onSellStashedItem?.(item.id)}>판매 +{refund}¢</button>
+                      </div>
+                    </article>
+                  );
+                }
                 return (
-                  <article data-kind={item.kind} key={item.instanceId}>
-                    <i aria-hidden="true">{config.symbol}</i>
-                    <div><small>{item.kind.toUpperCase()}</small><strong>{config.name}</strong></div>
-                    <button type="button" onClick={() => onUseConsumable(item)}>사용</button>
-                  </article>
+                  <span key={item.id}><b>M</b><strong>{item.name}</strong><small>사용 시 소모</small></span>
                 );
               })}
-              {utilities.length === 0 && <p>PROTOCOL과 GHOST 카드는 여기에 보관됩니다.</p>}
+              {run.communityUno.length === 0 && <p>보관 중인 메이헴 / 족보 카드가 없습니다.</p>}
             </div>
           </section>
           <section aria-label="설치된 펌웨어" className="dm-owned-firmware-rack">
@@ -481,99 +489,183 @@ function GarageInventory({
   );
 }
 
-function consumableTargetRange(item: ConsumableInstance): readonly [number, number] {
-  if (item.kind === "ghost") {
-    if (item.ghostId === "forbidden-port") return [0, 0];
-    if (item.ghostId === "dead-channel") return [2, 2];
-    return [1, 5];
-  }
-  if (item.protocolId === "emergency-credit") return [0, 0];
-  if (item.protocolId === "channel-rewire") return [1, 3];
-  return [1, 1];
-}
-
-function consumableNeedsColor(item: ConsumableInstance): boolean {
-  return (item.kind === "protocol" && item.protocolId === "channel-rewire")
-    || (item.kind === "ghost" && item.ghostId === "white-noise");
-}
-
-function ConsumableOverlay({
+function ProtocolTargetOverlay({
   run,
-  item,
+  offer,
   onClose,
-  onUse,
+  onSelect,
 }: {
   readonly run: RunState;
-  readonly item: ConsumableInstance;
+  readonly offer: Extract<ShopOffer, { kind: "protocol" }>;
   readonly onClose: () => void;
-  readonly onUse: (options: UseConsumableOptions) => void;
+  readonly onSelect: (options: UseConsumableOptions) => void;
 }) {
-  const [minimum, maximum] = consumableTargetRange(item);
+  const protocol = PROTOCOL_CONFIG[offer.protocolId];
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
   const [targetColor, setTargetColor] = useState<CardColor | null>(null);
   const cards = uniqueDeckCards(run);
-  const config = item.kind === "protocol" ? PROTOCOL_CONFIG[item.protocolId] : GHOST_CONFIG[item.ghostId];
-  const needsColor = consumableNeedsColor(item);
-  const enoughTargets = selectedIds.length >= minimum && selectedIds.length <= maximum;
-  const ready = enoughTargets && (!needsColor || Boolean(targetColor));
+  const maximum = offer.protocolId === "channel-rewire" ? 3 : 1;
+  const needsColor = offer.protocolId === "channel-rewire";
 
   function disabledReason(card: GameCard): string | null {
     if (selectedIds.includes(card.id)) return null;
     if (selectedIds.length >= maximum) return `최대 ${maximum}장`;
-    if (item.kind === "protocol") {
-      if (item.protocolId === "voltage-up" && card.rank === 9) return "9는 상승 불가";
-      if (item.protocolId === "voltage-down" && card.rank === 0) return "0은 하강 불가";
-      if ((item.protocolId === "power-cell" || item.protocolId === "hype-amp") && card.enhancement) return "이미 강화됨";
-    }
+    if (offer.protocolId === "voltage-up" && card.rank === 9) return "9는 상승 불가";
+    if (offer.protocolId === "voltage-down" && card.rank === 0) return "0은 하강 불가";
+    if (offer.protocolId === "circuit-cut" && cards.length <= MINIMUM_RUN_DECK_SIZE) return `최소 ${MINIMUM_RUN_DECK_SIZE}장`;
     return null;
   }
 
-  function toggle(card: GameCard) {
+  function handleCardSelect(card: GameCard) {
+    if (disabledReason(card)) return;
+    if (!needsColor && maximum === 1) {
+      onSelect({ targetCardIds: [card.id] });
+      return;
+    }
     setSelectedIds((current) => current.includes(card.id)
       ? current.filter((id) => id !== card.id)
       : current.length < maximum ? [...current, card.id] : current);
   }
 
+  const ready = selectedIds.length >= 1 && selectedIds.length <= maximum && (!needsColor || Boolean(targetColor));
+
   return (
-    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-utility-title">
-      <section className="dm-garage-dialog dm-utility-dialog" data-kind={item.kind}>
+    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-protocol-target-title">
+      <section className="dm-garage-dialog dm-utility-dialog" data-kind="protocol">
         <header>
-          <div><span>{item.kind === "protocol" ? "SAFE PROTOCOL" : "DANGEROUS GHOST"}</span><h2 id="dm-utility-title">{config.name}</h2></div>
-          <button type="button" onClick={onClose}>닫기</button>
+          <div><span>PROTOCOL UPGRADE</span><h2 id="dm-protocol-target-title">{protocol.name}</h2></div>
+          <button type="button" onClick={onClose}>취소</button>
         </header>
-        <p>{config.description}</p>
+        <p>{normalizeTerminology(protocol.description)}</p>
+        <p style={{ color: "#00e5ff", fontSize: "0.85rem", margin: "4px 0 10px 0" }}>
+          {needsColor ? "변경할 색상과 카드를 선택한 후 적용 버튼을 누르세요." : "적용할 카드를 클릭하면 즉시 적용됩니다."}
+        </p>
         {needsColor && (
-          <div className="dm-utility-colors" role="group" aria-label="변경할 채널 색">
-            {(["red", "yellow", "green", "blue"] as const).map((color) => (
-              <button type="button" data-color={color} aria-pressed={targetColor === color} key={color} onClick={() => setTargetColor(color)}>
-                {COLOR_LABELS[color]}
-              </button>
-            ))}
+          <div className="dm-utility-colors" data-has-selection={Boolean(targetColor)} role="group" aria-label="변경할 채널 색">
+            {(["red", "yellow", "green", "blue"] as const).map((color) => {
+              const isSelected = targetColor === color;
+              return (
+                <button
+                  type="button"
+                  data-color={color}
+                  aria-pressed={isSelected}
+                  key={color}
+                  onClick={() => setTargetColor(color)}
+                >
+                  {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
+                </button>
+              );
+            })}
           </div>
         )}
-        {maximum > 0 ? (
-          <DeckCardGrid
-            cards={cards}
-            ariaLabel={`${config.name} 대상 카드`}
-            selectedIds={selectedIds}
-            disabledReason={disabledReason}
-            onSelect={toggle}
-          />
-        ) : (
-          <div className="dm-utility-no-target">
-            <b>대상 카드가 필요하지 않습니다.</b>
-            <span>{item.kind === "ghost" ? "효과와 대가가 즉시 적용됩니다." : "효과가 즉시 적용됩니다."}</span>
+        <DeckCardGrid
+          cards={cards}
+          ariaLabel={`${protocol.name} 대상 카드`}
+          selectedIds={selectedIds}
+          disabledReason={disabledReason}
+          onSelect={handleCardSelect}
+        />
+        {needsColor && (
+          <footer>
+            <span>{selectedIds.length}/1–3장 선택 · {offer.price}¢</span>
+            <button
+              type="button"
+              disabled={!ready}
+              onClick={() => onSelect({ targetCardIds: selectedIds, ...(targetColor ? { targetColor } : {}) })}
+            >
+              구매 및 PROTOCOL 적용 ({offer.price}¢)
+            </button>
+          </footer>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function GhostTargetOverlay({
+  run,
+  item,
+  onClose,
+  onSelect,
+}: {
+  readonly run: RunState;
+  readonly item: GhostItem;
+  readonly onClose: () => void;
+  readonly onSelect: (options: UseConsumableOptions) => void;
+}) {
+  const config = GHOST_CONFIG[item.ghostId];
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [targetColor, setTargetColor] = useState<CardColor | null>(null);
+  const cards = uniqueDeckCards(run);
+
+  const minTargets = item.ghostId === "dead-channel" ? 2 : 1;
+  const maxTargets = item.ghostId === "dead-channel" ? 2 : 5;
+  const needsColor = item.ghostId === "white-noise";
+
+  function disabledReason(card: GameCard): string | null {
+    if (selectedIds.includes(card.id)) return null;
+    if (selectedIds.length >= maxTargets) return `최대 ${maxTargets}장`;
+    if (item.ghostId === "dead-channel" && cards.length - 1 < MINIMUM_RUN_DECK_SIZE) return `최소 ${MINIMUM_RUN_DECK_SIZE}장`;
+    return null;
+  }
+
+  function handleCardSelect(card: GameCard) {
+    if (disabledReason(card)) return;
+    setSelectedIds((current) => current.includes(card.id)
+      ? current.filter((id) => id !== card.id)
+      : current.length < maxTargets ? [...current, card.id] : current);
+  }
+
+  const ready = selectedIds.length >= minTargets && selectedIds.length <= maxTargets && (!needsColor || Boolean(targetColor));
+
+  return (
+    <div className="dm-garage-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-ghost-target-title">
+      <section className="dm-garage-dialog dm-utility-dialog" data-kind="ghost">
+        <header>
+          <div><span>GHOST CARD</span><h2 id="dm-ghost-target-title">{item.name}</h2></div>
+          <button type="button" onClick={onClose}>취소</button>
+        </header>
+        <p>{normalizeTerminology(config.description)}</p>
+        <p style={{ color: "#c084fc", fontSize: "0.85rem", margin: "4px 0 10px 0" }}>
+          {needsColor ? "변경할 색상과 카드를 선택한 후 적용 버튼을 누르세요." : `대상이 될 카드 (${minTargets === maxTargets ? `${minTargets}장` : `${minTargets}~${maxTargets}장`})를 선택한 후 적용 버튼을 누르세요.`}
+        </p>
+        {needsColor && (
+          <div className="dm-utility-colors" data-has-selection={Boolean(targetColor)} role="group" aria-label="변경할 채널 색" style={{ marginBottom: "10px" }}>
+            {(["red", "yellow", "green", "blue"] as const).map((color) => {
+              const isSelected = targetColor === color;
+              return (
+                <button
+                  type="button"
+                  data-color={color}
+                  aria-pressed={isSelected}
+                  key={color}
+                  onClick={() => setTargetColor(color)}
+                >
+                  {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
+                </button>
+              );
+            })}
           </div>
         )}
-        <footer>
-          <span>{maximum > 0 ? `${selectedIds.length}/${minimum === maximum ? minimum : `${minimum}–${maximum}`}장 선택` : "READY"}</span>
+        <DeckCardGrid
+          cards={cards}
+          ariaLabel={`${item.name} 대상 카드`}
+          selectedIds={selectedIds}
+          disabledReason={disabledReason}
+          onSelect={handleCardSelect}
+        />
+        <footer style={{ marginTop: "12px", display: "flex", justifyContent: "flex-end" }}>
           <button
             type="button"
-            className={item.kind === "ghost" ? "is-danger" : ""}
+            className="dm-utility-confirm"
             disabled={!ready}
-            onClick={() => onUse({ targetCardIds: selectedIds, ...(targetColor ? { targetColor } : {}) })}
+            style={ready ? { background: "#a855f7", color: "#fff", cursor: "pointer", fontWeight: "bold" } : { opacity: 0.5, cursor: "not-allowed" }}
+            onClick={() => onSelect({
+              targetCardIds: selectedIds,
+              ...(targetColor ? { targetColor } : {}),
+            })}
           >
-            {item.kind === "ghost" ? "대가를 감수하고 사용" : "PROTOCOL 실행"}
+            적용하기
           </button>
         </footer>
       </section>
@@ -663,7 +755,7 @@ function PackChoiceCard({
       data-selected={selected || undefined}
       disabled={!revealed || disabled}
       style={{ "--reveal-index": index } as CSSProperties}
-      aria-label={revealed ? `${copy.name}, ${copy.effect}${selected ? ", 선택됨" : ""}` : `숨겨진 카드 ${index + 1}`}
+      aria-label={revealed ? `${copy.name}, ${copy.effect}${selected ? ", selected" : ""}` : `숨겨진 카드 ${index + 1}`}
       aria-pressed={revealed ? selected : undefined}
       onClick={onToggle}
     >
@@ -686,6 +778,25 @@ function PackChoiceCard({
   );
 }
 
+function choiceTargetRules(choice?: PackChoice): { minTargets: number; maxTargets: number; needsColor: boolean } {
+  if (!choice) return { minTargets: 0, maxTargets: 0, needsColor: false };
+  if (choice.kind === "upgrade") return { minTargets: 1, maxTargets: 1, needsColor: false };
+  if (choice.kind === "protocol") {
+    switch (choice.protocolId) {
+      case "emergency-credit":
+        return { minTargets: 0, maxTargets: 0, needsColor: false };
+      case "channel-rewire":
+        return { minTargets: 1, maxTargets: 3, needsColor: true };
+      default:
+        return { minTargets: 1, maxTargets: 1, needsColor: false };
+    }
+  }
+  if (choice.kind === "ghost") {
+    return { minTargets: 0, maxTargets: 0, needsColor: false };
+  }
+  return { minTargets: 0, maxTargets: 0, needsColor: false };
+}
+
 function PackOpeningController({
   opening,
   run,
@@ -695,23 +806,29 @@ function PackOpeningController({
 }: {
   readonly opening: PackOpening;
   readonly run: RunState;
-  readonly onTake: (choiceIds: readonly string[], targetCardId?: string) => void;
+  readonly onTake: (choiceIds: readonly string[], targetCardId?: string | readonly string[], targetColor?: CardColor) => void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
 }) {
   const [phase, setPhase] = useState<"sealed" | "opening" | "revealing" | "selecting">("sealed");
   const [revealedCount, setRevealedCount] = useState(0);
   const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
-  const [targetCardId, setTargetCardId] = useState<string | null>(null);
+  const [targetCardIds, setTargetCardIds] = useState<readonly string[]>([]);
+  const [targetColor, setTargetColor] = useState<CardColor | null>(null);
+  const [packNotice, setPackNotice] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
   const config = CARD_PACK_CONFIG[opening.packKind];
   const definition = PACK_DEFINITIONS[opening.packKind];
   const choices = useMemo(() => normalizedPackChoices(opening), [opening]);
   const pickCount = opening.pickCount ?? 1;
-  const upgradePack = definition.contents === "upgrade";
+  const selectedChoice = choices.find((choice) => selectedIds.includes(choice.id));
+  const { minTargets, maxTargets, needsColor } = choiceTargetRules(selectedChoice);
+  const requiresTargetCard = maxTargets > 0;
   const targetCards = useMemo(
-    () => uniqueDeckCards(run).filter((card) => !card.enhancement),
-    [run],
+    () => (selectedChoice?.kind === "upgrade"
+      ? uniqueDeckCards(run).filter((card) => !card.enhancement)
+      : uniqueDeckCards(run)),
+    [run, selectedChoice],
   );
 
   useEffect(() => () => {
@@ -740,15 +857,57 @@ function PackOpeningController({
       if (current.length >= pickCount) return current;
       return [...current, choiceId];
     });
+    setTargetCardIds([]);
+    setPackNotice(null);
+  }
+
+  function toggleTargetCard(cardId: string) {
+    setTargetCardIds((current) => {
+      if (current.includes(cardId)) {
+        return current.filter((id) => id !== cardId);
+      }
+      if (maxTargets === 1) {
+        return [cardId];
+      }
+      if (current.length >= maxTargets) {
+        return current;
+      }
+      return [...current, cardId];
+    });
+    setPackNotice(null);
   }
 
   const selectionFilled = selectedIds.length === pickCount;
-  const takeEnabled = selectionFilled && (!upgradePack || Boolean(targetCardId));
+  const targetValid = !requiresTargetCard
+    || (targetCardIds.length >= minTargets && targetCardIds.length <= maxTargets);
+  const colorValid = !needsColor || Boolean(targetColor);
+  const takeEnabled = selectionFilled && targetValid && colorValid;
   const selectedUpgrade = choices.find(
     (choice): choice is Extract<PackChoice, { kind: "upgrade" }> =>
       selectedIds.includes(choice.id) && choice.kind === "upgrade",
   );
-  const selectedTarget = targetCards.find((card) => card.id === targetCardId);
+  const selectedTarget = targetCards.find((card) => card.id === targetCardIds[0]);
+
+  function handleTakeClick() {
+    if (!selectionFilled) {
+      setPackNotice(`보스터 팩에서 카드를 ${pickCount}장 선택해 주세요.`);
+      return;
+    }
+    if (requiresTargetCard && (targetCardIds.length < minTargets || targetCardIds.length > maxTargets)) {
+      setPackNotice(
+        minTargets === maxTargets
+          ? `적용할 덱 카드를 ${minTargets}장 선택해야 합니다. (현재 ${targetCardIds.length}장 선택됨)`
+          : `적용할 덱 카드를 ${minTargets}~${maxTargets}장 선택해야 합니다. (현재 ${targetCardIds.length}장 선택됨)`
+      );
+      return;
+    }
+    if (needsColor && !targetColor) {
+      setPackNotice("변경할 색상(레드 / 옐로우 / 그린 / 블루)을 선택해야 합니다.");
+      return;
+    }
+    setPackNotice(null);
+    onTake(selectedIds, targetCardIds, targetColor ?? undefined);
+  }
 
   return (
     <div className="dm-pack-overlay" role="dialog" aria-modal="true" aria-labelledby="dm-pack-title" data-phase={phase}>
@@ -758,6 +917,12 @@ function PackOpeningController({
           <h2 id="dm-pack-title">{config.name}</h2>
           <p>Choose {pickCount} of {choices.length} · Selected {selectedIds.length} / {pickCount}</p>
         </header>
+
+        {packNotice && (
+          <div style={{ background: "rgba(255, 66, 66, 0.18)", border: "1px solid #ff5555", color: "#ff8888", padding: "8px 14px", borderRadius: "4px", fontSize: "0.85rem", margin: "6px 0", textAlign: "center", fontWeight: "bold" }}>
+            ⚠️ {packNotice}
+          </div>
+        )}
 
         {phase === "sealed" || phase === "opening" ? (
           <button type="button" className="dm-sealed-pack" data-opening={phase === "opening" || undefined} onClick={openPack}>
@@ -779,10 +944,18 @@ function PackOpeningController({
           </div>
         )}
 
-        {phase === "selecting" && upgradePack && selectionFilled && (
-          <section className="dm-pack-targets" aria-label="강화를 적용할 카드 선택">
+        {phase === "selecting" && requiresTargetCard && selectionFilled && (
+          <section className="dm-pack-targets" aria-label="적용할 덱 카드 선택">
             <header>
-              <div><span>UPGRADE TARGET</span><strong>강화할 카드를 선택하세요</strong></div>
+              <div>
+                <span>TARGET CARD</span>
+                <strong>
+                  {minTargets === maxTargets
+                    ? `적용할 덱 카드 ${minTargets}장을 선택하세요`
+                    : `적용할 덱 카드를 ${minTargets}~${maxTargets}장 선택하세요`}
+                  {` (선택됨 ${targetCardIds.length}/${maxTargets}장)`}
+                </strong>
+              </div>
               {selectedUpgrade && selectedTarget && (
                 <p>
                   {COLOR_LABELS[selectedTarget.color]} {selectedTarget.rank} · 기본
@@ -790,19 +963,54 @@ function PackOpeningController({
                 </p>
               )}
             </header>
+            {needsColor && (
+              <div
+                className="dm-utility-colors"
+                data-has-selection={Boolean(targetColor)}
+                role="group"
+                aria-label="변경할 채널 색"
+                style={{ marginBottom: "10px" }}
+              >
+                {(["red", "yellow", "green", "blue"] as const).map((color) => {
+                  const isSelected = targetColor === color;
+                  return (
+                    <button
+                      type="button"
+                      data-color={color}
+                      aria-pressed={isSelected}
+                      key={color}
+                      onClick={() => {
+                        setTargetColor(color);
+                        setPackNotice(null);
+                      }}
+                    >
+                      {COLOR_LABELS[color]} {isSelected ? "✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <DeckCardGrid
               cards={targetCards}
-              ariaLabel="강화 대상 카드"
-              selectedId={targetCardId}
-              onSelect={(card) => setTargetCardId(card.id)}
+              ariaLabel="대상 카드"
+              selectedIds={targetCardIds}
+              onSelect={(card) => toggleTargetCard(card.id)}
             />
           </section>
         )}
 
         <footer>
           <span>RARITY WEIGHT · {Object.entries(definition.weights).filter(([, weight]) => weight > 0).map(([rarity, weight]) => `${rarity.toUpperCase()} ${weight}`).join(" / ")}</span>
-          <button type="button" disabled={!takeEnabled} onClick={() => onTake(selectedIds, targetCardId ?? undefined)}>
-            TAKE {pickCount}
+          <button
+            type="button"
+            style={
+              takeEnabled
+                ? { background: "#00e5ff", color: "#000", borderColor: "#00e5ff", fontWeight: "bold", boxShadow: "0 0 12px rgba(0, 229, 255, 0.45)", cursor: "pointer" }
+                : { cursor: "pointer" }
+            }
+            onClick={handleTakeClick}
+          >
+            TAKE {pickCount} {takeEnabled ? "✓" : ""}
           </button>
         </footer>
       </section>
@@ -823,17 +1031,22 @@ export function GarageView({
   onPackOpen,
   onPackReveal,
   onOpenDeck,
-  onUseConsumable,
+  onUseStashedItem,
+  onSellStashedItem,
 }: GarageViewProps) {
   const offers = useMemo(() => run.shop?.offers ?? [], [run.shop?.offers]);
   const soldIds = useMemo(() => new Set(run.shop?.soldOfferIds ?? []), [run.shop?.soldOfferIds]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [targetOfferId, setTargetOfferId] = useState<string | null>(null);
-  const [utilityItem, setUtilityItem] = useState<ConsumableInstance | null>(null);
+  const [protocolOfferId, setProtocolOfferId] = useState<string | null>(null);
+  const [activeGhostItem, setActiveGhostItem] = useState<GhostItem | null>(null);
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
   const purchaseTimer = useRef<number | null>(null);
   const targetOffer = offers.find(
     (offer): offer is DeckWorkShopOffer => offer.kind === "deck-work" && offer.id === targetOfferId,
+  );
+  const protocolOffer = offers.find(
+    (offer): offer is Extract<ShopOffer, { kind: "protocol" }> => offer.kind === "protocol" && offer.id === protocolOfferId,
   );
   const visibleSelectedOfferId = offers.some((offer) => offer.id === selectedOfferId)
     ? selectedOfferId
@@ -857,18 +1070,23 @@ export function GarageView({
     if (purchaseTimer.current !== null) window.clearTimeout(purchaseTimer.current);
   }, []);
 
-  function purchase(offer: ShopOffer) {
+  function purchase(offer: ShopOffer, options?: UseConsumableOptions) {
     if (purchasingId || soldIds.has(offer.id)) return;
     if (offer.kind === "deck-work") {
       setTargetOfferId(offer.id);
       return;
     }
+    if (offer.kind === "protocol" && offer.protocolId !== "emergency-credit" && !options) {
+      setProtocolOfferId(offer.id);
+      return;
+    }
     setPurchasingId(offer.id);
     purchaseTimer.current = window.setTimeout(() => {
-      onBuy(offer);
+      onBuy(offer, options);
       purchaseTimer.current = window.setTimeout(() => {
         setPurchasingId(null);
         setSelectedOfferId(null);
+        setProtocolOfferId(null);
       }, 220);
     }, 220);
   }
@@ -913,7 +1131,20 @@ export function GarageView({
       </p>
 
       <div className="dm-garage-workspace">
-        {!embedded && <GarageInventory run={run} onSell={onSell} onOpenDeck={onOpenDeck} onUseConsumable={setUtilityItem} />}
+        <GarageInventory
+          run={run}
+          onSell={onSell}
+          onOpenDeck={onOpenDeck}
+          onUseStashedItem={onUseStashedItem}
+          onUseGhostItem={(item) => {
+            if (item.ghostId === "forbidden-port") {
+              onUseStashedItem?.(item.id);
+            } else {
+              setActiveGhostItem(item);
+            }
+          }}
+          onSellStashedItem={onSellStashedItem}
+        />
         <div className="dm-shop-board" aria-label="Garage 판매 상품">
           <section className="dm-shop-zone dm-shop-controls" aria-labelledby="dm-controls-title">
             <header>
@@ -980,14 +1211,25 @@ export function GarageView({
           }}
         />
       )}
-      {utilityItem && (
-        <ConsumableOverlay
+      {protocolOffer && (
+        <ProtocolTargetOverlay
           run={run}
-          item={utilityItem}
-          onClose={() => setUtilityItem(null)}
-          onUse={(options) => {
-            onUseConsumable(utilityItem.instanceId, options);
-            setUtilityItem(null);
+          offer={protocolOffer}
+          onClose={() => setProtocolOfferId(null)}
+          onSelect={(options) => {
+            purchase(protocolOffer, options);
+            setProtocolOfferId(null);
+          }}
+        />
+      )}
+      {activeGhostItem && (
+        <GhostTargetOverlay
+          run={run}
+          item={activeGhostItem}
+          onClose={() => setActiveGhostItem(null)}
+          onSelect={(options) => {
+            onUseStashedItem?.(activeGhostItem.id, options);
+            setActiveGhostItem(null);
           }}
         />
       )}
@@ -998,7 +1240,7 @@ export function GarageView({
           run={run}
           onPackOpen={onPackOpen}
           onPackReveal={onPackReveal}
-          onTake={(choiceIds, targetCardId) => onTakePack(run.packOpening!, choiceIds, targetCardId)}
+          onTake={(choiceIds, targetCardId, targetColor) => onTakePack(run.packOpening!, choiceIds, targetCardId, targetColor)}
         />
       )}
     </section>

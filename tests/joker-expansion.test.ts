@@ -246,19 +246,26 @@ test("cavendish-overclock either survives or is cleanly removed at round clear",
   }
 });
 
-test("perkeos-echo either leaves consumables unchanged or duplicates one within the slot limit", () => {
+test("perkeos-echo either leaves the stash unchanged or duplicates a ghost item within the slot limit", () => {
   for (let seedIndex = 0; seedIndex < 8; seedIndex += 1) {
     const initial = createRun({ seed: `perkeo-${seedIndex}` });
     const state: RunState = {
       ...initial,
       target: 1,
       jokers: [{ instanceId: "j-perkeo", jokerId: "perkeos-echo", acquiredRound: 1 }],
-      consumables: [
-        { instanceId: "c-1", kind: "protocol", protocolId: "emergency-credit", acquiredRound: 1 },
+      communityUno: [
+        { id: "ghost-1", kind: "ghost", ghostId: "blackout", name: "블랙아웃", price: 7 },
       ],
     };
     const result = playHand(state, [state.hand[0].id]);
-    const count = result.state.consumables?.length ?? 0;
+    const count = result.state.communityUno.length;
     assert.ok(count === 1 || count === 2);
+    if (count === 2) {
+      assert.ok(
+        result.state.communityUno.every(
+          (item) => "kind" in item && item.kind === "ghost" && item.ghostId === "blackout",
+        ),
+      );
+    }
   }
 });

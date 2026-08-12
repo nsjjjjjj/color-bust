@@ -18,6 +18,7 @@ import type {
   JokerInstance,
   RunState,
   ScoreBreakdown,
+  StashedMayhemItem,
   UnoModuleId,
 } from "../../lib/game/types";
 import type { ScoreEvent } from "../../lib/game/score-events";
@@ -86,6 +87,8 @@ export interface ModifierRailProps {
   onCallColor?: (color: CardColor) => void;
   /** Shown as a sell action in the MOD tooltip; only meaningful during the shop phase. */
   onSellJoker?: (instanceId: string) => void;
+  onUseStashedItem?: (instanceId: string) => void;
+  onSellStashedItem?: (instanceId: string) => void;
   className?: string;
 }
 
@@ -157,8 +160,12 @@ function jokerLevel(joker: JokerInstance): string {
   }
 }
 
+function isUnoCard(item: StashedMayhemItem): item is CommunityUnoCard {
+  return Boolean(item) && "positiveModules" in item && Array.isArray(item.positiveModules);
+}
+
 function moduleIds(card: CommunityUnoCard): readonly UnoModuleId[] {
-  return [...card.positiveModules, ...card.negativeModules];
+  return [...(card.positiveModules ?? []), ...(card.negativeModules ?? [])];
 }
 
 function unoPointTotal(card: CommunityUnoCard): number {
@@ -178,6 +185,8 @@ export function ModifierRail({
   onSelectUno,
   onCallColor,
   onSellJoker,
+  onUseStashedItem,
+  onSellStashedItem,
   className,
 }: ModifierRailProps) {
   const reactId = safeId(useId());
@@ -336,7 +345,43 @@ export function ModifierRail({
           <span>{run.communityUno.length}/{UNO_SLOT_LIMIT}</span>
         </header>
         <div className="modifier-rail-slots modifier-rail-uno-slots">
-          {run.communityUno.slice(0, UNO_SLOT_LIMIT).map((card) => {
+          {run.communityUno.slice(0, UNO_SLOT_LIMIT).map((item) => {
+            if (!isUnoCard(item)) {
+              const refund = Math.max(1, Math.floor(item.price / 2));
+              return (
+                <article
+                  className="modifier-rail-slot modifier-rail-uno-slot"
+                  key={item.id}
+                  style={{ borderColor: "#00e5ff", background: "rgba(0, 229, 255, 0.12)", padding: "4px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                    <b style={{ color: "#00e5ff", fontSize: "0.72rem" }}>[LV+] {item.name}</b>
+                    <small style={{ fontSize: "0.6rem", color: "#ccc" }}>보관 중</small>
+                  </div>
+                  <div style={{ display: "flex", gap: "3px", justifyContent: "center", width: "100%", marginTop: "2px" }}>
+                    {onUseStashedItem && (
+                      <button
+                        type="button"
+                        style={{ padding: "2px 6px", fontSize: "0.7rem", background: "#00e5ff", color: "#000", fontWeight: "bold", border: "none", borderRadius: "3px", cursor: "pointer" }}
+                        onClick={() => onUseStashedItem(item.id)}
+                      >
+                        사용
+                      </button>
+                    )}
+                    {onSellStashedItem && run.phase === "shop" && (
+                      <button
+                        type="button"
+                        style={{ padding: "2px 6px", fontSize: "0.7rem", background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid #666", borderRadius: "3px", cursor: "pointer" }}
+                        onClick={() => onSellStashedItem(item.id)}
+                      >
+                        +{refund}¢
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            }
+            const card = item;
             const key = `uno-${card.id}`;
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
             const isApplied = appliedUno?.cardId === card.id;

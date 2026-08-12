@@ -2231,7 +2231,22 @@
 .dm-utility-colors button[data-color="yellow"] { --utility-color: #f5ce3d; }
 .dm-utility-colors button[data-color="green"] { --utility-color: #55d77a; }
 .dm-utility-colors button[data-color="blue"] { --utility-color: #55bff5; }
-.dm-utility-colors button[aria-pressed="true"] { border-color: var(--utility-color); box-shadow: inset 0 0 0 2px #061012, 0 0 13px color-mix(in srgb, var(--utility-color) 45%, transparent); }
+.dm-utility-colors button {
+  transition: all 0.15s ease-in-out;
+}
+.dm-utility-colors[data-has-selection="true"] button[aria-pressed="false"] {
+  opacity: 0.35;
+  filter: grayscale(60%) brightness(0.4);
+}
+.dm-utility-colors button[aria-pressed="true"] {
+  opacity: 1 !important;
+  filter: none !important;
+  border-color: var(--utility-color) !important;
+  border-width: 3px !important;
+  background: color-mix(in srgb, var(--utility-color) 45%, #0b1719) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--utility-color) 80%, transparent) !important;
+  transform: scale(1.04);
+}
 .dm-utility-no-target { display: grid; min-height: 150px; place-content: center; gap: 7px; border: 1px dashed #4a6669; color: #91aaa7; text-align: center; }
 .dm-utility-no-target b { color: #ecf7f4; }
 .dm-utility-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
