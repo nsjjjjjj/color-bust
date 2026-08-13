@@ -11861,92 +11861,11 @@
   .creator-sheet textarea { min-height: 60px; }
   .creator-sheet .module-columns { gap: 8px; }
   .creator-sheet .module-columns h3 { margin: 1px 0 5px; }
-  .creator-sheet .module-option { min-height: 40px; gap: 6px; margin-bottom: 4px; padding: 5px; }
-  .creator-sheet .module-option > b { width: 24px; height: 24px; font-size: 10px; }
-  .creator-sheet .module-option strong { font-size: 10px; }
-  .creator-sheet .module-option small { font-size: 7px; line-height: 1.1; }
+  .creator-sheet .module-option { margin-bottom: 4px; }
   .creator-sheet .mini-uno { max-width: 200px; margin: 0 auto; }
   .creator-sheet .budget-meter { margin: 12px 0 8px; padding: 8px; }
   .creator-sheet .creator-preview > p { margin: 8px 0; }
   .creator-sheet .creator-preview ul { min-height: 0; margin: 8px 0; }
-}
-
-/* Community card creator: this is a configuration surface, so its supporting
- * text needs to stay readable instead of inheriting the tiny HUD treatment. */
-.creator-sheet .creator-form label {
-  color: #e7f5f1;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.creator-sheet .creator-form :is(input, textarea) {
-  color: #f6fbf8;
-  border-color: #5c7581;
-  background: #090f17;
-  font-size: 13px;
-}
-
-.creator-sheet .module-columns h3 {
-  color: #f4fbf7;
-  font-size: 14px;
-}
-
-.creator-sheet .module-option {
-  min-height: 52px;
-  border-color: #526274;
-  background: #1c2435;
-}
-
-.creator-sheet .module-option > b {
-  width: 31px;
-  height: 31px;
-  color: #ffffff;
-  font-size: 13px;
-}
-
-.creator-sheet .module-option strong {
-  color: #ffffff;
-  font-size: 12px;
-  line-height: 1.15;
-}
-
-.creator-sheet .module-option small {
-  color: #b9c8d5;
-  font-size: 10px;
-  line-height: 1.3;
-}
-
-.creator-sheet .module-option.benefit.active {
-  border-color: #50f59b;
-  background: rgba(30, 150, 99, .25);
-}
-
-.creator-sheet .module-option.drawback.active {
-  border-color: #ff7771;
-  background: rgba(181, 65, 65, .28);
-}
-
-.creator-sheet .budget-meter {
-  color: #ffb9b3;
-  font-size: 12px;
-}
-
-.creator-sheet .budget-meter.balanced { color: #54f5a3; }
-
-.creator-sheet .creator-preview > p,
-.creator-sheet .creator-preview li {
-  color: #c9d8df;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.creator-sheet .creator-preview li b { color: #fff6cf; }
-
-@media (min-width: 761px) and (max-height: 839px) {
-  .creator-sheet .module-option { min-height: 46px; padding: 6px; }
-  .creator-sheet .module-option > b { width: 28px; height: 28px; font-size: 12px; }
-  .creator-sheet .module-option strong { font-size: 11px; }
-  .creator-sheet .module-option small { font-size: 9px; }
 }
 
 @keyframes lobby-bottom-sheet-rise {
@@ -12251,19 +12170,6 @@
 .account-auth-form .secondary-button { min-height: 45px; border-radius: 9px !important; font-family: "Galmuri11", ui-monospace, monospace; }
 .account-auth-form .primary-button { border-color: #d9a73d; background: linear-gradient(#dda938, #a56413); }
 .account-auth-error { margin: 0; padding: 9px 10px; border: 2px solid #b94d4d; border-radius: 8px; color: #ffd9d3; background: #391618; font-size: 10px; }
-
-/* At compact desktop heights preserve a no-scroll creator by giving the card
- * effects more of the frame and simplifying their smaller support copy. */
-@media (min-width: 761px) and (max-height: 839px) {
-  .creator-sheet .creator-form { padding: 10px 14px; }
-  .creator-sheet .creator-preview { padding: 12px 14px; }
-  .creator-sheet .module-option { min-height: 48px; padding: 6px 8px; }
-  .creator-sheet .module-option > b { width: 28px; height: 28px; font-size: 12px; }
-  .creator-sheet .module-option strong { font-size: 11px; }
-  .creator-sheet .module-option small { font-size: 8px; line-height: 1.2; color: #b7c7c1; }
-  .creator-sheet .module-columns h3 { margin-bottom: 6px; font-size: 12px; }
-  .creator-sheet textarea { min-height: 50px; }
-}
 
 @media (min-width: 761px) {
   .mobile-menu-primary {
