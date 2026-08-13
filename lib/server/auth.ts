@@ -152,6 +152,22 @@ export function safeReturnPath(value: string | null | undefined): string {
   }
 }
 
+/**
+ * Behind the Caddy reverse proxy, the standalone server binds HOSTNAME=0.0.0.0
+ * and request.url reflects that bind address/port rather than the public host
+ * the browser is actually on. Prefer the proxy's forwarded headers so redirect
+ * responses (e.g. after login/logout) send the browser back to a real address
+ * instead of an unreachable "https://0.0.0.0:3000".
+ */
+export function resolveRequestOrigin(request: Request): string {
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (forwardedHost) {
+    const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  return new URL(request.url).origin;
+}
+
 async function createSession(userId: string): Promise<void> {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
