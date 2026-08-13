@@ -36,12 +36,12 @@ export const CARD_COLORS: readonly CardColor[] = [
   "yellow",
 ];
 
-// Every hand type grows +0.3% POWER / +0.2% HYPE per CORE level, except
-// four-of-a-kind and straight-flush, which grow more slowly at +0.1% each.
-const DEFAULT_CHIP_GROWTH_RATE = 0.003;
-const DEFAULT_MULT_GROWTH_RATE = 0.002;
-const SLOW_CHIP_GROWTH_RATE = 0.001;
-const SLOW_MULT_GROWTH_RATE = 0.001;
+// Every hand type grows +5% POWER / +3% HYPE per CORE level, except
+// four-of-a-kind and straight-flush, which grow more slowly at +3% / +2%.
+const DEFAULT_CHIP_GROWTH_RATE = 0.05;
+const DEFAULT_MULT_GROWTH_RATE = 0.03;
+const SLOW_CHIP_GROWTH_RATE = 0.03;
+const SLOW_MULT_GROWTH_RATE = 0.02;
 
 export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
   "high-card": {
