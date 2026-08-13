@@ -329,7 +329,8 @@ export function ModifierRail({
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
             const isApplied = appliedUno?.cardId === card.id;
             const isArmed = selectedUnoId === card.id;
-            const isOpen = hoveredTooltip === key;
+            const isSelected = selectedTooltip === key;
+            const isOpen = isSelected || (selectedTooltip === null && hoveredTooltip === key);
             const points = unoPointTotal(card);
             const canArm = run.phase === "playing" && !disabled && !run.unoUsedThisAnte;
             const refund = "price" in card && typeof card.price === "number"
@@ -342,7 +343,7 @@ export function ModifierRail({
               ? "이번 핸드 적용됨"
               : isArmed
                 ? "이번 핸드 사용 준비됨"
-                : "이번 핸드 미적용";
+              : "사용 대기 아님";
             const appliedModuleIds = new Set(
               isApplied ? appliedUno.appliedEffects.map((effect) => effect.sourceId) : [],
             );
@@ -356,7 +357,7 @@ export function ModifierRail({
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
+                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}${isSelected ? " modifier-rail-slot-selected" : ""}`}
                 key={card.id}
                 onMouseEnter={() => showTooltip(key)}
                 onMouseLeave={() => hideTooltip(key)}
@@ -367,20 +368,21 @@ export function ModifierRail({
                   aria-label={`${card.name}, 커뮤니티 효과 카드 버전 ${card.version}, 균형 ${points}점, ${condition}, ${statusLabel}`}
                   aria-describedby={tooltipId}
                   aria-controls={tooltipId}
-                  aria-pressed={isArmed}
+                  aria-expanded={isSelected}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
+                    if (event.key === "Escape") {
                       event.preventDefault();
-                      if (canArm) onSelectUno?.(isArmed ? null : card.id);
+                      clearSelectedTooltip(key);
+                    } else if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      toggleSelectedTooltip(key);
                     }
                   }}
                   onClick={() => {
-                    // A MAYHEM card is its own use control: click once to arm it
-                    // for the next hand, then click again to cancel.  Its copy is
-                    // hover-only, so it never stays open after a use click.
-                    if (!canArm) return;
-                    clearSelectedTooltip(key);
-                    onSelectUno?.(isArmed ? null : card.id);
+                    // Clicking a MAYHEM card only opens its inspector. The use
+                    // action below explicitly arms it, making armed/cancelled
+                    // state unambiguous and preventing accidental consumption.
+                    toggleSelectedTooltip(key);
                   }}
                 >
                   <span className="modifier-rail-slot-icon" aria-hidden="true"><img className="special-card-art" src={MAYHEM_CARD_ART} alt="" /></span>
@@ -422,6 +424,23 @@ export function ModifierRail({
                       );
                     })}
                   </ul>
+                  {run.phase === "playing" && onSelectUno && (
+                    <button
+                      type="button"
+                      className={`modifier-rail-mayhem-use${isArmed ? " is-cancel" : ""}`}
+                      disabled={!isArmed && !canArm}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (isArmed) {
+                          onSelectUno(null);
+                          return;
+                        }
+                        if (canArm) onSelectUno(card.id);
+                      }}
+                    >
+                      {isArmed ? "사용 취소" : run.unoUsedThisAnte ? "이번 STAGE 사용 완료" : "사용 준비"}
+                    </button>
+                  )}
                   {run.phase === "shop" && onSellStashedItem && (
                     <button
                       type="button"

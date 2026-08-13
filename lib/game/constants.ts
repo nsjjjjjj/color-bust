@@ -36,102 +36,87 @@ export const CARD_COLORS: readonly CardColor[] = [
   "yellow",
 ];
 
-// Every hand type grows +5% POWER / +3% HYPE per CORE level, except
-// four-of-a-kind and straight-flush, which grow more slowly at +3% / +2%.
-const DEFAULT_CHIP_GROWTH_RATE = 0.05;
-const DEFAULT_MULT_GROWTH_RATE = 0.03;
-const SLOW_CHIP_GROWTH_RATE = 0.03;
-const SLOW_MULT_GROWTH_RATE = 0.02;
-
 export const HAND_RULES: Readonly<Record<HandType, HandRule>> = {
   "high-card": {
     type: "high-card",
     name: "하이 카드",
     baseChips: 5,
     baseMultiplier: 1,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 8,
+    multGrowthPerLevel: 1,
   },
   pair: {
     type: "pair",
     name: "페어",
     baseChips: 10,
     baseMultiplier: 2,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 12,
+    multGrowthPerLevel: 1,
   },
   "two-pair": {
     type: "two-pair",
     name: "투 페어",
     baseChips: 25,
     baseMultiplier: 3,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 16,
+    multGrowthPerLevel: 1,
   },
   "three-of-a-kind": {
     type: "three-of-a-kind",
     name: "트리플",
     baseChips: 35,
     baseMultiplier: 3,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 18,
+    multGrowthPerLevel: 2,
   },
   straight: {
     type: "straight",
     name: "스트레이트",
     baseChips: 45,
     baseMultiplier: 4,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 24,
+    multGrowthPerLevel: 3,
   },
   flush: {
     type: "flush",
     name: "플러시",
     baseChips: 50,
     baseMultiplier: 4,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 16,
+    multGrowthPerLevel: 2,
   },
   "full-house": {
     type: "full-house",
     name: "풀 하우스",
     baseChips: 55,
     baseMultiplier: 4,
-    chipGrowthRate: DEFAULT_CHIP_GROWTH_RATE,
-    multGrowthRate: DEFAULT_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 22,
+    multGrowthPerLevel: 2,
   },
   "four-of-a-kind": {
     type: "four-of-a-kind",
     name: "포 카드",
     baseChips: 110,
     baseMultiplier: 9,
-    chipGrowthRate: SLOW_CHIP_GROWTH_RATE,
-    multGrowthRate: SLOW_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 30,
+    multGrowthPerLevel: 3,
   },
   "straight-flush": {
     type: "straight-flush",
     name: "스트레이트 플러시",
     baseChips: 160,
     baseMultiplier: 12,
-    chipGrowthRate: SLOW_CHIP_GROWTH_RATE,
-    multGrowthRate: SLOW_MULT_GROWTH_RATE,
+    chipGrowthPerLevel: 42,
+    multGrowthPerLevel: 4,
   },
 };
 
 export function effectiveHandChips(rule: HandRule, level: number): number {
-  return Math.round(
-    rule.baseChips * (1 + rule.chipGrowthRate * Math.max(0, level - 1)),
-  );
+  return rule.baseChips + rule.chipGrowthPerLevel * Math.max(0, level - 1);
 }
 
 export function effectiveHandMultiplier(rule: HandRule, level: number): number {
-  return (
-    Math.round(
-      rule.baseMultiplier *
-        (1 + rule.multGrowthRate * Math.max(0, level - 1)) *
-        100,
-    ) / 100
-  );
+  return rule.baseMultiplier + rule.multGrowthPerLevel * Math.max(0, level - 1);
 }
 
 /**

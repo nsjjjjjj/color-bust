@@ -786,13 +786,18 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   function startRun(mode: "standard" | "endless") {
     const chosen = equippedUno ? serverCardToEngine(equippedUno) : null;
     const starter = DEFAULT_COMMUNITY_UNO_CARDS[0];
-    // 장착한 커뮤니티 카드는 첫 상점의 유일한 미보유 UNO 후보가 되어 확정 등장한다.
+    // The equipped community card is the card the player actually starts
+    // with. Previously it only entered the first-shop pool, so a freshly
+    // equipped custom MAYHEM card appeared to disappear at run start.
+    const startingMayhem = chosen ?? starter;
+    // Keep the alternate card in the initial pool so the first shop still has
+    // a deterministic MAYHEM signal without duplicating the owned card.
     const pool = chosen ? [starter, chosen] : DEFAULT_COMMUNITY_UNO_CARDS;
     const created = createRun({
       seed: crypto.randomUUID(),
       mode,
       startingCoins: 10,
-      starterUno: starter,
+      starterUno: startingMayhem,
       communityUnoPool: pool,
     });
     cloudRevision.current[mode] = cloudRevision.current[mode] ?? 0;

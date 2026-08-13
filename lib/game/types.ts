@@ -52,9 +52,9 @@ export interface HandRule {
   readonly name: string;
   readonly baseChips: number;
   readonly baseMultiplier: number;
-  /** CORE level growth, as a fraction of the ORIGINAL base value per level (e.g. 0.05 = +5%/level). */
-  readonly chipGrowthRate: number;
-  readonly multGrowthRate: number;
+  /** Flat POWER/HYPE added by each CORE level above level 1. */
+  readonly chipGrowthPerLevel: number;
+  readonly multGrowthPerLevel: number;
 }
 
 export interface EvaluatedHand {

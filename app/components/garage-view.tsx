@@ -525,7 +525,7 @@ function choiceCopy(choice: PackChoice): {
     const rule = HAND_RULES[choice.handType];
     return {
       name: `${rule.name} CORE`,
-      effect: `해당 족보 기본 POWER +${(rule.chipGrowthRate * 100).toFixed(1)}% · 기본 HYPE +${(rule.multGrowthRate * 100).toFixed(1)}%`,
+      effect: `해당 족보 레벨당 POWER +${rule.chipGrowthPerLevel} · HYPE +${rule.multGrowthPerLevel}`,
       symbol: "▲",
     };
   }

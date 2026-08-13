@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_COMMUNITY_UNO_CARDS,
+  HAND_RULES,
   JOKER_CATALOG,
   JOKER_IDS,
   buyCardPack,
@@ -9,6 +10,8 @@ import {
   buyHandUpgrade,
   buyProtocol,
   createRun,
+  effectiveHandChips,
+  effectiveHandMultiplier,
   nextRound,
   sellStashedItem,
   takePackChoices,
@@ -348,4 +351,26 @@ test("applies Garage Hand Upgrades immediately without using a MAYHEM slot", () 
   assert.equal(bought.communityUno.length, 0);
   assert.ok(bought.shop?.soldOfferIds?.includes(offer.id));
   assert.equal(bought.actionLog.at(-1)?.type, "upgrade-hand");
+});
+
+test("CORE levels add meaningful flat POWER and HYPE for every hand", () => {
+  const expectedGrowth = {
+    "high-card": [8, 1],
+    pair: [12, 1],
+    "two-pair": [16, 1],
+    "three-of-a-kind": [18, 2],
+    straight: [24, 3],
+    flush: [16, 2],
+    "full-house": [22, 2],
+    "four-of-a-kind": [30, 3],
+    "straight-flush": [42, 4],
+  } as const;
+
+  for (const [handType, [powerGrowth, hypeGrowth]] of Object.entries(expectedGrowth)) {
+    const rule = HAND_RULES[handType as keyof typeof HAND_RULES];
+    assert.equal(effectiveHandChips(rule, 2), rule.baseChips + powerGrowth);
+    assert.equal(effectiveHandMultiplier(rule, 2), rule.baseMultiplier + hypeGrowth);
+    assert.equal(effectiveHandChips(rule, 3), rule.baseChips + powerGrowth * 2);
+    assert.equal(effectiveHandMultiplier(rule, 3), rule.baseMultiplier + hypeGrowth * 2);
+  }
 });
