@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 
 import {
+  CARD_COLORS,
   JOKER_CATALOG,
   UNO_MODULE_CATALOG,
   UNO_SLOT_LIMIT,
@@ -36,8 +37,12 @@ export interface ModifierRailProps {
   scoreEvent?: ScoreEvent | null;
   selectedUnoId?: string | null;
   calledColor?: CardColor;
+  /** Second Color Call, only shown/used for cards carrying the double-call module. */
+  calledColorTwo?: CardColor;
   disabled?: boolean;
   onSelectUno?: (id: string | null) => void;
+  onCallColor?: (color: CardColor) => void;
+  onCallColorTwo?: (color: CardColor) => void;
   /** Shown as a sell action in the MOD tooltip; only meaningful during the shop phase. */
   onSellJoker?: (instanceId: string) => void;
   onUseStashedItem?: (instanceId: string) => void;
@@ -117,8 +122,11 @@ export function ModifierRail({
   scoreEvent,
   selectedUnoId = null,
   calledColor = "red",
+  calledColorTwo = "blue",
   disabled = false,
   onSelectUno,
+  onCallColor,
+  onCallColorTwo,
   onSellJoker,
   onUseStashedItem,
   onSellStashedItem,
@@ -315,7 +323,11 @@ export function ModifierRail({
             const statusLabel = isApplied
               ? "이번 핸드 적용됨"
               : isArmed
-                ? `이번 핸드 준비 · ${COLOR_IDENTITIES[calledColor].koreanColor}`
+                ? `이번 핸드 준비 · ${COLOR_IDENTITIES[calledColor].koreanColor}${
+                    card.positiveModules.includes("double-call")
+                      ? ` + ${COLOR_IDENTITIES[calledColorTwo].koreanColor}`
+                      : ""
+                  }`
                 : "이번 핸드 미적용";
             const appliedModuleIds = new Set(
               isApplied ? appliedUno.appliedEffects.map((effect) => effect.sourceId) : [],
@@ -400,6 +412,44 @@ export function ModifierRail({
                   </ul>
                   {!run.unoUsedThisAnte && (
                     <div className="modifier-rail-mayhem-actions">
+                      <span>호출 색상</span>
+                      <div className="modifier-rail-mayhem-colors" role="group" aria-label="메이헴 호출 색상">
+                        {CARD_COLORS.map((color) => (
+                          <button
+                            type="button"
+                            key={color}
+                            className={`is-${color}${calledColor === color ? " is-active" : ""}`}
+                            aria-label={`${COLOR_IDENTITIES[color].koreanColor} 호출`}
+                            aria-pressed={calledColor === color}
+                            disabled={disabled}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => onCallColor?.(color)}
+                          >
+                            {COLOR_IDENTITIES[color].short}
+                          </button>
+                        ))}
+                      </div>
+                      {card.positiveModules.includes("double-call") && (
+                        <>
+                          <span>추가 호출 색상 (더블 콜)</span>
+                          <div className="modifier-rail-mayhem-colors" role="group" aria-label="메이헴 추가 호출 색상">
+                            {CARD_COLORS.map((color) => (
+                              <button
+                                type="button"
+                                key={color}
+                                className={`is-${color}${calledColorTwo === color ? " is-active" : ""}`}
+                                aria-label={`${COLOR_IDENTITIES[color].koreanColor} 추가 호출`}
+                                aria-pressed={calledColorTwo === color}
+                                disabled={disabled}
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => onCallColorTwo?.(color)}
+                              >
+                                {COLOR_IDENTITIES[color].short}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                       <button
                         type="button"
                         className={`modifier-rail-mayhem-use${isArmed ? " is-cancel" : ""}`}

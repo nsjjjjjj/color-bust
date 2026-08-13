@@ -138,11 +138,11 @@ export type UnoNegativeModuleId =
   | "off-color-tax"
   | "signal-loss"
   | "mult-drain"
-  | "narrow-band"
+  | "boot-delay"
   | "glass-output"
-  | "single-channel"
-  | "weak-start"
-  | "hard-cap";
+  | "memory-pressure"
+  | "battery-drain"
+  | "lockup-process";
 
 export type UnoModuleId = UnoPositiveModuleId | UnoNegativeModuleId;
 export type UnoModuleKind = "positive" | "negative";
@@ -539,6 +539,8 @@ export interface CreateRunOptions {
 export interface PlayHandOptions {
   readonly unoCardId?: string;
   readonly calledColor?: CardColor;
+  /** Second Color Call selection; only consumed when the played card has the double-call module. */
+  readonly calledColorTwo?: CardColor;
 }
 
 export interface UseConsumableOptions {

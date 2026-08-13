@@ -40,6 +40,7 @@ export async function POST(request: Request): Promise<Response> {
     assertOnlyKeys(body, ["name", "description", "moduleIds"]);
     const name = requiredString(body.name, "name", { max: 40 });
     const description = requiredString(body.description, "description", {
+      min: 0,
       max: 240,
     });
     const moduleIds = requiredStringArray(body.moduleIds, "moduleIds", 2, 4);
