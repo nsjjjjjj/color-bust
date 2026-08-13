@@ -3,17 +3,17 @@
 import { useId, useState } from "react";
 
 import {
-  CARD_COLORS,
+  HAND_RULES,
   JOKER_CATALOG,
   UNO_MODULE_CATALOG,
   UNO_SLOT_LIMIT,
 } from "../../lib/game/constants";
-import { COLOR_IDENTITIES, COLOR_LABELS } from "../../lib/game/colors";
+import { COLOR_LABELS } from "../../lib/game/colors";
+import { GHOST_CONFIG } from "../../lib/game/garage-config";
 import { jokerSlotLimitFor } from "../../lib/game/run-upgrades";
 import { JOKER_ART, MAYHEM_CARD_ART } from "../../lib/game/special-card-art";
 import type {
   AppliedEffect,
-  CardColor,
   CommunityUnoCard,
   JokerId,
   JokerInstance,
@@ -36,13 +36,8 @@ export interface ModifierRailProps {
   breakdown?: ScoreBreakdown | null;
   scoreEvent?: ScoreEvent | null;
   selectedUnoId?: string | null;
-  calledColor?: CardColor;
-  /** Second Color Call, only shown/used for cards carrying the double-call module. */
-  calledColorTwo?: CardColor;
   disabled?: boolean;
   onSelectUno?: (id: string | null) => void;
-  onCallColor?: (color: CardColor) => void;
-  onCallColorTwo?: (color: CardColor) => void;
   /** Shown as a sell action in the MOD tooltip; only meaningful during the shop phase. */
   onSellJoker?: (instanceId: string) => void;
   onUseStashedItem?: (instanceId: string) => void;
@@ -121,12 +116,8 @@ export function ModifierRail({
   breakdown,
   scoreEvent,
   selectedUnoId = null,
-  calledColor = "red",
-  calledColorTwo = "blue",
   disabled = false,
   onSelectUno,
-  onCallColor,
-  onCallColorTwo,
   onSellJoker,
   onUseStashedItem,
   onSellStashedItem,
@@ -276,15 +267,24 @@ export function ModifierRail({
             if (!isUnoCard(item)) {
               const refund = Math.max(1, Math.floor(item.price / 2));
               const isGhost = item.kind === "ghost";
+              const key = `stashed-${item.id}`;
+              const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
+              const isOpen = hoveredTooltip === key;
+              const title = isGhost ? GHOST_CONFIG[item.ghostId].name : item.name;
+              const description = isGhost
+                ? GHOST_CONFIG[item.ghostId].description
+                : `${HAND_RULES[item.handType].name}의 족보 레벨을 1 올립니다.`;
               return (
                 <article
-                  className="modifier-rail-slot modifier-rail-uno-slot"
+                  className={`modifier-rail-slot modifier-rail-uno-slot${isOpen ? " modifier-rail-slot-open" : ""}`}
                   key={item.id}
                   style={{ borderColor: "#00e5ff", background: "rgba(0, 229, 255, 0.12)", padding: "4px", display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "center" }}
+                  onMouseEnter={() => showTooltip(key)}
+                  onMouseLeave={() => hideTooltip(key)}
                 >
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-                    <b style={{ color: isGhost ? "#c084fc" : "#00e5ff", fontSize: "0.72rem" }}>[{isGhost ? "GHOST" : "LV+"}] {item.name}</b>
-                    <small style={{ fontSize: "0.6rem", color: "#ccc" }}>{isGhost ? "사용 시 고스트 효과 발동" : "보관 중"}</small>
+                    <b style={{ color: isGhost ? "#c084fc" : "#00e5ff", fontSize: "0.72rem" }}>[{isGhost ? "GHOST" : "LV+"}] {title}</b>
+                    <small style={{ fontSize: "0.6rem", color: "#ccc" }}>마우스를 올려 효과 보기</small>
                   </div>
                   <div style={{ display: "flex", gap: "3px", justifyContent: "center", width: "100%", marginTop: "2px" }}>
                     {onUseStashedItem && (
@@ -306,6 +306,21 @@ export function ModifierRail({
                       </button>
                     )}
                   </div>
+                  <div
+                    className="modifier-rail-tooltip"
+                    id={tooltipId}
+                    role="tooltip"
+                    hidden={!isOpen}
+                  >
+                    <header className="modifier-rail-tooltip-header">
+                      <span aria-hidden="true">{isGhost ? "G" : "LV+"}</span>
+                      <div>
+                        <strong>{title}</strong>
+                        <small>{isGhost ? "GHOST ITEM" : "HAND UPGRADE"}</small>
+                      </div>
+                    </header>
+                    <p className="modifier-rail-tooltip-description">{description}</p>
+                  </div>
                 </article>
               );
             }
@@ -314,20 +329,19 @@ export function ModifierRail({
             const tooltipId = `${reactId}-${safeId(key)}-tooltip`;
             const isApplied = appliedUno?.cardId === card.id;
             const isArmed = selectedUnoId === card.id;
-            const isSelected = selectedTooltip === key;
-            const isOpen = isSelected || (selectedTooltip === null && hoveredTooltip === key);
+            const isOpen = hoveredTooltip === key;
             const points = unoPointTotal(card);
+            const canArm = run.phase === "playing" && !disabled && !run.unoUsedThisAnte;
+            const refund = "price" in card && typeof card.price === "number"
+              ? Math.max(1, Math.floor(card.price / 2))
+              : 3;
             const condition = run.unoUsedThisAnte
               ? "이번 스테이지 사용 완료"
               : "사용 가능 · 스테이지당 1회";
             const statusLabel = isApplied
               ? "이번 핸드 적용됨"
               : isArmed
-                ? `이번 핸드 준비 · ${COLOR_IDENTITIES[calledColor].koreanColor}${
-                    card.positiveModules.includes("double-call")
-                      ? ` + ${COLOR_IDENTITIES[calledColorTwo].koreanColor}`
-                      : ""
-                  }`
+                ? "이번 핸드 사용 준비됨"
                 : "이번 핸드 미적용";
             const appliedModuleIds = new Set(
               isApplied ? appliedUno.appliedEffects.map((effect) => effect.sourceId) : [],
@@ -342,14 +356,10 @@ export function ModifierRail({
 
             return (
               <article
-                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}${isSelected ? " modifier-rail-slot-selected" : ""}`}
+                className={`modifier-rail-slot modifier-rail-uno-slot${isApplied ? " modifier-rail-slot-applied" : ""}${isArmed ? " modifier-rail-slot-armed" : ""}${run.unoUsedThisAnte ? " modifier-rail-slot-used" : ""}${isOpen ? " modifier-rail-slot-open" : ""}`}
                 key={card.id}
                 onMouseEnter={() => showTooltip(key)}
-                onMouseLeave={(event) => {
-                  if (!event.currentTarget.contains(event.currentTarget.ownerDocument.activeElement)) {
-                    hideTooltip(key);
-                  }
-                }}
+                onMouseLeave={() => hideTooltip(key)}
               >
                 <button
                   type="button"
@@ -357,19 +367,21 @@ export function ModifierRail({
                   aria-label={`${card.name}, 커뮤니티 효과 카드 버전 ${card.version}, 균형 ${points}점, ${condition}, ${statusLabel}`}
                   aria-describedby={tooltipId}
                   aria-controls={tooltipId}
-                  aria-expanded={isSelected}
-                  onFocus={() => showTooltip(key)}
-                  onBlur={() => hideTooltip(key)}
+                  aria-pressed={isArmed}
                   onKeyDown={(event) => {
-                    if (event.key === "Escape") {
+                    if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      clearSelectedTooltip(key);
-                    } else if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      toggleSelectedTooltip(key);
+                      if (canArm) onSelectUno?.(isArmed ? null : card.id);
                     }
                   }}
-                  onClick={() => toggleSelectedTooltip(key)}
+                  onClick={() => {
+                    // A MAYHEM card is its own use control: click once to arm it
+                    // for the next hand, then click again to cancel.  Its copy is
+                    // hover-only, so it never stays open after a use click.
+                    if (!canArm) return;
+                    clearSelectedTooltip(key);
+                    onSelectUno?.(isArmed ? null : card.id);
+                  }}
                 >
                   <span className="modifier-rail-slot-icon" aria-hidden="true"><img className="special-card-art" src={MAYHEM_CARD_ART} alt="" /></span>
                   <span className="modifier-rail-slot-copy modifier-rail-mayhem-copy">
@@ -410,56 +422,19 @@ export function ModifierRail({
                       );
                     })}
                   </ul>
-                  {!run.unoUsedThisAnte && (
-                    <div className="modifier-rail-mayhem-actions">
-                      <span>호출 색상</span>
-                      <div className="modifier-rail-mayhem-colors" role="group" aria-label="메이헴 호출 색상">
-                        {CARD_COLORS.map((color) => (
-                          <button
-                            type="button"
-                            key={color}
-                            className={`is-${color}${calledColor === color ? " is-active" : ""}`}
-                            aria-label={`${COLOR_IDENTITIES[color].koreanColor} 호출`}
-                            aria-pressed={calledColor === color}
-                            disabled={disabled}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => onCallColor?.(color)}
-                          >
-                            {COLOR_IDENTITIES[color].short}
-                          </button>
-                        ))}
-                      </div>
-                      {card.positiveModules.includes("double-call") && (
-                        <>
-                          <span>추가 호출 색상 (더블 콜)</span>
-                          <div className="modifier-rail-mayhem-colors" role="group" aria-label="메이헴 추가 호출 색상">
-                            {CARD_COLORS.map((color) => (
-                              <button
-                                type="button"
-                                key={color}
-                                className={`is-${color}${calledColorTwo === color ? " is-active" : ""}`}
-                                aria-label={`${COLOR_IDENTITIES[color].koreanColor} 추가 호출`}
-                                aria-pressed={calledColorTwo === color}
-                                disabled={disabled}
-                                onMouseDown={(event) => event.preventDefault()}
-                                onClick={() => onCallColorTwo?.(color)}
-                              >
-                                {COLOR_IDENTITIES[color].short}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        className={`modifier-rail-mayhem-use${isArmed ? " is-cancel" : ""}`}
-                        disabled={disabled}
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => onSelectUno?.(isArmed ? null : card.id)}
-                      >
-                        {isArmed ? "사용 취소" : "이번 핸드에 사용"}
-                      </button>
-                    </div>
+                  {run.phase === "shop" && onSellStashedItem && (
+                    <button
+                      type="button"
+                      className="modifier-rail-tooltip-sell"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        hideTooltip(key);
+                        onSelectedDetailChange?.(null);
+                        onSellStashedItem(card.id);
+                      }}
+                    >
+                      판매 +{refund}¢
+                    </button>
                   )}
                 </div>
               </article>

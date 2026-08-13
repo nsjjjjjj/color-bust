@@ -15,6 +15,7 @@ import {
   sellJoker,
   sellStashedItem,
   setHotSwapColor,
+  skipPackOpening,
   takePackChoices,
   useStashedHandUpgrade as applyStashedHandUpgrade,
   useStashedItem as applyStashedItem,
@@ -265,7 +266,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   // or MAYHEM card may be open — never several competing details at once.
   const [selectedDetailKey, setSelectedDetailKey] = useState<string | null>(null);
   const [calledColor, setCalledColor] = useState<CardColor>("red");
-  const [calledColorTwo, setCalledColorTwo] = useState<CardColor>("blue");
+  const [calledColorTwo] = useState<CardColor>("blue");
   const [, setLastBreakdown] = useState<ScoreBreakdown | null>(null);
   const [equippedUno, setEquippedUno] = useState<CommunityUnoCard | undefined>();
   const [online, setOnline] = useState(true);
@@ -1031,6 +1032,14 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
                 if (nextState) audio.playEffect("pack-pick", { progressionStep: Math.max(0, choiceIds.length - 1) });
                 return nextState;
               }}
+              onSkipPack={() => {
+                const nextState = updateRun(() => skipPackOpening(run));
+                if (nextState) {
+                  audio.playEffect("ui-click", { gain: 0.38, maxVoices: 1 });
+                  setNotice("팩 보상을 포기했습니다. 구매 금액은 반환되지 않습니다.");
+                }
+                return nextState;
+              }}
               onPackOpen={() => audio.playEffect("pack-open", { maxVoices: 1 })}
               onPackReveal={(index) => audio.playEffect("pack-reveal", { progressionStep: index, semitonesPerStep: 0.6, maxVoices: 2 })}
               onNext={() => {
@@ -1068,8 +1077,6 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onSelectedDetailChange={setSelectedDetailKey}
           onToggleCard={handleToggleCard}
           onSelectUno={(id) => { setSelectedUnoId(id); audio.playEffect(id ? "mayhem-arm" : "ui-click", { gain: id ? 0.72 : 0.3, maxVoices: 1 }); }}
-          onCallColor={(color) => { setCalledColor(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
-          onCallColorTwo={(color) => { setCalledColorTwo(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
           onUseStashedItem={(instanceId) => {
             const item = run.communityUno.find((candidate) => candidate.id === instanceId);
             const useItem = item && "kind" in item && item.kind === "ghost"
@@ -1164,8 +1171,6 @@ function GameTable({
   onSelectedDetailChange,
   onToggleCard,
   onSelectUno,
-  onCallColor,
-  onCallColorTwo,
   onUseStashedItem,
   onSellStashedItem,
   onSort,
@@ -1199,8 +1204,6 @@ function GameTable({
   onSelectedDetailChange: (key: string | null) => void;
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
-  onCallColor: (color: CardColor) => void;
-  onCallColorTwo: (color: CardColor) => void;
   onUseStashedItem?: (instanceId: string) => void;
   onSellStashedItem?: (instanceId: string) => void;
   onSort: (sort: HandSort) => void;
@@ -1324,12 +1327,8 @@ function GameTable({
           breakdown={phase === "playing" ? shown : null}
           scoreEvent={phase === "playing" ? currentScoreEvent : null}
           selectedUnoId={phase === "playing" ? selectedUnoId : null}
-          calledColor={calledColor}
-          calledColorTwo={calledColorTwo}
           disabled={inputLocked}
           onSelectUno={onSelectUno}
-          onCallColor={onCallColor}
-          onCallColorTwo={onCallColorTwo}
           onSellJoker={onSellJoker}
           onUseStashedItem={onUseStashedItem}
           onSellStashedItem={onSellStashedItem}

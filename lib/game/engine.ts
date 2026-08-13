@@ -771,24 +771,18 @@ export function buyHandUpgrade(state: RunState, offerId: string): RunState {
       "이 상품은 족보 강화가 아닙니다.",
     );
   }
-  if (state.communityUno.length >= UNO_SLOT_LIMIT) {
-    throw new GameRuleError("MAYHEM_SLOTS_FULL", "보관함 슬롯이 가득 찼습니다.");
-  }
-
   const purchase = payAndMarkSold(state, offer);
-  const handRule = HAND_RULES[offer.handType];
-  const item: HandUpgradeItem = {
-    id: `hand-upgrade-${state.runId}-${nextActionSequence(state)}-${offer.handType}`,
-    kind: "hand-upgrade",
-    handType: offer.handType,
-    name: `${handRule.name} LV+`,
-    price: offer.price,
-  };
   return addAction(
     {
       ...state,
       ...purchase,
-      communityUno: [...state.communityUno, item],
+      // Signal/Core cards sold in the Garage are an immediate, permanent
+      // upgrade.  They are not a consumable MAYHEM item and therefore must
+      // not occupy (or be blocked by) a MAYHEM card slot.
+      handLevels: {
+        ...state.handLevels,
+        [offer.handType]: state.handLevels[offer.handType] + 1,
+      },
     },
     "upgrade-hand",
     { offerId, handType: offer.handType, price: offer.price },
@@ -1535,6 +1529,26 @@ export function takePackChoices(
       packKind: opening.packKind,
       ...(targetCardId ? { targetCardId } : {}),
     },
+  );
+}
+
+/**
+ * Close an opened pack without claiming any of its revealed choices.
+ * The pack has already been purchased, so this intentionally never refunds coins.
+ */
+export function skipPackOpening(state: RunState): RunState {
+  ensurePhase(state, "shop");
+  const opening = state.packOpening;
+  if (!opening) {
+    throw new GameRuleError("PACK_NOT_OPEN", "건너뛸 카드 팩이 없습니다.");
+  }
+  return addAction(
+    {
+      ...state,
+      packOpening: null,
+    },
+    "skip-pack-opening",
+    { packKind: opening.packKind, offerId: opening.offerId },
   );
 }
 

@@ -20,6 +20,7 @@ export {
   buyCardPack,
   choosePackCard,
   takePackChoices,
+  skipPackOpening,
   buyShopOffer,
   sellJoker,
   useStashedHandUpgrade,

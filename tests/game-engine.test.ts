@@ -18,6 +18,7 @@ import {
   previewHand,
   rerollShop,
   takePackChoices,
+  skipPackOpening,
   PackGenerator,
   PACK_DEFINITIONS,
   validateCommunityUnoCard,
@@ -378,6 +379,31 @@ test("generates weighted pack candidates without duplicates and enforces pick co
   const before = shop.deck!.length;
   shop = takePackChoices(shop, picked.map((choice) => choice.id));
   assert.equal(shop.deck!.length, before + 2);
+});
+
+test("can skip an already purchased pack without refunding its price", () => {
+  const initial = createRun({ seed: "skip-pack", startingCoins: 12 });
+  const reward = playHand({ ...initial, target: 1 }, [initial.hand[0].id]).state;
+  let shop = claimRoundReward(reward);
+  shop = {
+    ...shop,
+    shop: {
+      id: "skip-pack-shop",
+      rerollCost: 2,
+      rerolls: 0,
+      soldOfferIds: [],
+      offers: [{ id: "skip-pack", kind: "card-pack", packKind: "standard", price: 4 }],
+    },
+  };
+
+  shop = buyCardPack(shop, "skip-pack");
+  const coinsAfterPurchase = shop.coins;
+  assert.ok(shop.packOpening);
+
+  shop = skipPackOpening(shop);
+  assert.equal(shop.packOpening, null);
+  assert.equal(shop.coins, coinsAfterPurchase);
+  assert.equal(shop.actionLog.at(-1)?.type, "skip-pack-opening");
 });
 
 test("keeps SOLD slots until reroll and raises the reroll price", () => {

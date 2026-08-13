@@ -13,7 +13,6 @@ import {
   sellStashedItem,
   takePackChoices,
   useStashedGhostItem,
-  useStashedHandUpgrade,
   type JokerInstance,
   type PackChoice,
   type RunState,
@@ -336,7 +335,7 @@ test("universal core raises every hand level", () => {
   }
 });
 
-test("stores Hand Upgrade cards in communityUno stash, allowing use and sell", () => {
+test("applies Garage Hand Upgrades immediately without using a MAYHEM slot", () => {
   const offer = {
     id: "test-hand-upgrade",
     kind: "hand-upgrade" as const,
@@ -345,16 +344,8 @@ test("stores Hand Upgrade cards in communityUno stash, allowing use and sell", (
   };
   const bought = buyHandUpgrade(inShopWith(createRun({ seed: "upgrade-stash", startingCoins: 10 }), [offer]), offer.id);
   assert.equal(bought.coins, 6);
-  assert.equal(bought.communityUno.length, 1);
-  const stashed = bought.communityUno[0];
-  assert.ok("kind" in stashed && stashed.kind === "hand-upgrade");
-
-  const used = useStashedHandUpgrade(bought, bought.communityUno[0].id);
-  assert.equal(used.handLevels.pair, 2);
-  assert.equal(used.communityUno.length, 0);
-
-  const bought2 = buyHandUpgrade(inShopWith(createRun({ seed: "upgrade-sell", startingCoins: 10 }), [offer]), offer.id);
-  const sold = sellStashedItem(bought2, bought2.communityUno[0].id);
-  assert.equal(sold.coins, 8); // 10 - 4 + 2 = 8
-  assert.equal(sold.communityUno.length, 0);
+  assert.equal(bought.handLevels.pair, 2);
+  assert.equal(bought.communityUno.length, 0);
+  assert.ok(bought.shop?.soldOfferIds?.includes(offer.id));
+  assert.equal(bought.actionLog.at(-1)?.type, "upgrade-hand");
 });

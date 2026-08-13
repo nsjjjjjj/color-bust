@@ -985,6 +985,14 @@
 }
 .dm-pack-footer > button,
 .dm-pack-stage > footer > button { min-width: 164px; min-height: 38px; }
+.dm-pack-footer .dm-pack-skip {
+  border-color: #a66b47;
+  color: #ffe1b5;
+  background: #553224;
+}
+.dm-pack-footer .dm-pack-skip:hover {
+  filter: brightness(1.18);
+}
 
 @media (max-width: 760px), (max-height: 620px) {
   .dm-pack-overlay { padding: 8px; overflow: auto; place-items: start center; }

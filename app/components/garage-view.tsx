@@ -74,6 +74,8 @@ export interface GarageViewProps {
     targetCardId?: string | readonly string[],
     targetColor?: CardColor,
   ) => RunState | null | void;
+  /** Close an already purchased pack without taking a reward. */
+  readonly onSkipPack: (opening: PackOpening) => RunState | null | void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
   /** Shared by the run shell with the top MOD / MAYHEM rack. */
@@ -230,7 +232,7 @@ function offerPresentation(offer: ShopOffer, run: RunState): OfferPresentation {
       rarity: level >= 4 ? "rare" : "uncommon",
       name: rule.name,
       effect: `Lv.${level} → Lv.${level + 1} · POWER ${currentChips}→${nextChips} · HYPE ${currentMultiplier}→${nextMultiplier}`,
-      detail: "이 런 동안 같은 족보를 낼 때마다 영구 적용됩니다.",
+      detail: "구매 즉시 레벨이 오르며, 이 런 동안 영구 적용됩니다.",
       symbol: "▲",
       meta: `CURRENT LEVEL ${level}`,
       disabledReason,
@@ -631,12 +633,14 @@ function PackOpeningController({
   opening,
   run,
   onTake,
+  onSkip,
   onPackOpen,
   onPackReveal,
 }: {
   readonly opening: PackOpening;
   readonly run: RunState;
   readonly onTake: (choiceIds: readonly string[], targetCardId?: string | readonly string[], targetColor?: CardColor) => void;
+  readonly onSkip: () => void;
   readonly onPackOpen: () => void;
   readonly onPackReveal: (index: number) => void;
 }) {
@@ -687,10 +691,33 @@ function PackOpeningController({
     setPackNotice(null);
   }
 
+  function capacityMessage(): string | null {
+    const choice = choices[0];
+    if (!choice) return null;
+    if (choice.kind === "modifier") {
+      const available = Math.max(0, jokerSlotLimitFor(run) - run.jokers.length);
+      if (available < pickCount) {
+        return `MOD 슬롯이 부족합니다. 이 팩은 ${pickCount}개를 선택하지만 남은 슬롯은 ${available}개입니다. SKIP으로 보상을 포기할 수 있습니다.`;
+      }
+    }
+    if (choice.kind === "core" || choice.kind === "ghost") {
+      const available = Math.max(0, UNO_SLOT_LIMIT - run.communityUno.length);
+      if (available < pickCount) {
+        return `메이헴 카드 슬롯이 가득 찼습니다. 이 팩은 ${pickCount}개를 선택하지만 남은 슬롯은 ${available}개입니다. SKIP으로 보상을 포기할 수 있습니다.`;
+      }
+    }
+    return null;
+  }
+
   function confirmChoice(choiceId: string) {
     if (selectedIds.includes(choiceId)) return;
     if (selectedIds.length >= pickCount) {
       setPackNotice(`이 팩에서는 ${pickCount}장만 선택할 수 있습니다.`);
+      return;
+    }
+    const capacityWarning = capacityMessage();
+    if (capacityWarning) {
+      setPackNotice(capacityWarning);
       return;
     }
     const nextSelectedIds = [...selectedIds, choiceId];
@@ -734,6 +761,11 @@ function PackOpeningController({
   const selectedTarget = targetCards.find((card) => card.id === targetCardIds[0]);
 
   function handleTakeClick() {
+    const capacityWarning = capacityMessage();
+    if (capacityWarning) {
+      setPackNotice(capacityWarning);
+      return;
+    }
     if (!selectionFilled) {
       setPackNotice(`보스터 팩에서 카드를 ${pickCount}장 선택해 주세요.`);
       return;
@@ -855,6 +887,15 @@ function PackOpeningController({
             </section>
           )}
         </div>
+
+        {phase === "selecting" && (
+          <footer className="dm-pack-footer">
+            <span>선택하지 않고 나가면 이 팩의 보상은 사라지며, 구매 금액은 반환되지 않습니다.</span>
+            <button type="button" className="dm-pack-skip" onClick={onSkip}>
+              SKIP · 보상 포기
+            </button>
+          </footer>
+        )}
       </section>
     </div>
   );
@@ -869,6 +910,7 @@ export function GarageView({
   onNext,
   onSelectDeckTarget,
   onTakePack,
+  onSkipPack,
   onPackOpen,
   onPackReveal,
   selectedDetailKey,
@@ -1075,6 +1117,7 @@ export function GarageView({
           onPackOpen={onPackOpen}
           onPackReveal={onPackReveal}
           onTake={(choiceIds, targetCardId, targetColor) => onTakePack(run.packOpening!, choiceIds, targetCardId, targetColor)}
+          onSkip={() => onSkipPack(run.packOpening!)}
         />
       )}
     </section>

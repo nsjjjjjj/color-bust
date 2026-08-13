@@ -465,6 +465,7 @@ export type RunActionType =
   | "sell-stashed-item"
   | "choose-pack-card"
   | "take-pack-choices"
+  | "skip-pack-opening"
   | "upgrade-hand"
   | "sell-joker"
   | "reroll-shop"
