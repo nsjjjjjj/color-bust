@@ -98,17 +98,35 @@ function ensurePhase(state: RunState, expected: RunState["phase"]): void {
   }
 }
 
+/**
+ * Endless runs never end, so the action log can't be kept in full forever
+ * without eventually blowing past the cloud snapshot's size limit (see
+ * requiredRecord in lib/server/api.ts). Nothing reads log entries beyond the
+ * most recent few (see shop-overhaul.test.ts), so only that recent window is
+ * kept; the ever-incrementing actionSequence (used for entity id uniqueness)
+ * is tracked separately so trimming old entries never causes id collisions.
+ */
+const ACTION_LOG_HISTORY_LIMIT = 200;
+
+/** The sequence number the next addAction call will assign. */
+function nextActionSequence(state: RunState): number {
+  return (state.actionSequence ?? state.actionLog.length) + 1;
+}
+
 function addAction(
   state: RunState,
   type: RunActionType,
   payload: RunActionRecord["payload"],
 ): RunState {
+  const sequence = nextActionSequence(state);
+  const history = [...state.actionLog, { sequence, type, payload }];
   return {
     ...state,
-    actionLog: [
-      ...state.actionLog,
-      { sequence: state.actionLog.length + 1, type, payload },
-    ],
+    actionSequence: sequence,
+    actionLog:
+      history.length > ACTION_LOG_HISTORY_LIMIT
+        ? history.slice(-ACTION_LOG_HISTORY_LIMIT)
+        : history,
   };
 }
 
@@ -225,7 +243,7 @@ function applyRoundClearEffects(
         rngState = pick.nextState;
         const source = ghostItems[Math.floor(pick.value * ghostItems.length)];
         const clone: GhostItem = {
-          id: `ghost-item-${state.runId}-${state.actionLog.length + 1}-echo-${source.ghostId}`,
+          id: `ghost-item-${state.runId}-${nextActionSequence(state)}-echo-${source.ghostId}`,
           kind: "ghost",
           ghostId: source.ghostId,
           name: source.name,
@@ -389,6 +407,7 @@ export function createRun(options: CreateRunOptions = {}): RunState {
       totalScore: 0,
       unoUses: 0,
     },
+    actionSequence: 0,
     actionLog: [],
   };
 }
@@ -703,7 +722,7 @@ export function buyJoker(state: RunState, offerId: string): RunState {
   const purchase = payAndMarkSold(state, offer);
   const initialCounter = initialJokerCounter(offer.jokerId);
   const instance: JokerInstance = {
-    instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-${offer.jokerId}`,
+    instanceId: `joker-${state.runId}-${nextActionSequence(state)}-${offer.jokerId}`,
     jokerId: offer.jokerId,
     acquiredRound: state.roundNumber,
     ...(initialCounter !== undefined ? { counter: initialCounter } : {}),
@@ -759,7 +778,7 @@ export function buyHandUpgrade(state: RunState, offerId: string): RunState {
   const purchase = payAndMarkSold(state, offer);
   const handRule = HAND_RULES[offer.handType];
   const item: HandUpgradeItem = {
-    id: `hand-upgrade-${state.runId}-${state.actionLog.length + 1}-${offer.handType}`,
+    id: `hand-upgrade-${state.runId}-${nextActionSequence(state)}-${offer.handType}`,
     kind: "hand-upgrade",
     handType: offer.handType,
     name: `${handRule.name} LV+`,
@@ -872,7 +891,7 @@ export function applyProtocolEffect(
       const [target] = consumableTargets(state, options, 1);
       const clone: GameCard = {
         ...target,
-        id: `protocol-clone-${state.runId}-${state.actionLog.length + 1}-${target.id}`,
+        id: `protocol-clone-${state.runId}-${nextActionSequence(state)}-${target.id}`,
       };
       next = { ...next, deck: [...persistentDeck(state), clone] };
       break;
@@ -989,7 +1008,7 @@ export function applyGhostEffect(
         const enhancementRoll = randomInt(rngState, 0, enhancements.length);
         rngState = enhancementRoll.nextState;
         additions.push({
-          id: `ghost-${state.runId}-${state.actionLog.length + 1}-chaos-${index}`,
+          id: `ghost-${state.runId}-${nextActionSequence(state)}-chaos-${index}`,
           color: CARD_COLORS[colorRoll.value],
           rank: rankRoll.value as CardRank,
           enhancement: enhancements[enhancementRoll.value],
@@ -1017,7 +1036,7 @@ export function applyGhostEffect(
         jokers: [
           ...state.jokers,
           {
-            instanceId: `ghost-${state.runId}-${state.actionLog.length + 1}-rare-${jokerId}`,
+            instanceId: `ghost-${state.runId}-${nextActionSequence(state)}-rare-${jokerId}`,
             jokerId,
             acquiredRound: state.roundNumber,
             ...(initialJokerCounter(jokerId) !== undefined
@@ -1113,7 +1132,7 @@ export function buyDeckWork(
     case "clone": {
       const clone: GameCard = {
         ...target,
-        id: `clone-${state.runId}-${state.actionLog.length + 1}-${target.id}`,
+        id: `clone-${state.runId}-${nextActionSequence(state)}-${target.id}`,
       };
       changes = {
         deck: [...deck, clone],
@@ -1236,7 +1255,7 @@ export function useConsumable(
         const [target] = consumableTargets(state, options, 1);
         const clone: GameCard = {
           ...target,
-          id: `protocol-clone-${state.runId}-${state.actionLog.length + 1}-${target.id}`,
+          id: `protocol-clone-${state.runId}-${nextActionSequence(state)}-${target.id}`,
         };
         next = { ...next, deck: [...persistentDeck(state), clone] };
         break;
@@ -1328,7 +1347,7 @@ export function buyCardPack(state: RunState, offerId: string): RunState {
   }
   const generated = PackGenerator.generate(
     offer.packKind,
-    `pack-${state.runId}-${state.actionLog.length + 1}-${offer.packKind}`,
+    `pack-${state.runId}-${nextActionSequence(state)}-${offer.packKind}`,
     state.rngState,
     packRevealBonusFor(state),
   );
@@ -1427,7 +1446,7 @@ export function takePackChoices(
       throw new GameRuleError("JOKER_SLOTS_FULL", "MOD 슬롯이 부족합니다.");
     }
     const newJokers: JokerInstance[] = choices.map((choice, index) => ({
-      instanceId: `joker-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.jokerId}`,
+      instanceId: `joker-${state.runId}-${nextActionSequence(state)}-pack-${index}-${choice.jokerId}`,
       jokerId: choice.jokerId,
       acquiredRound: state.roundNumber,
       ...(initialJokerCounter(choice.jokerId) !== undefined
@@ -1440,7 +1459,7 @@ export function takePackChoices(
       throw new GameRuleError("MAYHEM_SLOTS_FULL", "보관함 슬롯이 부족합니다.");
     }
     const addedItems: HandUpgradeItem[] = choices.map((choice, index) => ({
-      id: `hand-upgrade-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.handType}`,
+      id: `hand-upgrade-${state.runId}-${nextActionSequence(state)}-pack-${index}-${choice.handType}`,
       kind: "hand-upgrade",
       handType: choice.handType,
       name: `${HAND_RULES[choice.handType].name} LV+`,
@@ -1465,7 +1484,7 @@ export function takePackChoices(
       throw new GameRuleError("MAYHEM_SLOTS_FULL", "보관함 슬롯이 부족합니다.");
     }
     const addedItems: GhostItem[] = choices.map((choice, index) => ({
-      id: `ghost-item-${state.runId}-${state.actionLog.length + 1}-pack-${index}-${choice.ghostId}`,
+      id: `ghost-item-${state.runId}-${nextActionSequence(state)}-pack-${index}-${choice.ghostId}`,
       kind: "ghost",
       ghostId: choice.ghostId,
       name: GHOST_CONFIG[choice.ghostId].name,
