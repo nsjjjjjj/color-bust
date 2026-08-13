@@ -52,7 +52,7 @@ export interface HandRule {
   readonly name: string;
   readonly baseChips: number;
   readonly baseMultiplier: number;
-  /** CORE level growth, as a fraction of the ORIGINAL base value per level (e.g. 0.003 = +0.3%/level). */
+  /** CORE level growth, as a fraction of the ORIGINAL base value per level (e.g. 0.05 = +5%/level). */
   readonly chipGrowthRate: number;
   readonly multGrowthRate: number;
 }
