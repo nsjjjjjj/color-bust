@@ -525,6 +525,9 @@ export interface RunState {
   readonly packOpening?: PackOpening | null;
   readonly pendingReward?: RoundReward | null;
   readonly stats: RunStats;
+  /** Total actions taken this run, ever-incrementing. Legacy saves omit it. */
+  readonly actionSequence?: number;
+  /** Recent action history only, capped in length; see addAction in engine.ts. */
   readonly actionLog: readonly RunActionRecord[];
 }
 
