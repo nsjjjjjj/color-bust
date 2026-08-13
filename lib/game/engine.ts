@@ -1689,7 +1689,7 @@ export function nextRound(state: RunState): RunState {
   let bossDebuffColor: RunState["bossDebuffColor"] = state.bossDebuffColor ?? null;
   let rngAfterBossRoll = state.rngState;
   if (round === "boss") {
-    const rolled = rollBossPenalty(state.rngState, state.bossPenaltyId);
+    const rolled = rollBossPenalty(state.rngState, ante, state.bossPenaltyId);
     bossPenalty = rolled.penalty;
     bossPenaltyId = rolled.penalty.id;
     bossDebuffColor = rolled.debuffColor;
