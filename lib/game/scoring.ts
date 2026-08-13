@@ -131,12 +131,14 @@ export function calculateHandScore(
     uno = applyCommunityUno({
       card,
       calledColor: options.calledColor as CardColor,
+      calledColorTwo: options.calledColorTwo,
       scoringCards: contributingCards,
       chipsBeforeUno,
       multiplierBeforeUno,
       jokerXMultiplier: jokerResult.xMultiplier,
       scoreBeforeUno,
       handsLeftBeforePlay: state.handsLeft,
+      isFirstHandOfRound: state.handHistory.length === 0,
     });
     total = uno.scoreAfterUno;
     usedUnoCardId = card.id;

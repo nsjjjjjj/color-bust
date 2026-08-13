@@ -260,6 +260,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   // or MAYHEM card may be open — never several competing details at once.
   const [selectedDetailKey, setSelectedDetailKey] = useState<string | null>(null);
   const [calledColor, setCalledColor] = useState<CardColor>("red");
+  const [calledColorTwo, setCalledColorTwo] = useState<CardColor>("blue");
   const [, setLastBreakdown] = useState<ScoreBreakdown | null>(null);
   const [equippedUno, setEquippedUno] = useState<CommunityUnoCard | undefined>();
   const [online, setOnline] = useState(true);
@@ -821,7 +822,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       const playedCards = selectedIds
         .map((id) => run.hand.find((card) => card.id === id))
         .filter((card): card is GameCard => Boolean(card));
-      const result = playHand(run, selectedIds, selectedUnoId ? { unoCardId: selectedUnoId, calledColor } : {});
+      const result = playHand(run, selectedIds, selectedUnoId ? { unoCardId: selectedUnoId, calledColor, calledColorTwo } : {});
       const scoreEvents = buildScoreEvents(result.breakdown, playedCards);
       setRun(result.state);
       setLastBreakdown(result.breakdown);
@@ -1046,6 +1047,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           selectedIds={selectedIds}
           selectedUnoId={selectedUnoId}
           calledColor={calledColor}
+          calledColorTwo={calledColorTwo}
           scorePlayback={scorePlayback}
           discardPlayback={discardPlayback}
           reducedMotion={reducedMotion}
@@ -1061,6 +1063,8 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
           onSelectedDetailChange={setSelectedDetailKey}
           onToggleCard={handleToggleCard}
           onSelectUno={(id) => { setSelectedUnoId(id); audio.playEffect(id ? "mayhem-arm" : "ui-click", { gain: id ? 0.72 : 0.3, maxVoices: 1 }); }}
+          onCallColor={(color) => { setCalledColor(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
+          onCallColorTwo={(color) => { setCalledColorTwo(color); audio.playEffect("card-select", { playbackRate: 1.08, gain: 0.64 }); }}
           onUseStashedItem={(instanceId) => {
             const item = run.communityUno.find((candidate) => candidate.id === instanceId);
             const useItem = item && "kind" in item && item.kind === "ghost"
@@ -1139,6 +1143,7 @@ function GameTable({
   selectedIds,
   selectedUnoId,
   calledColor,
+  calledColorTwo,
   scorePlayback,
   discardPlayback,
   reducedMotion,
@@ -1154,6 +1159,8 @@ function GameTable({
   onSelectedDetailChange,
   onToggleCard,
   onSelectUno,
+  onCallColor,
+  onCallColorTwo,
   onUseStashedItem,
   onSellStashedItem,
   onSort,
@@ -1171,6 +1178,7 @@ function GameTable({
   selectedIds: string[];
   selectedUnoId: string | null;
   calledColor: CardColor;
+  calledColorTwo: CardColor;
   scorePlayback: ScorePlayback | null;
   discardPlayback: DiscardPlayback | null;
   reducedMotion: boolean;
@@ -1186,6 +1194,8 @@ function GameTable({
   onSelectedDetailChange: (key: string | null) => void;
   onToggleCard: (id: string) => void;
   onSelectUno: (id: string | null) => void;
+  onCallColor: (color: CardColor) => void;
+  onCallColorTwo: (color: CardColor) => void;
   onUseStashedItem?: (instanceId: string) => void;
   onSellStashedItem?: (instanceId: string) => void;
   onSort: (sort: HandSort) => void;
@@ -1206,12 +1216,12 @@ function GameTable({
       return previewHand(
         run,
         selectedIds,
-        selectedUnoId ? { unoCardId: selectedUnoId, calledColor } : {},
+        selectedUnoId ? { unoCardId: selectedUnoId, calledColor, calledColorTwo } : {},
       );
     } catch {
       return null;
     }
-  }, [calledColor, phase, run, scorePlayback, selectedIds, selectedUnoId]);
+  }, [calledColor, calledColorTwo, phase, run, scorePlayback, selectedIds, selectedUnoId]);
   const selectedHandName = selectedBreakdown?.handName ?? null;
   const shown = phase !== "playing"
     ? null
@@ -1310,8 +1320,11 @@ function GameTable({
           scoreEvent={phase === "playing" ? currentScoreEvent : null}
           selectedUnoId={phase === "playing" ? selectedUnoId : null}
           calledColor={calledColor}
+          calledColorTwo={calledColorTwo}
           disabled={inputLocked}
           onSelectUno={onSelectUno}
+          onCallColor={onCallColor}
+          onCallColorTwo={onCallColorTwo}
           onSellJoker={onSellJoker}
           onUseStashedItem={onUseStashedItem}
           onSellStashedItem={onSellStashedItem}

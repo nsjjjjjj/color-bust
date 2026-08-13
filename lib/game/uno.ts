@@ -70,13 +70,18 @@ export function assertValidCommunityUnoCard(card: CommunityUnoCard): void {
 export interface ApplyUnoInput {
   readonly card: CommunityUnoCard;
   readonly calledColor: CardColor;
+  /** Second Color Call, only meaningful when the card has the double-call module. */
+  readonly calledColorTwo?: CardColor;
   readonly scoringCards: readonly GameCard[];
   readonly chipsBeforeUno: number;
   readonly multiplierBeforeUno: number;
   readonly jokerXMultiplier: number;
   readonly scoreBeforeUno: number;
   readonly handsLeftBeforePlay: number;
+  readonly isFirstHandOfRound: boolean;
 }
+
+const COLOR_CALL_CAP = 10;
 
 function effect(
   sourceId: string,
@@ -98,16 +103,17 @@ function effect(
 export function applyCommunityUno(input: ApplyUnoInput): UnoScoreBreakdown {
   assertValidCommunityUnoCard(input.card);
 
+  const calledColors = new Set<CardColor>([input.calledColor]);
+  if (input.card.positiveModules.includes("double-call") && input.calledColorTwo) {
+    calledColors.add(input.calledColorTwo);
+  }
   const calledCount = input.scoringCards.filter(
     (card) => card.color === input.calledColor,
   ).length;
-  const offColorCount = input.scoringCards.length - calledCount;
   const scoringColors = new Set(input.scoringCards.map((card) => card.color));
-  const narrowBand = input.card.negativeModules.includes("narrow-band");
   const positiveModulesDisabled =
-    input.card.negativeModules.includes("single-channel") && calledCount < 2;
-  const colorCallCap = narrowBand ? 6 : 10;
-  const colorCallChips = Math.min(calledCount * 2, colorCallCap);
+    input.card.negativeModules.includes("lockup-process") && input.isFirstHandOfRound;
+  const colorCallChips = Math.min(calledCount * 2, COLOR_CALL_CAP);
   const appliedEffects: AppliedEffect[] = [
     effect(
       "color-call",
@@ -124,7 +130,7 @@ export function applyCommunityUno(input: ApplyUnoInput): UnoScoreBreakdown {
     for (const moduleId of input.card.positiveModules) {
       switch (moduleId) {
         case "color-burst": {
-          const chips = calledCount >= 2 ? 8 : 0;
+          const chips = calledCount >= 2 ? 10 : 0;
           positiveChips += chips;
           if (chips) appliedEffects.push(effect(moduleId, "호출 색 2장 이상", { chips }));
           break;
@@ -139,8 +145,10 @@ export function applyCommunityUno(input: ApplyUnoInput): UnoScoreBreakdown {
           break;
         }
         case "steady-mult":
-          multiplierDelta += 1;
-          appliedEffects.push(effect(moduleId, "고정 배수 증가", { multiplier: 1 }));
+          if (input.scoringCards.length >= 3) {
+            multiplierDelta += 2;
+            appliedEffects.push(effect(moduleId, "3장 이상 득점", { multiplier: 2 }));
+          }
           break;
         case "low-frequency": {
           const chips = Math.min(
@@ -152,83 +160,93 @@ export function applyCommunityUno(input: ApplyUnoInput): UnoScoreBreakdown {
           break;
         }
         case "double-call": {
-          const chips = Math.min(calledCount * 2, 10);
-          positiveChips += chips;
-          if (chips) appliedEffects.push(effect(moduleId, "Color Call 한 번 더", { chips }));
+          if (input.calledColorTwo) {
+            const calledCountTwo = input.scoringCards.filter(
+              (card) => card.color === input.calledColorTwo,
+            ).length;
+            const chips = Math.min(calledCountTwo * 2, COLOR_CALL_CAP);
+            positiveChips += chips;
+            appliedEffects.push(
+              effect(moduleId, `추가 호출한 ${input.calledColorTwo} 카드 ${calledCountTwo}장`, { chips }),
+            );
+          }
           break;
         }
         case "spectrum-drive":
           if (scoringColors.size >= 3) {
-            multiplierDelta += 2;
-            appliedEffects.push(effect(moduleId, "3색 이상 득점", { multiplier: 2 }));
+            positiveChips += 15;
+            multiplierDelta += 3;
+            appliedEffects.push(effect(moduleId, "3색 이상 득점", { chips: 15, multiplier: 3 }));
           }
           break;
         case "precision-boost":
           if (input.scoringCards.length === 5) {
-            xMultiplier *= 1.25;
-            appliedEffects.push(effect(moduleId, "정확히 5장 득점", { xMultiplier: 1.25 }));
+            xMultiplier *= 1.4;
+            appliedEffects.push(effect(moduleId, "정확히 5장 득점", { xMultiplier: 1.4 }));
           }
           break;
         case "last-signal":
           if (input.handsLeftBeforePlay === 1) {
-            xMultiplier *= 1.3;
-            appliedEffects.push(effect(moduleId, "마지막 핸드", { xMultiplier: 1.3 }));
+            xMultiplier *= 1.5;
+            appliedEffects.push(effect(moduleId, "마지막 핸드", { xMultiplier: 1.5 }));
           }
           break;
       }
     }
   } else {
     appliedEffects.push(
-      effect("single-channel", "호출한 색이 2장 미만이라 긍정 모듈 비활성", {}),
+      effect("lockup-process", "라운드 첫 핸드라 긍정 모듈 비활성", {}),
     );
   }
 
-  if (input.card.negativeModules.includes("weak-start")) {
-    const reduction = positiveChips - Math.floor(positiveChips / 2);
-    positiveChips -= reduction;
-    if (reduction) {
-      appliedEffects.push(effect("weak-start", "긍정 모듈 칩 절반 감소", { chips: -reduction }));
-    }
-  }
-
   let chipDelta = colorCallChips + positiveChips;
-  let capMultiplier = UNO_SCORE_CAP;
+  const capMultiplier = UNO_SCORE_CAP;
 
   for (const moduleId of input.card.negativeModules) {
     switch (moduleId) {
       case "off-color-tax": {
-        const chips = Math.min(offColorCount * 2, 8);
+        const offColorTypes = new Set(scoringColors);
+        for (const color of calledColors) offColorTypes.delete(color);
+        const chips = Math.min(offColorTypes.size * 2, 6);
         chipDelta -= chips;
         if (chips) appliedEffects.push(effect(moduleId, "호출하지 않은 색 세금", { chips: -chips }));
         break;
       }
       case "signal-loss":
-        chipDelta -= 6;
-        appliedEffects.push(effect(moduleId, "고정 신호 손실", { chips: -6 }));
+        chipDelta -= 5;
+        appliedEffects.push(effect(moduleId, "고정 신호 손실", { chips: -5 }));
         break;
       case "mult-drain":
         multiplierDelta -= 1;
         appliedEffects.push(effect(moduleId, "배수 누수", { multiplier: -1 }));
         break;
-      case "narrow-band":
-        appliedEffects.push(effect(moduleId, "Color Call 최대 +6 칩", {}));
+      case "boot-delay":
+        if (input.isFirstHandOfRound) {
+          chipDelta -= 10;
+          appliedEffects.push(effect(moduleId, "라운드 첫 핸드 부팅 지연", { chips: -10 }));
+        }
         break;
       case "glass-output":
-        xMultiplier *= 0.75;
-        appliedEffects.push(effect(moduleId, "불안정한 유리 출력", { xMultiplier: 0.75 }));
+        xMultiplier *= 0.85;
+        appliedEffects.push(effect(moduleId, "불안정한 유리 충격", { xMultiplier: 0.85 }));
         break;
-      case "single-channel":
-      case "weak-start":
+      case "memory-pressure":
+        appliedEffects.push(effect(moduleId, "다음 라운드 손패 크기 -1 예약", {}));
         break;
-      case "hard-cap":
-        capMultiplier = 1.3;
-        appliedEffects.push(effect(moduleId, "UNO 상승 상한 ×1.30", {}));
+      case "battery-drain":
+        appliedEffects.push(effect(moduleId, "이후 라운드 버리기 -1 (영구)", {}));
+        break;
+      case "lockup-process":
         break;
     }
   }
 
+  const multiplierFloor = input.card.negativeModules.includes("mult-drain") ? 1 : 0;
   const unoChips = Math.max(0, input.chipsBeforeUno + chipDelta);
-  const unoMultiplier = Math.max(0, input.multiplierBeforeUno + multiplierDelta);
+  const unoMultiplier = Math.max(
+    multiplierFloor,
+    input.multiplierBeforeUno + multiplierDelta,
+  );
   const uncappedScore = Math.floor(
     unoChips * unoMultiplier * input.jokerXMultiplier * xMultiplier,
   );
