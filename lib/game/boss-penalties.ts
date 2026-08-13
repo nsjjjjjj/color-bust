@@ -27,6 +27,13 @@ export interface BossPenalty {
   readonly lockFirstHandType?: boolean;
   /** Rolls a random CardColor at round start; that color scores no chips/enhancements. */
   readonly debuffsColor?: boolean;
+  /**
+   * Earliest ante this penalty can be rolled for, inclusive. Defaults to 1
+   * (available from the very first boss). The standard run ends at ante 5,
+   * so `minAnte: 6` reserves an effect for Endless only, once a player has
+   * had a full run to build up jokers/enhancements to withstand it.
+   */
+  readonly minAnte?: number;
 }
 
 /**
@@ -59,6 +66,7 @@ export const BOSS_PENALTIES: readonly BossPenalty[] = [
     name: "완전 봉쇄",
     description: "이번 보스전 버리기 불가",
     discardDelta: -99,
+    minAnte: 6,
   },
   {
     id: "final-gate",
@@ -66,6 +74,7 @@ export const BOSS_PENALTIES: readonly BossPenalty[] = [
     description: "내기 횟수 -1 · 목표 점수 +8%",
     handDelta: -1,
     targetMultiplier: 1.08,
+    minAnte: 6,
   },
   {
     id: "color-jam",
@@ -78,6 +87,7 @@ export const BOSS_PENALTIES: readonly BossPenalty[] = [
     name: "출력 제한",
     description: "이번 보스전 족보 칩/배수 50% 감소",
     scoreMultiplier: 0.5,
+    minAnte: 6,
   },
   {
     id: "pattern-lock",
@@ -90,12 +100,14 @@ export const BOSS_PENALTIES: readonly BossPenalty[] = [
     name: "단일 채널",
     description: "이번 보스전 첫 제출 족보만 계속 사용 가능",
     lockFirstHandType: true,
+    minAnte: 6,
   },
   {
     id: "one-shot",
-    name: "원 샷",
-    description: "이번 보스전 내기 횟수 1회 고정",
-    handsOverride: 1,
+    name: "속전속결",
+    description: "이번 보스전 내기 횟수 3회 고정",
+    handsOverride: 3,
+    minAnte: 6,
   },
   {
     id: "narrow-hand",
@@ -120,24 +132,30 @@ export function bossPenaltyById(
 
 /**
  * Rolls the boss effect for a round that's about to start. Draws uniformly
- * from the whole pool so any effect can appear from the very first STAGE
- * onward; re-rolls once if it would repeat the previous boss round's effect.
+ * from every effect unlocked at `ante` (see `BossPenalty.minAnte`) — the
+ * standard run's antes 1-5 only see the gentler pool, so a first-time run
+ * never opens on something like a single-hand target or a halved score;
+ * the harsher effects only start appearing once a run reaches Endless.
+ * Re-rolls once if it would repeat the previous boss round's effect.
  * Effects flagged `debuffsColor` also roll which CardColor is jammed.
  */
 export function rollBossPenalty(
   rngState: number,
+  ante: number,
   previousId?: BossPenalty["id"] | null,
 ): {
   readonly penalty: BossPenalty;
   readonly debuffColor: CardColor | null;
   readonly nextState: number;
 } {
-  let pick = randomInt(rngState, 0, BOSS_PENALTIES.length);
-  let penalty = BOSS_PENALTIES[pick.value];
+  const pool = BOSS_PENALTIES.filter((penalty) => (penalty.minAnte ?? 1) <= ante);
 
-  if (BOSS_PENALTIES.length > 1 && penalty.id === previousId) {
-    pick = randomInt(pick.nextState, 0, BOSS_PENALTIES.length);
-    penalty = BOSS_PENALTIES[pick.value];
+  let pick = randomInt(rngState, 0, pool.length);
+  let penalty = pool[pick.value];
+
+  if (pool.length > 1 && penalty.id === previousId) {
+    pick = randomInt(pick.nextState, 0, pool.length);
+    penalty = pool[pick.value];
   }
 
   let nextState = pick.nextState;
