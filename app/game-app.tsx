@@ -138,6 +138,11 @@ function isRunState(value: unknown): value is RunState {
   return run.version === 1 && typeof run.runId === "string" && Array.isArray(run.hand) && typeof run.phase === "string";
 }
 
+/** actionLog is capped in length for long endless runs; actionSequence is the true ever-incrementing count. Legacy saves omit it. */
+function actionCount(run: RunState): number {
+  return run.actionSequence ?? run.actionLog.length;
+}
+
 function serverCardToEngine(card: CommunityUnoCard): EngineUnoCard | null {
   const positives: UnoPositiveModuleId[] = [];
   const negatives: UnoNegativeModuleId[] = [];
@@ -523,7 +528,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
   useEffect(() => {
     if (!run) return;
     const timer = window.setTimeout(() => {
-      saveLocalRun({ id: run.runId, revision: run.actionLog.length, updatedAt: Date.now(), data: run }).catch(() => undefined);
+      saveLocalRun({ id: run.runId, revision: actionCount(run), updatedAt: Date.now(), data: run }).catch(() => undefined);
       if (signedIn && navigator.onLine) {
         syncCloudRun(run).then(() => setNotice("클라우드에 저장됨")).catch(() => setNotice("기기에 저장됨 · 연결되면 다시 동기화합니다"));
       }
@@ -608,7 +613,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       const activeRun = latestRunRef.current;
       if (!activeRun
         || activeRun.runId !== discardPlayback.sourceRunId
-        || activeRun.actionLog.length !== discardPlayback.sourceActionCount) {
+        || actionCount(activeRun) !== discardPlayback.sourceActionCount) {
         setDiscardPlayback(null);
         return;
       }
@@ -858,7 +863,7 @@ export function GameApp({ initialUser }: { initialUser: InitialUser | null }) {
       setDiscardPlayback({
         key: Date.now(),
         sourceRunId: run.runId,
-        sourceActionCount: run.actionLog.length,
+        sourceActionCount: actionCount(run),
         cardIds: [...selectedIds],
         drawnCardIds: nextState.hand
           .filter((card) => !handIdsBeforeDiscard.has(card.id))
