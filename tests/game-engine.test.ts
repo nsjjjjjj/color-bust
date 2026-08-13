@@ -110,6 +110,32 @@ test("rolls one visible, seed-deterministic penalty for every boss round, consis
   }
 });
 
+test("standard-run boss rounds (ante 1-5) never roll a minAnte:6+ penalty, but ante 6 can", () => {
+  const hardIds = new Set(
+    BOSS_PENALTIES.filter((penalty) => (penalty.minAnte ?? 1) > 5).map((penalty) => penalty.id),
+  );
+  assert.ok(hardIds.size > 0, "expected at least one Endless-only boss penalty to check against");
+
+  for (let ante = 1; ante <= 5; ante += 1) {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      const shop = { ...createRun({ seed: `tier-ante${ante}-${attempt}` }), phase: "shop" as const, round: "big" as const, ante };
+      const boss = nextRound(shop);
+      assert.ok(
+        !hardIds.has(boss.bossPenaltyId!),
+        `ante ${ante} rolled Endless-only penalty ${boss.bossPenaltyId}`,
+      );
+    }
+  }
+
+  let sawHardPenalty = false;
+  for (let attempt = 0; attempt < 60 && !sawHardPenalty; attempt += 1) {
+    const shop = { ...createRun({ seed: `tier-ante6-${attempt}` }), phase: "shop" as const, round: "big" as const, ante: 6 };
+    const boss = nextRound(shop);
+    if (hardIds.has(boss.bossPenaltyId!)) sawHardPenalty = true;
+  }
+  assert.ok(sawHardPenalty, "expected at least one Endless-only penalty to roll across 60 ante-6 attempts");
+});
+
 test("boss penalty stays stable across re-renders and clears once the boss round ends", () => {
   const stageOneShop = { ...createRun({ seed: "boss-lifecycle" }), phase: "shop" as const, round: "big" as const };
   const stageOneBoss = nextRound(stageOneShop);
@@ -174,17 +200,23 @@ test("mono-track boss locks every hand this round to the first hand type played"
 });
 
 test("one-shot, narrow-hand and forced-purge boss effects reshape the round as advertised", () => {
-  function findBossRound(targetId: string): RunState {
+  function findBossRound(targetId: string, ante = 1): RunState {
     for (let attempt = 0; attempt < 400; attempt += 1) {
-      const shop = { ...createRun({ seed: `find-${targetId}-${attempt}` }), phase: "shop" as const, round: "big" as const };
+      const shop = {
+        ...createRun({ seed: `find-${targetId}-${attempt}` }),
+        phase: "shop" as const,
+        round: "big" as const,
+        ante,
+      };
       const boss = nextRound(shop);
       if (boss.bossPenaltyId === targetId) return boss;
     }
     throw new Error(`could not roll boss penalty ${targetId}`);
   }
 
-  const oneShot = findBossRound("one-shot");
-  assert.equal(oneShot.handsLeft, 1);
+  // one-shot is reserved for Endless (ante 6+), so it never opens a standard run.
+  const oneShot = findBossRound("one-shot", 6);
+  assert.equal(oneShot.handsLeft, 3);
 
   const narrowHand = findBossRound("narrow-hand");
   assert.equal(narrowHand.hand.length, STARTING_HAND_SIZE - 2);
